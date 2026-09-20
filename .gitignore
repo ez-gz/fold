@@ -1,0 +1,13 @@
+.DS_Store
+.playwright-mcp/
+solver/target*/
+solver/out*/
+solver/cache/
+gpu/out*/
+gpu/spec*/
+gpu/.venv/
+gpu/*.log
+gpu/nohup.out
+proto/pack*.js
+proto/*.foldpack
+solver/*.log

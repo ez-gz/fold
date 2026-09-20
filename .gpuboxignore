@@ -1,0 +1,6 @@
+solver/target
+solver/out
+solver/out2
+solver/out3
+.playwright-mcp
+proto/pack.js

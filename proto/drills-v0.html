@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Fold — backbone prototype</title>
+<style>
+:root{
+  --bg:#0b0f14; --panel:#131a22; --panel2:#1a232e; --line:#263241; --text:#e8eef5; --dim:#8a99ab;
+  --accent:#5ee6b0; --fold:#4f7fd1; --call:#3fbf86; --bet1:#f0a63a; --bet2:#ef5b5b; --bad:#ef5b5b; --warn:#f0a63a;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:15px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif;overscroll-behavior:none}
+#app{max-width:440px;margin:0 auto;min-height:100%;display:flex;flex-direction:column;padding:10px 14px calc(14px + env(safe-area-inset-bottom))}
+header{display:flex;align-items:center;gap:8px;padding:4px 0 8px}
+header .logo{font-weight:800;letter-spacing:.12em;font-size:13px;color:var(--accent)}
+header .stats{margin-left:auto;font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:var(--panel);color:var(--dim);border-radius:999px;padding:5px 11px;font-size:12px;cursor:pointer;user-select:none}
+.chip.on{color:#06110c;background:var(--accent);border-color:var(--accent);font-weight:600}
+.table{margin-top:10px;background:radial-gradient(120% 90% at 50% 0%,#17303a 0%,#10202a 55%,#0d161e 100%);border:1px solid var(--line);border-radius:22px;padding:14px 14px 16px;position:relative;overflow:hidden}
+.meta{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em}
+.hist{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;min-height:22px}
+.hist span{font-size:11px;padding:2px 7px;border-radius:6px;background:#0c141b;color:var(--dim);border:1px solid var(--line)}
+.hist span.me{color:var(--text);border-color:#3a4b5f}
+.hist span.st{background:none;border:none;color:#56677b;padding:2px 2px}
+.board{display:flex;justify-content:center;gap:6px;margin:14px 0 8px}
+.card{width:50px;height:70px;border-radius:9px;background:#f6f7f9;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800;font-size:24px;line-height:1;box-shadow:0 6px 14px #0008;animation:deal .28s cubic-bezier(.2,.9,.3,1.2) backwards}
+.card small{font-size:20px;margin-top:2px}
+.card.s{color:#1b1f26}.card.h{color:#d8323c}.card.d{color:#2367d8}.card.c{color:#1e9a52}
+.card.new{outline:2px solid var(--accent);outline-offset:1px}
+@keyframes deal{from{transform:translateY(-16px) scale(.9);opacity:0}}
+.pot{text-align:center;font-size:13px;color:var(--dim)}
+.pot b{color:var(--text);font-size:16px}
+.hero{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:12px}
+.hero .card{width:58px;height:80px;font-size:28px}
+.hero .who{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em;text-align:left}
+.hero .who b{display:block;color:var(--text);font-size:15px;letter-spacing:0}
+.actions{display:grid;gap:8px;margin-top:12px}
+.act{position:relative;border:0;border-radius:16px;padding:0 16px;height:58px;font-size:17px;font-weight:700;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:space-between;overflow:hidden;transition:transform .08s}
+.act:active{transform:scale(.97)}
+.act .sub{font-size:12px;font-weight:500;opacity:.9;text-align:right;font-variant-numeric:tabular-nums}
+.act .fill{position:absolute;left:0;top:0;bottom:0;background:#fff3;width:0;transition:width .45s ease}
+.act>*:not(.fill){position:relative}
+.act.done{cursor:default;opacity:.55}.act.done.best{opacity:1;box-shadow:0 0 0 2px var(--accent)}.act.done.picked{opacity:1}
+.act.done.picked::after{content:"YOU";position:absolute;right:8px;top:4px;font-size:9px;letter-spacing:.1em;opacity:.8}
+.k-fold{background:var(--fold)}.k-check,.k-call{background:var(--call)}.k-bet0,.k-raise0{background:var(--bet1)}.k-bet1,.k-raise1{background:var(--bet2)}
+.verdict{margin-top:12px;border-radius:16px;padding:12px 14px;display:flex;align-items:center;gap:12px;animation:pop .3s cubic-bezier(.2,.9,.3,1.4)}
+@keyframes pop{from{transform:scale(.9);opacity:0}}
+.verdict .g{font-size:20px;font-weight:800}.verdict .l{font-size:12px;opacity:.85;margin-left:auto;text-align:right;font-variant-numeric:tabular-nums}
+.g-Best{background:#123c2c;color:var(--accent)}.g-Good{background:#16342b;color:#9be3c5}.g-Inaccuracy{background:#3d3215;color:var(--warn)}.g-Mistake{background:#432418;color:#ff9a6b}.g-Blunder{background:#451a1e;color:var(--bad)}
+.sheet{margin-top:10px;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:12px 14px;animation:up .3s ease}
+@keyframes up{from{transform:translateY(14px);opacity:0}}
+.sheet h3{margin:0 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--dim);font-weight:600}
+.why p{margin:0 0 9px}.why p:last-child{margin:0}.why b{color:#fff}.why .k{color:var(--accent);font-weight:600}
+.seg{display:flex;background:#0c1218;border-radius:11px;padding:3px;gap:3px;margin-bottom:9px}
+.seg div{flex:1;text-align:center;padding:7px 4px;border-radius:9px;font-size:12px;color:var(--dim);cursor:pointer;font-weight:600}
+.seg div.on{background:var(--panel2);color:var(--text)}
+.grid{display:grid;grid-template-columns:repeat(13,1fr);gap:1.5px;touch-action:none;user-select:none;-webkit-user-select:none}
+.cell{aspect-ratio:1;border-radius:3px;background:#0e151c;font-size:8.5px;font-weight:600;display:flex;align-items:center;justify-content:center;color:#ffffff59;position:relative;overflow:hidden}
+.cell i{position:absolute;inset:0;font-style:normal}.cell span{position:relative}
+.cell.in{color:#fff}.cell.sel{box-shadow:inset 0 0 0 2px var(--accent);color:#fff;background:#1d4a3b}
+.cell.me{box-shadow:inset 0 0 0 2px #fff}
+.cell.miss{box-shadow:inset 0 0 0 2px var(--bad)}.cell.extra{box-shadow:inset 0 0 0 2px var(--warn)}
+.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:11px;color:var(--dim);margin-top:8px}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+.bars{margin-top:10px;display:grid;gap:5px}
+.bar{display:grid;grid-template-columns:118px 1fr 38px;gap:8px;align-items:center;font-size:12px;color:var(--dim)}
+.bar .t{height:9px;border-radius:5px;background:#0c1218;overflow:hidden;display:flex}
+.bar .t i{display:block;height:100%}
+.bar b{color:var(--text);font-weight:600;text-align:right;font-variant-numeric:tabular-nums}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
+.kpi{background:#0c1218;border-radius:12px;padding:8px 10px}.kpi b{display:block;font-size:18px;font-variant-numeric:tabular-nums}.kpi span{font-size:10.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em}
+.next{position:sticky;bottom:calc(10px + env(safe-area-inset-bottom));margin-top:12px;width:100%;height:56px;border:0;border-radius:16px;background:var(--accent);color:#06110c;font-size:17px;font-weight:800;cursor:pointer;box-shadow:0 10px 30px #000a}
+.ghost{background:var(--panel2);color:var(--text);box-shadow:none;position:static}
+.prompt{font-size:14px;margin:0 0 8px}.prompt b{color:var(--accent)}
+.foot{margin-top:14px;font-size:10.5px;color:#56677b;text-align:center;line-height:1.5}
+.empty{padding:40px 10px;text-align:center;color:var(--dim)}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="logo">FOLD</div>
+    <div class="chips" id="filters"></div>
+    <div class="stats" id="stats"></div>
+  </header>
+  <div id="main"></div>
+  <div class="foot" id="foot"></div>
+</div>
+<script src="pack.js"></script>
+<script>
+"use strict";
+const R = "AKQJT98765432", SUIT = {s:"♠",h:"♥",d:"♦",c:"♣"}, STREETS = ["Flop","Turn","River"];
+const $ = (h) => { const t = document.createElement("template"); t.innerHTML = h.trim(); return t.content.firstChild; };
+const pct = (x, d = 0) => (100 * x).toFixed(d) + "%";
+const store = { get(k, d){ try { const v = localStorage.getItem("fold."+k); return v == null ? d : JSON.parse(v); } catch(e){ return d; } }, set(k, v){ try { localStorage.setItem("fold."+k, JSON.stringify(v)); } catch(e){} } };
+
+const PACK = window.FOLD_PACK;
+const state = { street: store.get("street", -1), rangeCheck: store.get("rangeCheck", false), queue: [], cur: null, n: 0, loss: 0, best: 0, streak: 0 };
+
+function cellName(i){ const r = Math.floor(i/13), c = i%13; return r === c ? R[r]+R[c] : r < c ? R[r]+R[c]+"s" : R[c]+R[r]+"o"; }
+function cellOf(hand){ // hand = ["Ah","Kd"]
+  const a = R.indexOf(hand[0][0]), b = R.indexOf(hand[1][0]), hi = Math.min(a,b), lo = Math.max(a,b);
+  return hi === lo || hand[0][1] === hand[1][1] ? hi*13+lo : lo*13+hi;
+}
+function cardEl(c, cls = ""){ return `<div class="card ${c[1]} ${cls}">${c[0] === "T" ? "10" : c[0]}<small>${SUIT[c[1]]}</small></div>`; }
+function kindClass(spot, i){ const a = spot.actions[i]; if (a.kind === "bet" || a.kind === "raise"){ const bets = spot.actions.filter(x => x.kind === a.kind); return `k-${a.kind}${bets.length > 1 ? bets.indexOf(a) : 0}`; } return "k-" + a.kind; }
+function kindColor(kind, idx = 0){ return kind === "fold" ? "var(--fold)" : kind === "check" || kind === "call" ? "var(--call)" : idx ? "var(--bet2)" : "var(--bet1)"; }
+
+/* ---------- queue ---------- */
+function buildQueue(){
+  const q = [];
+  for (const f of PACK.flops) for (const s of f.spots) { if (state.street >= 0 && s.street !== state.street) continue; for (const d of s.drills) q.push({ f, s, d }); }
+  for (let i = q.length - 1; i > 0; i--){ const j = Math.floor(Math.random()*(i+1)); [q[i], q[j]] = [q[j], q[i]]; }
+  state.queue = q;
+}
+function next(){ if (!state.queue.length) buildQueue(); state.cur = state.queue.pop(); state.cur ? renderSpot() : (main.innerHTML = `<div class="empty">No spots for this filter.</div>`); window.scrollTo(0,0); }
+
+/* ---------- grading ---------- */
+function grade(spot, d, i){
+  const best = Math.max(...d.ev), loss = Math.max(0, best - d.ev[i]), p = 100*loss/spot.pot;
+  let g = p <= 0.3 ? "Best" : p <= 1.5 ? "Good" : p <= 5 ? "Inaccuracy" : p <= 12 ? "Mistake" : "Blunder";
+  if (d.strat[i] >= 0.25 && (g === "Inaccuracy")) g = "Good"; // solver noise guard on genuinely mixed spots
+  return { g, loss, p, bestIdx: d.ev.indexOf(best) };
+}
+
+/* ---------- rationale (templated from solver facts) ---------- */
+function topClasses(f, shares, n = 2, min = 0.03){
+  const tot = shares.reduce((a,b) => a+b, 0) || 1;
+  return shares.map((v,i) => [v/tot, i]).filter(x => x[0] >= min).sort((a,b) => b[0]-a[0]).slice(0,n).map(x => `${f.class_names[x[1]].toLowerCase()} (${pct(x[0])})`).join(", ");
+}
+function groupSummary(sh){ const t = sh.reduce((a,b)=>a+b,0)||1; return { strong:(sh[0]+sh[1])/t, mid:sh[2]/t, draws:(sh[3]+sh[4])/t, air:(sh[5]+sh[6])/t }; }
+function respInfo(f, spot, d, a){
+  const r = spot.resp[a]; if (!r) return null;
+  const fi = r.kinds.indexOf("fold"), fold = fi >= 0 ? r.freq[fi] : 0;
+  const cont = Array(7).fill(0); let raise = 0;
+  r.kinds.forEach((k, x) => { if (k !== "fold") r.cls[x].forEach((v, c) => cont[c] += v); if (k === "raise" || k === "bet") raise += r.freq[x]; });
+  return { r, fold, raise, cont, foldCls: fi >= 0 ? r.cls[fi] : null, eq: d.eq_cont[a] };
+}
+function explain(f, spot, d, chosen, gr){
+  const V = spot.villain, out = [], A = spot.actions, cn = f.class_names[d.cls].toLowerCase();
+  const g = groupSummary(spot.vclass);
+  out.push(`<span class="k">${V}'s range right now:</span> ${pct(g.strong)} top pair or better, ${pct(g.mid)} weaker pairs, ${pct(g.draws)} draws, ${pct(g.air)} ace-high / air.`);
+  out.push(`<span class="k">Your hand:</span> ${cn} with <b>${pct(d.eq)}</b> equity against that range.`);
+  if (spot.to_call > 0){
+    const need = spot.to_call / (spot.pot + spot.to_call);
+    out.push(`<span class="k">The price:</span> calling ${spot.to_call.toFixed(1)} into ${spot.pot.toFixed(1)} needs <b>${pct(need)}</b> equity. You have ${pct(d.eq)} against the range that bets here${d.eq < need ? " — not enough on its own" : d.eq < need + 0.08 ? " — close, so how well the hand plays later streets decides it" : " — comfortably enough"}.`);
+  }
+  const infos = A.map((_, a) => respInfo(f, spot, d, a));
+  A.forEach((a, i) => {
+    const x = infos[i]; if (!x) return;
+    if (a.kind === "bet" || a.kind === "raise"){
+      const need = a.amt / (spot.pot + a.amt);
+      let s = `<span class="k">${a.label}:</span> ${V} folds <b>${pct(x.fold)}</b>${x.foldCls ? ` — mostly ${topClasses(f, x.foldCls)}` : ""}. They continue with ${topClasses(f, x.cont, 3)}`;
+      s += `, and you have <b>${pct(x.eq)}</b> against that continuing range.`;
+      if (d.eq < 0.4) s += ` As a bluff this needs ${pct(need)} folds to profit immediately; it gets ${pct(x.fold)}.`;
+      if (x.raise > 0.08) s += ` Expect a raise ${pct(x.raise)} of the time.`;
+      out.push(s);
+    } else if (a.kind === "check" && x.r.kinds.includes("bet")){
+      out.push(`<span class="k">Check:</span> ${V} bets <b>${pct(x.raise)}</b> of the time behind you, mostly with ${topClasses(f, x.r.cls[x.r.kinds.indexOf("bet")], 3)}.`);
+    }
+  });
+  const bets = A.map((a, i) => ({ a, i, x: infos[i] })).filter(o => o.a.kind === "bet" && o.x);
+  if (bets.length >= 2){
+    const s = bets[0], b = bets[bets.length-1];
+    const extra = b.x.foldCls.map((v, c) => v - s.x.foldCls[c]);
+    let t = `<span class="k">Small vs big:</span> going ${b.a.label.toLowerCase()} instead of ${s.a.label.toLowerCase()} folds out an extra <b>${pct(b.x.fold - s.x.fold)}</b> of ${V}'s range — mainly ${topClasses(f, extra.map(v => Math.max(0, v)))}. Your equity against what continues goes from ${pct(s.x.eq)} to ${pct(b.x.eq)}. `;
+    if (s.x.eq >= 0.5 && b.x.eq < 0.5) t += `The small size keeps worse hands in the pot; the big size mostly gets called by hands that beat you. That is the signature of a <b>thin value / protection bet: go small</b>.`;
+    else if (b.x.eq >= 0.55) t += `You are still ahead of even the tighter range that calls the big bet, so the hands you keep in are paying you: <b>bigger builds the pot you expect to win</b>.`;
+    else if (d.eq < 0.4) t += `With little showdown value, what matters is folds per chip risked, plus how your hand does when called.`;
+    else t += `Neither size gets called by enough worse hands to be clearly for value — this hand mostly wants to reach showdown cheaply.`;
+    out.push(t);
+  }
+  const plan = spot.hclass_strat[d.cls].map((v, i) => [v, i]).filter(x => x[0] >= 0.05).sort((a,b) => b[0]-a[0]).map(x => `${A[x[1]].label.toLowerCase()} ${pct(x[0])}`).join(", ");
+  out.push(`<span class="k">Your whole range:</span> the solver plays ${cn} here as ${plan}. With this exact hand: ${A.map((a,i) => `${a.label.toLowerCase()} ${pct(d.strat[i])}`).join(", ")}.`);
+  if (gr.g !== "Best" && gr.g !== "Good") out.unshift(`<b>${A[chosen].label}</b> gives up ${gr.loss.toFixed(2)}bb against <b>${A[gr.bestIdx].label}</b>.`);
+  else if (chosen !== gr.bestIdx || d.strat.filter(v => v > 0.15).length > 1) out.unshift(`This is a mixed spot — the options the solver uses are within ${Math.max(...d.ev.filter((_, i) => d.strat[i] > 0.15).map(e => Math.max(...d.ev) - e)).toFixed(2)}bb of each other.`);
+  return out.map(s => `<p>${s}</p>`).join("");
+}
+
+/* ---------- grids ---------- */
+function gridEl(paint){ const g = $(`<div class="grid"></div>`); for (let i = 0; i < 169; i++) g.appendChild($(`<div class="cell" data-i="${i}"><i></i><span>${cellName(i)}</span></div>`)); if (paint) paint(g); return g; }
+function paintSplit(g, weight, parts, me){ // parts: [{color, grid}]
+  [...g.children].forEach((c, i) => {
+    const w = weight[i]; c.className = "cell" + (w > 0.02 ? " in" : "") + (i === me ? " me" : "");
+    let acc = 0; const stops = [];
+    if (w > 0.02) parts.forEach(p => { const v = p.grid[i] * 100; if (v > 0.5){ stops.push(`${p.color} ${acc}% ${acc+v}%`); acc += v; } });
+    c.firstChild.style.cssText = stops.length ? `background:linear-gradient(90deg,${stops.join(",")});opacity:${0.25 + 0.75*Math.min(1,w)}` : "";
+  });
+}
+
+/* ---------- screens ---------- */
+const main = document.getElementById("main");
+function renderSpot(){
+  const { f, s, d } = state.cur, newCard = s.board.length > 3 ? s.board.length - 1 : -1;
+  let hist = "", st = -1;
+  s.history.forEach(h => { if (h.street !== st){ st = h.street; hist += `<span class="st">${STREETS[st]}</span>`; } hist += `<span class="${h.pos === s.hero ? "me" : ""}">${h.pos} ${h.label.toLowerCase()}</span>`; });
+  main.innerHTML = "";
+  main.appendChild($(`<div class="table">
+    <div class="meta"><span>${f.formation.replace(", single-raised pot"," · SRP")}</span><span>${STREETS[s.street]} · rake ${f.rake}</span></div>
+    <div class="hist">${hist}</div>
+    <div class="board">${s.board.map((c, i) => cardEl(c, i === newCard ? "new" : "")).join("")}</div>
+    <div class="pot">Pot <b>${s.pot.toFixed(1)}</b> bb${s.to_call > 0 ? ` · <b>${s.to_call.toFixed(1)}</b> to call` : ""} · ${s.stack.toFixed(0)} behind</div>
+    <div class="hero"><div class="who">You<b>${s.hero}</b></div>${d.hand.map((c, i) => cardEl(c).replace('class="card', `style="animation-delay:${.08*(i+1)}s" class="card`)).join("")}<div class="who">vs<b>${s.villain}</b></div></div>
+  </div>`));
+  state.rangeCheck ? renderRangeCheck() : renderActions();
+}
+
+function renderActions(){
+  const { s } = state.cur;
+  const box = $(`<div class="actions" id="actions"></div>`);
+  s.actions.forEach((a, i) => {
+    const b = $(`<button class="act ${kindClass(s, i)}"><div class="fill"></div><span>${a.label}${a.amt ? ` <small style="font-weight:500;opacity:.8">${a.amt.toFixed(1)}bb</small>` : ""}</span><span class="sub"></span></button>`);
+    b.onclick = () => answer(i); box.appendChild(b);
+  });
+  main.appendChild(box);
+}
+
+function renderRangeCheck(){
+  const { s } = state.cur, sel = new Set();
+  const sheet = $(`<div class="sheet"><p class="prompt">Before you act: paint the hands <b>${s.villain}</b> can have here.</p><div class="chips" id="presets" style="margin-bottom:9px"></div></div>`);
+  const presets = { "Pairs": i => i%14 === 0, "Suited Ax": i => i < 13 && i > 0, "Offsuit Ax": i => i%13 === 0 && i > 0, "Broadway": i => Math.floor(i/13) < 5 && i%13 < 5, "Suited conn.": i => { const r = Math.floor(i/13), c = i%13; return c - r === 1 || c - r === 2; }, "Clear": null };
+  const g = gridEl();
+  const sync = () => [...g.children].forEach((c, i) => c.classList.toggle("sel", sel.has(i)));
+  for (const [name, fn] of Object.entries(presets)){
+    const c = $(`<div class="chip">${name}</div>`);
+    c.onclick = () => { if (!fn) sel.clear(); else { const ids = [...Array(169).keys()].filter(fn), all = ids.every(i => sel.has(i)); ids.forEach(i => all ? sel.delete(i) : sel.add(i)); } sync(); };
+    sheet.querySelector("#presets").appendChild(c);
+  }
+  let mode = null;
+  const hit = e => { const el = document.elementFromPoint(e.clientX, e.clientY); const c = el && el.closest(".cell"); if (!c || !g.contains(c)) return; const i = +c.dataset.i; if (mode === null) mode = !sel.has(i); mode ? sel.add(i) : sel.delete(i); c.classList.toggle("sel", mode); };
+  g.addEventListener("pointerdown", e => { mode = null; hit(e); g.setPointerCapture(e.pointerId); });
+  g.addEventListener("pointermove", e => { if (e.buttons || e.pointerType === "touch") mode !== null && hit(e); });
+  g.addEventListener("pointerup", () => mode = null);
+  sheet.appendChild(g);
+  const done = $(`<button class="next" style="position:static">Lock in range</button>`);
+  done.onclick = () => {
+    let hitW = 0, miss = 0, extra = 0;
+    const combos = i => (i%14 === 0 ? 6 : Math.floor(i/13) < i%13 ? 4 : 12);
+    s.vr.forEach((t, i) => { const n = combos(i), on = sel.has(i); hitW += on ? t*n : 0; miss += on ? 0 : t*n; extra += on ? (1-t)*n : 0; });
+    const score = 2*hitW / (2*hitW + miss + extra || 1);
+    [...g.children].forEach((c, i) => { const t = s.vr[i], on = sel.has(i); c.className = "cell" + (t > 0.02 ? " in" : "") + (t >= 0.5 && !on ? " miss" : t < 0.15 && on ? " extra" : ""); c.firstChild.style.cssText = t > 0.02 ? `background:var(--call);opacity:${0.2+0.8*t}` : ""; });
+    sheet.querySelector(".prompt").innerHTML = `Range read: <b>${pct(score)}</b> overlap. <span style="color:var(--bad)">Red</span> = hands you missed, <span style="color:var(--warn)">amber</span> = hands they don't have. Now act.`;
+    sheet.querySelector("#presets").remove(); done.remove(); g.style.pointerEvents = "none";
+    state.cur.rangeScore = score; renderActions(); document.getElementById("actions").scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+  sheet.appendChild(done); main.appendChild(sheet);
+}
+
+function answer(i){
+  const { f, s, d } = state.cur; if (state.cur.done) return; state.cur.done = true;
+  const gr = grade(s, d, i);
+  state.n++; state.loss += gr.p; if (gr.g === "Best" || gr.g === "Good"){ state.best++; state.streak++; } else state.streak = 0;
+  if (navigator.vibrate) navigator.vibrate(gr.g === "Best" ? 12 : gr.g === "Good" ? 20 : [30, 40, 30]);
+  [...document.querySelectorAll(".act")].forEach((b, k) => {
+    b.classList.add("done"); if (k === gr.bestIdx) b.classList.add("best"); if (k === i) b.classList.add("picked");
+    b.querySelector(".fill").style.width = pct(d.strat[k]);
+    b.querySelector(".sub").innerHTML = `${pct(d.strat[k])}<br>EV ${d.ev[k] >= 0 ? "+" : ""}${d.ev[k].toFixed(2)}`;
+  });
+  main.appendChild($(`<div class="verdict g-${gr.g}"><div class="g">${gr.g}</div><div class="l">${gr.loss < 0.005 ? "no EV lost" : `−${gr.loss.toFixed(2)} bb · ${gr.p.toFixed(1)}% of pot`}</div></div>`));
+  main.appendChild($(`<div class="sheet why"><h3>Why</h3>${explain(f, s, d, i, gr)}</div>`));
+  main.appendChild(lens(f, s, d, i, gr));
+  const nx = $(`<button class="next">Next spot →</button>`); nx.onclick = next; main.appendChild(nx);
+  renderStats();
+}
+
+function lens(f, s, d, chosen, gr){
+  const sheet = $(`<div class="sheet"><h3>Range lens — ${s.villain}</h3><div class="seg" id="tabs"></div><div class="kpis" id="kpis"></div><div id="g"></div><div class="legend" id="leg"></div><div class="bars" id="bars"></div></div>`);
+  const g = gridEl(); sheet.querySelector("#g").appendChild(g);
+  const tabs = [{ label: "Before", a: -1 }].concat(s.actions.map((a, i) => ({ label: a.label.replace("Raise to","Raise"), a: i })).filter(t => s.resp[t.a])).concat([{ label: "My plan", a: -2 }]);
+  const show = t => {
+    [...sheet.querySelectorAll("#tabs div")].forEach((el, k) => el.classList.toggle("on", tabs[k] === t));
+    const kp = sheet.querySelector("#kpis"), leg = sheet.querySelector("#leg"), bars = sheet.querySelector("#bars");
+    const barRow = (name, parts, val) => `<div class="bar"><span>${name}</span><div class="t">${parts.map(p => `<i style="width:${100*p.v}%;background:${p.c}"></i>`).join("")}</div><b>${val}</b></div>`;
+    if (t.a === -1){
+      paintSplit(g, s.vr, [{ color: "var(--call)", grid: Array(169).fill(1) }], -1);
+      kp.innerHTML = `<div class="kpi"><b>${pct(d.eq)}</b><span>your equity</span></div><div class="kpi"><b>${pct(s.vclass[0]+s.vclass[1])}</b><span>top pair+</span></div><div class="kpi"><b>${pct(s.vclass[5]+s.vclass[6])}</b><span>ace-high / air</span></div>`;
+      leg.innerHTML = `<span><i style="background:var(--call)"></i>in range (brighter = more combos)</span>`;
+      bars.innerHTML = f.class_names.map((n, c) => barRow(n, [{ v: s.vclass[c], c: "var(--call)" }], pct(s.vclass[c]))).join("");
+    } else if (t.a === -2){
+      const bi = k => s.actions.filter(x => x.kind === s.actions[k].kind).indexOf(s.actions[k]);
+      paintSplit(g, s.hr, s.actions.map((a, k) => ({ color: kindColor(a.kind, bi(k)), grid: s.hs[k] })), cellOf(d.hand));
+      kp.innerHTML = s.actions.slice(0,3).map((a, k) => `<div class="kpi"><b>${pct(s.range_freq[k])}</b><span>${a.label}</span></div>`).join("");
+      leg.innerHTML = s.actions.map((a, k) => `<span><i style="background:${kindColor(a.kind, bi(k))}"></i>${a.label}</span>`).join("") + `<span>□ your hand</span>`;
+      bars.innerHTML = f.class_names.map((n, c) => barRow(n, s.actions.map((a, k) => ({ v: s.hclass_strat[c][k], c: kindColor(a.kind, bi(k)) })), pct(s.hclass[c]))).join("");
+    } else {
+      const r = s.resp[t.a], x = respInfo(f, s, d, t.a), col = k => kindColor(r.kinds[k], 1);
+      paintSplit(g, s.vr, r.labels.map((_, k) => ({ color: col(k), grid: r.grid[k] })), -1);
+      kp.innerHTML = `<div class="kpi"><b>${pct(x.fold)}</b><span>folds</span></div><div class="kpi"><b>${pct(x.eq)}</b><span>equity vs rest</span></div><div class="kpi"><b>${pct(x.raise)}</b><span>${r.kinds.includes("bet") ? "bets" : "raises"}</span></div>`;
+      leg.innerHTML = r.labels.map((l, k) => `<span><i style="background:${col(k)}"></i>${l}</span>`).join("");
+      bars.innerHTML = f.class_names.map((n, c) => { const tot = s.vclass[c] || 1e-9; return barRow(n, r.labels.map((_, k) => ({ v: r.cls[k][c]/tot, c: col(k) })), pct(s.vclass[c])); }).join("");
+    }
+  };
+  tabs.forEach(t => { const el = $(`<div>${t.label}</div>`); el.onclick = () => show(t); sheet.querySelector("#tabs").appendChild(el); });
+  show(tabs.find(t => t.a === chosen) || tabs.find(t => t.a === gr.bestIdx) || tabs[0]);
+  return sheet;
+}
+
+/* ---------- chrome ---------- */
+function renderStats(){ document.getElementById("stats").textContent = state.n ? `${state.n} · ${pct(state.best/state.n)} good · −${(state.loss/state.n).toFixed(1)}%pot · 🔥${state.streak}` : ""; }
+function renderFilters(){
+  const el = document.getElementById("filters"); el.innerHTML = "";
+  [["All",-1],["Flop",0],["Turn",1],["River",2]].forEach(([n, v]) => { const c = $(`<div class="chip ${state.street === v ? "on" : ""}">${n}</div>`); c.onclick = () => { state.street = v; store.set("street", v); state.queue = []; renderFilters(); next(); }; el.appendChild(c); });
+  const rc = $(`<div class="chip ${state.rangeCheck ? "on" : ""}">Range check</div>`); rc.onclick = () => { state.rangeCheck = !state.rangeCheck; store.set("rangeCheck", state.rangeCheck); renderFilters(); renderSpot(); }; el.appendChild(rc);
+}
+document.addEventListener("keydown", e => { if (!state.cur) return; if (e.key === " " || e.key === "Enter"){ if (state.cur.done){ e.preventDefault(); next(); } } else if (/^[1-4]$/.test(e.key)){ const b = document.querySelectorAll(".act")[+e.key-1]; if (b) b.click(); } });
+let sx = null; document.addEventListener("touchstart", e => sx = e.touches[0].clientX, { passive: true });
+document.addEventListener("touchend", e => { if (sx !== null && state.cur && state.cur.done && sx - e.changedTouches[0].clientX > 90 && !e.target.closest(".grid")) next(); sx = null; });
+
+if (!PACK || !PACK.flops.length) main.innerHTML = `<div class="empty">No pack found. Run <code>fold-cli solve</code> then <code>fold-cli pack</code>.</div>`;
+else {
+  const n = PACK.flops.reduce((a, f) => a + f.spots.reduce((b, s) => b + s.drills.length, 0), 0);
+  document.getElementById("foot").innerHTML = `${PACK.flops.length} flops · ${n} drills · solved to ${Math.max(...PACK.flops.map(f => f.exploitability_pct_pot)).toFixed(2)}% pot or better<br>Preflop ranges are placeholders; postflop strategy is exact for those ranges and this bet tree.<br>Keys: 1–4 act · space next`;
+  renderFilters(); next();
+}
+</script>
+</body>
+</html>
