@@ -59,6 +59,7 @@
     rs.querySelector("button").onclick = e => { const x = e.target; if (x.textContent === "Reset") { x.textContent = "Tap again to confirm"; setTimeout(() => x.textContent = "Reset", 3000); return; } Object.keys(snapshot()).forEach(k => LS.removeItem(k)); (user ? push() : Promise.resolve()).then(() => location.reload()); }; b.appendChild(rs);
     if (user) { const del = $h(`<div class="xrow"><div>Delete my account<small>Removes your saved progress from our servers and signs you out</small></div><button class="xbtn warn">Delete</button></div>`);
       del.querySelector("button").onclick = async e => { const x = e.target; if (x.textContent === "Delete") { x.textContent = "Tap again to confirm"; setTimeout(() => x.textContent = "Delete", 3000); return; } await sb.from("progress").delete().eq("user_id", user.id); await sb.rpc("delete_me").catch(() => {}); await sb.auth.signOut(); location.reload(); }; b.appendChild(del); }
+    b.appendChild($h(`<div style="padding-top:14px;border-top:1px solid var(--line);text-align:center;font-size:12px"><a href="privacy.html" style="color:var(--dim)">Privacy &amp; Terms</a></div>`));
     const o = sheet("You", b);
   }
   btn.onclick = youSheet;
@@ -70,7 +71,7 @@
       <div class="m"><b>Drills</b><p>Single decisions, fast. Filter by street or focus on your leaks.</p></div>
       <div class="m"><b>Puzzle</b><p>Your opponent's range is narrow. Name the exact hands they can have.</p></div>
       <div class="m"><b>Leaks</b><p>Where you lose the most, tracked as you play.</p></div>
-      <button class="xbtn pri wide">Start</button></div>`);
+      <button class="xbtn pri wide">Start</button><p style="text-align:center;font-size:12px;margin-top:10px">Free. No account needed. <a href="privacy.html" style="color:var(--dim)">Privacy &amp; Terms</a></p></div>`);
     const o = sheet("Welcome to Fold", b); b.querySelector("button").onclick = () => o.remove();
     try { rawSet("fold.seen", "1"); } catch (e) {}
   }

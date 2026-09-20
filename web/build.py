@@ -46,8 +46,8 @@ rep("<title>Fold — backbone prototype</title>", """<title>Fold</title>
 <meta name="description" content="Solver-backed poker trainer. Play hands, drill decisions, solve range puzzles.">
 <meta property="og:title" content="Fold — can you beat my score?">
 <meta property="og:description" content="Solver-backed poker trainer. Play the exact hand or range puzzle your friend just played.">
-<meta property="og:image" content="icon-512.png">
-<meta name="twitter:card" content="summary">""")
+<meta property="og:image" content="https://fold-poker.gtarpenning.workers.dev/og.png">
+<meta name="twitter:card" content="summary_large_image">""")
 rep("</body>", """<script src="extras.js"></script>
 <script>if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js"));</script>
 </body>""")
