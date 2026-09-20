@@ -558,7 +558,7 @@ function handAnswer(i, gr){
   if (note) main.appendChild($(`<div class="sheet why" style="padding:10px 14px"><p>${note}</p></div>`));
   const go = () => { if (state.hand !== H || H.k !== k0) return; H.k++; H.k < H.h.steps.length ? handStep(false) : handEnd(); window.scrollTo(0, 0); }, k0 = H.k;
   const nx = $(`<button class="next">${H.k + 1 < H.h.steps.length ? "Continue →" : "See result →"}</button>`); nx.onclick = go; main.appendChild(nx);
-  if (ok && i === step.line) setTimeout(go, 750);
+  if (ok && i === step.line) setTimeout(go, 1750);
 }
 function handEnd(){
   const H = state.hand, { f, h } = H;
@@ -708,7 +708,8 @@ function suitNote(s){
   return ` <span style="color:var(--dim)">Suits matter: ${more.length ? `${more.join(", ")} mostly with a ${ch}` : ""}${more.length && less.length ? "; " : ""}${less.length ? `${less.join(", ")} mostly without` : ""}.</span>`;
 }
 function cellPopup(f, s, d, cell, tab){
-  if (cell < 0 || !s.vdetail) return;
+  if (cell < 0) return;
+  if (!s.vdetail){ overlay(cellName(cell), $(`<div style="color:var(--dim);font-size:14px">The suit-by-suit breakdown for this board isn't in the pack yet. It is being added board by board.</div>`)); return; }
   const mine = tab === -2, list = mine ? s.hdetail : s.vdetail, who = mine ? s.hero : s.villain, r = tab >= 0 ? s.resp[tab] : null;
   const norm = c => { const a = c.slice(0, 2), b = c.slice(2, 4); return R.indexOf(a[0]) < R.indexOf(b[0]) || (a[0] === b[0] && "shdc".indexOf(a[1]) < "shdc".indexOf(b[1])) ? a + b : b + a; };
   const idx = {}; list.forEach((x, k) => idx[norm(x[0])] = k);
