@@ -500,8 +500,8 @@ function nextHand(){
   const facing = from.filter(x => { const l = x.h.steps[x.h.steps.length - 1].spot; return l.board.length === 5 && l.to_call > 0; });
   if (facing.length && Math.random() < 0.15) from = facing;
   const tot = from.reduce((a, x) => a + wt(x), 0); let u = Math.random() * tot, wi = 0; while (wi < from.length - 1 && (u -= wt(from[wi])) > 0) wi++;
-  const sh = takeShared("h"), pick = sh && PACK.flops[sh[0]] && (PACK.flops[sh[0]].hands || [])[sh[1]] ? { f: PACK.flops[sh[0]], h: PACK.flops[sh[0]].hands[sh[1]] } : from[wi];
-  const { f, h } = pick; setShare("h", PACK.flops.indexOf(f), f.hands.indexOf(h));
+  const sh = takeShared("h"), sf = sh && flopAt(sh[0]), pick = sf && (sf.hands || [])[sh[1]] ? { f: sf, h: sf.hands[sh[1]] } : from[wi];
+  const { f, h } = pick; setShare("h", f._i, f.hands.indexOf(h));
   state.hand = { f, h, k: 0, res: [] }; handStep(true); window.scrollTo(0, 0);
 }
 async function handStep(first){
@@ -835,11 +835,23 @@ let sx = null; document.addEventListener("touchstart", e => sx = e.touches[0].cl
 document.addEventListener("touchend", e => { if (sx !== null && state.cur && state.cur.done && sx - e.changedTouches[0].clientX > 90 && !e.target.closest(".grid")){ const b = document.querySelector("button.next:not(.ghost)"); b && b.click(); } sx = null; });
 
 /* .foldpack v1 (docs/FOLDPACK.md): "FOLDPK01", u32 LE index length, JSON index, one gzip(JSON) blob per flop */
+// split pack (web build): <dir>/index.json lists the flops, each flop is its own gzip file, so the first hand needs ~1 file, not the whole pack.
+// Two flops (plus any share-linked one) load before play starts; the rest stream in behind and join PACK.flops as they arrive. f._i = position in the pack.
+async function loadSplit(url){
+  const dir = url.replace(/[^/]*$/, ""), index = await (await fetch(url)).json(), n = index.flops.length;
+  const one = async i => { const f = JSON.parse(await new Response((await fetch(dir + index.flops[i].file)).body.pipeThrough(new DecompressionStream("gzip"))).text()); f._i = i; return f; };
+  const order = [...Array(n).keys()].sort(() => Math.random() - 0.5);
+  if (SHARED && SHARED[1] < n) order.unshift(...order.splice(order.indexOf(SHARED[1]), 1));
+  const pack = { version: index.version, ranges: index.ranges, tree: index.tree, formations: index.formations, flops: await Promise.all(order.slice(0, 2).map(one)) };
+  (async () => { for (let k = 2; k < n; k += 3) { try { (await Promise.all(order.slice(k, k + 3).map(one))).forEach(f => pack.flops.push(f)); state.ppool = null; } catch (e) { console.error(e); } } })();
+  return pack;
+}
 async function loadFoldpack(url){
+  if (/\.json$/.test(url)) return loadSplit(url);
   const buf = await (await fetch(url)).arrayBuffer(), dv = new DataView(buf);
   if (new TextDecoder().decode(buf.slice(0, 8)) !== "FOLDPK01") throw new Error("not a foldpack");
   const n = dv.getUint32(8, true), index = JSON.parse(new TextDecoder().decode(buf.slice(12, 12 + n))), base = 12 + n;
-  const flops = await Promise.all(index.flops.map(async e => JSON.parse(await new Response(new Blob([buf.slice(base + e.offset, base + e.offset + e.length)]).stream().pipeThrough(new DecompressionStream("gzip"))).text())));
+  const flops = await Promise.all(index.flops.map(async (e, i) => Object.assign(JSON.parse(await new Response(new Blob([buf.slice(base + e.offset, base + e.offset + e.length)]).stream().pipeThrough(new DecompressionStream("gzip"))).text()), { _i: i })));
   return { version: index.version, ranges: index.ranges, tree: index.tree, formations: index.formations, flops };
 }
 (async () => {
@@ -852,6 +864,7 @@ async function loadFoldpack(url){
 /* ---------- range puzzle: name villain's exact combos when the range is narrow ---------- */
 // share links: the exact hand or puzzle lives in the URL hash (#h=flop.hand or #p=flop.spot), so a link reopens it
 let SHARED = (m => m ? [m[1], +m[2], +m[3]] : null)(location.hash.match(/^#([hp])=(\d+)\.(\d+)$/));
+function flopAt(i){ return PACK.flops.find(f => f._i === i); }
 function takeShared(k){ if (!SHARED || SHARED[0] !== k) return null; const s = SHARED; SHARED = null; return [s[1], s[2]]; }
 function setShare(k, a, b){ history.replaceState(null, "", location.pathname + location.search + `#${k}=${a}.${b}`); }
 function shareBtn(){
@@ -905,8 +918,8 @@ function puzzleWhy(s, W, inPre, CO){
 function nextPuzzle(){
   const pool = state.ppool || (state.ppool = puzzlePool());
   if (!pool.length){ main.innerHTML = `<div class="empty">This pack has no narrow ranges to puzzle over yet.</div>`; return; }
-  const sh = takeShared("p"), { f, s } = sh && PACK.flops[sh[0]] && PACK.flops[sh[0]].spots[sh[1]] && PACK.flops[sh[0]].spots[sh[1]].vcombos ? { f: PACK.flops[sh[0]], s: PACK.flops[sh[0]].spots[sh[1]] } : pool[Math.floor(Math.random() * pool.length)], F = formInfo(f), tb = F.three_bet || f.three_bet || 0;
-  setShare("p", PACK.flops.indexOf(f), f.spots.indexOf(s));
+  const sh = takeShared("p"), sf = sh && flopAt(sh[0]), { f, s } = sf && sf.spots[sh[1]] && sf.spots[sh[1]].vcombos ? { f: sf, s: sf.spots[sh[1]] } : pool[Math.floor(Math.random() * pool.length)], F = formInfo(f), tb = F.three_bet || f.three_bet || 0;
+  setShare("p", f._i, f.spots.indexOf(s));
   const norm = c => { const a = c.slice(0, 2), b = c.slice(2, 4); return R.indexOf(a[0]) < R.indexOf(b[0]) || (a[0] === b[0] && "shdc".indexOf(a[1]) < "shdc".indexOf(b[1])) ? a + b : b + a; };
   const W = {}; s.vcombos.forEach(([c, w]) => W[norm(c)] = w);
   const pre = F.pre ? F.pre[F.pos.indexOf(s.villain)] : null, inPre = i => !pre || pre[i] >= 0.3;
