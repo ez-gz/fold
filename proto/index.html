@@ -17,6 +17,7 @@ header .logo{font-weight:800;letter-spacing:.12em;font-size:13px;color:var(--acc
 header .stats{margin-left:auto;font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums}
 .chips{display:flex;gap:6px;flex-wrap:wrap}
 .chip{border:1px solid var(--line);background:var(--panel);color:var(--dim);border-radius:999px;padding:5px 11px;font-size:12px;cursor:pointer;user-select:none}
+.overlay{position:fixed;inset:0;background:#000a;z-index:50;display:flex;align-items:flex-end;justify-content:center}.overlay>.sheet{width:min(560px,100%);max-height:86vh;overflow:auto;margin:0;border-radius:18px 18px 0 0}.overlay h3{display:flex;justify-content:space-between}.overlay .x{color:var(--dim);font-size:12px;cursor:pointer}
 .chip.on{color:#06110c;background:var(--accent);border-color:var(--accent);font-weight:600}
 .table{margin-top:10px;background:radial-gradient(120% 90% at 50% 0%,#17303a 0%,#10202a 55%,#0d161e 100%);border:1px solid var(--line);border-radius:22px;padding:14px 14px 16px;position:relative;overflow:hidden}
 .meta{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em}
@@ -119,7 +120,7 @@ const store = { get(k, d){ try { const v = localStorage.getItem("fold."+k); retu
 
 let PACK = window.FOLD_PACK;
 const SEATS = ["UTG","HJ","CO","BTN","SB","BB"], sleep = ms => new Promise(r => setTimeout(r, ms));
-const state = { mode: store.get("mode", "hands"), hand: null, hn: 0, hsum: 0, street: store.get("street", -1), rangeCheck: store.get("rangeCheck", false), queue: [], cur: null, n: 0, loss: 0, best: 0, streak: 0 };
+const state = { mode: store.get("mode", "hands"), hand: null, hn: 0, hsum: 0, street: store.get("street", -1), rangeCheck: store.get("rangeCheck", false), focus: null, queue: [], cur: null, n: 0, loss: 0, best: 0, streak: 0 };
 
 function cellName(i){ const r = Math.floor(i/13), c = i%13; return r === c ? R[r]+R[c] : r < c ? R[r]+R[c]+"s" : R[c]+R[r]+"o"; }
 function cellOf(hand){ // hand = ["Ah","Kd"]
@@ -160,13 +161,39 @@ function formInfo(f){
 /* ---------- queue ---------- */
 function buildQueue(){
   const q = [];
-  for (const f of PACK.flops) for (const s of f.spots) { if (state.street >= 0 && s.street !== state.street) continue; for (const d of s.drills) q.push({ f, s, d }); }
+  for (const f of PACK.flops) for (const s of f.spots) { if (state.street >= 0 && s.street !== state.street) continue; if (state.focus && !focusSet().has(concept(f, s))) continue; for (const d of s.drills) q.push({ f, s, d }); }
   for (let i = q.length - 1; i > 0; i--){ const j = Math.floor(Math.random()*(i+1)); [q[i], q[j]] = [q[j], q[i]]; }
   state.queue = q;
 }
 function next(){ if (!state.queue.length) buildQueue(); state.cur = state.queue.pop(); state.cur ? renderSpot() : (main.innerHTML = `<div class="empty">No spots for this filter.</div>`); window.scrollTo(0,0); }
 
 /* ---------- grading ---------- */
+/* ---------- concepts: name the situation so results can be tracked and drilled by it ---------- */
+function concept(f, s){
+  const F = formInfo(f), agg = s.hero === F.opener, H = (s._raw ? s._raw.history : s.history);
+  const lab = h => (typeof h.label === "string" ? h.label : ""), isBet = h => /bet|raise|all/i.test(lab(h)) && !/call/i.test(lab(h));
+  const cur = H.filter(h => h.street === s.street), prev = H.filter(h => h.street === s.street - 1);
+  const iBet = l => l.some(h => h.pos === s.hero && isBet(h)), anyBet = l => l.some(isBet);
+  if (s.to_call > 0){
+    if (iBet(cur)) return s.street === 0 ? "Facing a flop raise" : "Facing a turn or river raise";
+    if (s.street === 2) return "Facing a river bet";
+    if (s.street === 1) return "Facing a turn bet";
+    return agg ? "Facing a flop lead" : "Facing a c-bet";
+  }
+  if (s.street === 0) return agg ? "C-bet or check" : cur.length ? "Stab when checked to" : "Lead or check";
+  if (agg){
+    if (iBet(prev)) return s.street === 1 ? "Second barrel" : (iBet(H.filter(h => h.street === 0)) ? "Third barrel" : "River bet after betting turn");
+    return anyBet(prev) ? "After calling a bet as the raiser" : s.street === 1 ? "Delayed c-bet" : "River bet after checks";
+  }
+  if (!anyBet(prev)) return s.street === 1 ? "Turn probe" : "River probe";
+  return cur.length ? "Bet when checked to" : "Lead into the bettor";
+}
+const STREET_NAMES = ["Flop", "Turn", "River"];
+function track(f, s, d, gr){
+  const book = store.get("book", {}), keys = ["c:" + concept(f, s), "s:" + STREET_NAMES[s.street], "h:" + f.class_names[d.cls], "p:" + (s.hero === formInfo(f).opener ? "As the aggressor" : "As the caller")];
+  keys.forEach(k => { const e = book[k] || (book[k] = { n: 0, p: 0, bb: 0, ok: 0 }); e.n++; e.p += Math.min(gr.p, 25); e.bb += gr.loss; if (gr.g === "Best" || gr.g === "Good") e.ok++; });
+  store.set("book", book);
+}
 function grade(spot, d, i){
   const best = Math.max(...d.ev), loss = Math.max(0, best - d.ev[i]), p = 100*loss/spot.pot;
   let g = p <= 0.3 ? "Best" : p <= 1.5 ? "Good" : p <= 5 ? "Inaccuracy" : p <= 12 ? "Mistake" : "Blunder";
@@ -371,7 +398,7 @@ function renderRangeCheck(){
 
 function answer(i){
   const { f, s, d } = state.cur; if (state.cur.done) return; state.cur.done = true;
-  const gr = grade(s, d, i);
+  const gr = grade(s, d, i); track(f, s, d, gr);
   if (state.hand) return handAnswer(i, gr);
   state.n++; state.loss += gr.p; if (gr.g === "Best" || gr.g === "Good"){ state.best++; state.streak++; } else state.streak = 0;
   if (navigator.vibrate) navigator.vibrate(gr.g === "Best" ? 12 : gr.g === "Good" ? 20 : [30, 40, 30]);
@@ -406,7 +433,9 @@ function handScore(H){
 function nextHand(){
   const pool = []; PACK.flops.forEach(f => (f.hands || []).forEach(h => pool.push({ f, h })));
   if (!pool.length){ main.innerHTML = `<div class="empty">This pack has no played hands yet — switch to Drills.</div>`; return; }
-  const deep = pool.filter(x => x.h.steps.length > 1), from = deep.length && Math.random() < 0.85 ? deep : pool;
+  // mostly hands that play all three streets (more decisions, more to learn); early folds still show up sometimes
+  const river = pool.filter(x => x.h.board.length === 5 && x.h.steps.length > 1), deep = pool.filter(x => x.h.steps.length > 1), r = Math.random();
+  const from = river.length && r < 0.8 ? river : deep.length && r < 0.95 ? deep : pool;
   const { f, h } = from[Math.floor(Math.random() * from.length)];
   state.hand = { f, h, k: 0, res: [] }; handStep(true); window.scrollTo(0, 0);
 }
@@ -579,11 +608,43 @@ function lens(f, s, d, chosen, gr){
 
 /* ---------- chrome ---------- */
 function renderStats(){ if (state.mode === "hands"){ document.getElementById("stats").textContent = state.hn ? `${state.hn} hands · avg ${(state.hsum/state.hn).toFixed(1)}/10` : ""; return; } document.getElementById("stats").textContent = state.n ? `${state.n} · ${pct(state.best/state.n)} good · −${(state.loss/state.n).toFixed(1)}%pot · 🔥${state.streak}` : ""; }
+const avgLoss = e => e.p / e.n;
+function worstConcepts(n){ const b = store.get("book", {}); return Object.keys(b).filter(k => k.startsWith("c:") && b[k].n >= 4).sort((x, y) => avgLoss(b[y]) - avgLoss(b[x])).slice(0, n).map(k => k.slice(2)); }
+function focusSet(){ return new Set(state.focus === "leaks" ? worstConcepts(3) : [state.focus]); }
+function overlay(title, body){
+  const o = $(`<div class="overlay"><div class="sheet"><h3>${title}<span class="x">Close</span></h3></div></div>`); o.firstChild.appendChild(body);
+  o.onclick = e => { if (e.target === o || e.target.classList.contains("x")) o.remove(); }; document.body.appendChild(o); return o;
+}
+function focusSheet(){
+  const counts = {}; PACK.flops.forEach(f => f.spots.forEach(s => { const c = concept(f, s); counts[c] = (counts[c] || 0) + s.drills.length; }));
+  const body = $(`<div class="rows"></div>`), b = store.get("book", {});
+  const add = (label, sub, val) => { const r = $(`<div class="row ${state.focus === val || (!state.focus && !val) ? "on" : ""}"><span></span><span style="text-align:left">${label}<small>${sub}</small></span><span></span></div>`); r.onclick = () => { state.focus = val; state.queue = []; o.remove(); renderFilters(); next(); }; body.appendChild(r); };
+  add("Everything", "all situations, shuffled", null);
+  if (worstConcepts(1).length) add("My leaks", "your three costliest situations: " + worstConcepts(3).join(", "), "leaks");
+  Object.keys(counts).sort((x, y) => counts[y] - counts[x]).forEach(c => { const e = b["c:" + c]; add(c, `${counts[c]} drills` + (e ? ` · you: ${e.n} played, ${avgLoss(e).toFixed(1)}% of pot lost on average` : ""), c); });
+  const o = overlay("Focus on a situation", body);
+}
+function leakSheet(){
+  const b = store.get("book", {}), body = $(`<div></div>`);
+  const group = (title, prefix) => {
+    const ks = Object.keys(b).filter(k => k.startsWith(prefix)).sort((x, y) => avgLoss(b[y]) - avgLoss(b[x])); if (!ks.length) return;
+    const max = Math.max(...ks.map(k => avgLoss(b[k])), 0.5);
+    body.appendChild($(`<h4 style="margin:14px 0 6px;font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em">${title}</h4>`));
+    ks.forEach(k => { const e = b[k]; body.appendChild($(`<div class="bar"><span style="width:150px">${k.slice(2)}</span><div class="t"><i style="width:${100*avgLoss(e)/max}%;background:${avgLoss(e) > 3 ? "var(--bad)" : avgLoss(e) > 1.2 ? "var(--warn)" : "var(--accent)"}"></i></div><b style="width:96px;text-align:right">${avgLoss(e).toFixed(1)}% · ${e.n}</b></div>`)); });
+  };
+  if (!Object.keys(b).length) body.appendChild($(`<p style="color:var(--dim)">Play some hands or drills first. Every decision is filed under its situation, street and hand type; this screen shows where your EV goes.</p>`));
+  group("By situation", "c:"); group("By street", "s:"); group("By hand type", "h:"); group("By role", "p:");
+  body.appendChild($(`<p style="color:var(--dim);font-size:11px;margin-top:10px">Average EV lost per decision, as % of pot · number of decisions. Bars compare within a group.</p>`));
+  const rs = $(`<button class="next ghost" style="position:static;margin-top:6px">Reset history</button>`); rs.onclick = () => { store.set("book", {}); o.remove(); }; body.appendChild(rs);
+  const o = overlay("Where your EV goes", body);
+}
 function renderFilters(){
   const el = document.getElementById("filters"); el.innerHTML = "";
   [["Hands","hands"],["Drills","drills"]].forEach(([n, v]) => { const c = $(`<div class="chip ${state.mode === v ? "on" : ""}">${n}</div>`); c.onclick = () => { state.mode = v; store.set("mode", v); start(); }; el.appendChild(c); });
+  const lk = $(`<div class="chip">Leaks</div>`); lk.onclick = leakSheet; el.appendChild(lk);
   if (state.mode === "hands") return;
   [["All",-1],["Flop",0],["Turn",1],["River",2]].forEach(([n, v]) => { const c = $(`<div class="chip ${state.street === v ? "on" : ""}">${n}</div>`); c.onclick = () => { state.street = v; store.set("street", v); state.queue = []; renderFilters(); next(); }; el.appendChild(c); });
+  const fc = $(`<div class="chip ${state.focus ? "on" : ""}">${state.focus ? "Focus: " + (state.focus === "leaks" ? "my leaks" : state.focus) : "Focus"}</div>`); fc.onclick = focusSheet; el.appendChild(fc);
   const rc = $(`<div class="chip ${state.rangeCheck ? "on" : ""}">Range check</div>`); rc.onclick = () => { state.rangeCheck = !state.rangeCheck; store.set("rangeCheck", state.rangeCheck); renderFilters(); renderSpot(); }; el.appendChild(rc);
 }
 document.addEventListener("keydown", e => { if (!state.cur) return; if (e.key === " " || e.key === "Enter"){ const b = document.querySelector("button.next:not(.ghost)"); if (b){ e.preventDefault(); b.click(); } } else if (/^[1-4]$/.test(e.key)){ const b = document.querySelectorAll(".act")[+e.key-1]; if (b) b.click(); } });

@@ -38,4 +38,6 @@ for form in ("btn_bb", "co_bb", "utg_bb"):
     new = [min(0.5 * prev[c] + 0.5 * br[c], 1 - three[form][c]) for c in range(169)]
     pct = lambda w: 100 * sum(w[c] * COMBOS[c] for c in range(169)) / 1326
     open(os.path.join(HERE, f"rounds/r{k + 1}/{form}.p0"), "w").write(",".join(f"{name(c)}:{new[c]:.3f}" for c in range(169) if new[c] >= 0.02))
+    gaps = globals().setdefault("gaps", []); gaps.append(abs(pct(br) - pct(prev) - pct(three[form])))
     print(f"{form}: solved with {pct(prev):.1f}% calls -> best response {pct(br):.1f}% (incl. 3-bet hands) -> next round {pct(new):.1f}% calls + {pct(three[form]):.1f}% 3-bets, {len(next(iter(evs.values())))} flops")
+print(f"GAP {max(gaps):.1f}")
