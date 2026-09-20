@@ -26,3 +26,4 @@ solver/calib_pre_r*/
 .env*
 !.env.example
 web/.creds
+web/*.foldpack

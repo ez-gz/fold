@@ -845,8 +845,8 @@ async function loadSplit(url){
   const order = [...Array(n).keys()].sort(() => Math.random() - 0.5);
   const want = SHARED ? index.flops.findIndex(e => flopKey(e) === SHARED[1]) : -1;
   if (want >= 0) order.unshift(...order.splice(order.indexOf(want), 1));
-  const pack = { version: index.version, ranges: index.ranges, tree: index.tree, formations: index.formations, flops: await Promise.all(order.slice(0, 2).map(one)) };
-  (async () => { for (let k = 2; k < n; k += 3) { try { (await Promise.all(order.slice(k, k + 3).map(one))).forEach(f => pack.flops.push(f)); state.ppool = null; } catch (e) { console.error(e); } } })();
+  const pack = { version: index.version, ranges: index.ranges, tree: index.tree, formations: index.formations, flops: await Promise.all(order.slice(0, 2).map(one)), loading: n > 2 };
+  (async () => { for (let k = 2; k < n; k += 3) { try { (await Promise.all(order.slice(k, k + 3).map(one))).forEach(f => pack.flops.push(f)); state.ppool = null; } catch (e) { console.error(e); } } pack.loading = false; })();
   return pack;
 }
 async function loadFoldpack(url){
@@ -924,6 +924,7 @@ function puzzleWhy(s, W, inPre, CO){
 }
 function nextPuzzle(){
   const pool = state.ppool || (state.ppool = puzzlePool());
+  if (!pool.length && PACK.loading){ state.ppool = null; main.innerHTML = `<div class="empty">Loading puzzles…</div>`; setTimeout(() => { if (state.mode === "puzzle") nextPuzzle(); }, 400); return; }   // split pack still streaming in
   if (!pool.length){ main.innerHTML = `<div class="empty">This pack has no narrow ranges to puzzle over yet.</div>`; return; }
   const sh = takeShared("p"), sf = sh && flopAt(sh[0]), { f, s } = sf && sf.spots[sh[1]] && sf.spots[sh[1]].vcombos ? { f: sf, s: sf.spots[sh[1]] } : pool[Math.floor(Math.random() * pool.length)], F = formInfo(f), tb = F.three_bet || f.three_bet || 0;
   setShare("p", f._k, f.spots.indexOf(s));
