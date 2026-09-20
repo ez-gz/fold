@@ -89,7 +89,9 @@ fn load_hands(form: &Formation, flop: &[u8]) -> ([Vec<(u8, u8)>; 2], [Vec<f32>; 
         let mut all = std::collections::BTreeMap::<(u8, u8), f32>::new();
         let only: Option<usize> = std::env::var("FOLD_EPS_P").ok().and_then(|x| x.parse().ok());   // extend one player only (memory)
         if eps > 0.0 && only.map_or(true, |o| o == p) { for a in 0..52u8 { for b in a + 1..52 { all.insert((a, b), eps); } } }
-        for (h, w) in range::parse_range(r) { all.insert(h, w.max(eps)); }
+        // FOLD_RANGE0 / FOLD_RANGE1 replace a player's range (preflop iteration rounds)
+        let over = std::env::var(format!("FOLD_RANGE{p}")).ok();
+        for (h, w) in range::parse_range(over.as_deref().unwrap_or(r)) { all.insert(h, w.max(eps)); }
         for (h, w) in all {
             if flop.contains(&h.0) || flop.contains(&h.1) { continue; }
             hands[p].push(h); weights[p].push(w);
@@ -278,6 +280,16 @@ fn main() {
             let form = FORMATIONS.iter().find(|f| f.key == args[2]).expect("unknown formation");
             let s = solve(form, &args[3], get("--iters", "300").parse().unwrap(), get("--target", "1.0").parse().unwrap(), false);
             println!("{}", class_cells(&s, &args[3]));
+        }
+        Some("classrange") => {
+            // one player's range as explicit per-class weights: "AA:1.000,AKs:0.500,..."
+            let form = FORMATIONS.iter().find(|f| f.key == args[2]).expect("unknown formation");
+            let mut m = std::collections::BTreeMap::<usize, (f32, f32)>::new();
+            for (h, w) in range::parse_range(form.ranges[args[3].parse::<usize>().unwrap()]) { let e = m.entry(cards::grid_cell(h)).or_insert((0.0, 0.0)); e.0 += w; e.1 += if h.0 / 4 == h.1 / 4 { 6.0 } else if h.0 % 4 == h.1 % 4 { 4.0 } else { 12.0 } / if h.0 / 4 == h.1 / 4 { 6.0 } else if h.0 % 4 == h.1 % 4 { 4.0 } else { 12.0 }; }
+            let rk = |i: usize| cards::RANKS[12 - i] as char;
+            println!("{}", m.iter().map(|(c, (w, k))| { let (row, col) = (c / 13, c % 13);
+                let name = if row == col { format!("{}{}", rk(row), rk(row)) } else if row < col { format!("{}{}s", rk(row), rk(col)) } else { format!("{}{}o", rk(col), rk(row)) };
+                format!("{}:{:.3}", name, w / k) }).collect::<Vec<_>>().join(","));
         }
         Some("ranges") => for f in FORMATIONS.iter() {
             let pct = |r: &str| range::parse_range(r).iter().map(|e| e.1).sum::<f32>() / 13.26;
