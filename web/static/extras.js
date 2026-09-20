@@ -22,13 +22,17 @@
 
   /* ---------- cloud sync (optional) ---------- */
   let sb = null, user = null, pushT = null;
+  // Returning from the sign-in redirect: take the one-time code out of the URL right now, before the app rewrites the
+  // address bar for share links (that rewrite used to wipe the sign-in token, so the session was never picked up).
+  const authCode = (() => { const q = new URLSearchParams(location.search), c = q.get("code"); if (!c && !q.get("error")) return null; ["code", "error", "error_code", "error_description"].forEach(k => q.delete(k)); const s = q.toString(); history.replaceState(null, "", location.pathname + (s ? "?" + s : "") + location.hash); return c; })();
   const loadScript = src => new Promise((ok, no) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = no; document.head.appendChild(s); });
   async function initAuth(){
     let cfg; try { cfg = await (await fetch("config.json")).json(); } catch (e) { return; }
     if (!cfg.supabaseUrl || !cfg.supabaseAnonKey) return;
     await loadScript("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2");
-    sb = supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey); sb._providers = cfg.providers || ["apple", "google"];
+    sb = supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, { auth: { flowType: "pkce", detectSessionInUrl: false, persistSession: true, autoRefreshToken: true } }); sb._providers = cfg.providers || ["apple", "google"];
     sb.auth.onAuthStateChange((_e, s) => { const was = user; user = s ? s.user : null; btn.classList.toggle("in", !!user); if (user && !was) reconcile(); });
+    if (authCode) { const { error } = await sb.auth.exchangeCodeForSession(authCode); if (error) console.error("sign-in failed", error.message); }
     // come back to the hand or puzzle the visitor was on before the sign-in redirect
     const back = sessionStorage.getItem("fold.back"); if (back) { sessionStorage.removeItem("fold.back"); if (!/^#[hp]=/.test(location.hash)) history.replaceState(null, "", location.pathname + location.search + back); }
   }
