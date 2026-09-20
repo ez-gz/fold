@@ -19,6 +19,19 @@ header .stats{margin-left:auto;font-size:12px;color:var(--dim);font-variant-nume
 .chip{border:1px solid var(--line);background:var(--panel);color:var(--dim);border-radius:999px;padding:5px 11px;font-size:12px;cursor:pointer;user-select:none}
 .overlay{position:fixed;inset:0;background:#000a;z-index:50;display:flex;align-items:flex-end;justify-content:center}.overlay>.sheet{width:min(560px,100%);max-height:86vh;overflow:auto;margin:0;border-radius:18px 18px 0 0}.overlay h3{display:flex;justify-content:space-between}.overlay .x{color:var(--dim);font-size:12px;cursor:pointer}
 .cell.miss.soft{box-shadow:inset 0 0 0 1px var(--bad)}.cell.extra.soft{box-shadow:inset 0 0 0 1px var(--warn)}
+.cell.sd::before{content:"";position:absolute;top:2px;right:2px;width:5px;height:5px;border-radius:50%;border:1px solid #fff;z-index:3}
+.pzcount{font-size:12px;color:var(--dim);margin:0 0 8px}.pzcount b{color:var(--text,#fff);font-size:16px}
+.pzg{display:flex;flex-wrap:wrap;gap:6px}
+.pzc{border:1px solid #ffffff1f;border-radius:12px;background:#ffffff08;overflow:hidden;animation:pzin .28s both cubic-bezier(.2,.9,.3,1.2);transition:background .18s,border-color .18s,flex-basis .2s}
+.pzc .hd{display:flex;gap:8px;align-items:baseline;padding:9px 12px;cursor:pointer;-webkit-tap-highlight-color:transparent}.pzc .hd b{font-size:15px}.pzc .n{font-size:11px;color:var(--dim)}
+.pzc.on{background:#2fd39a22;border-color:var(--accent)}.pzc.part{border-style:dashed}.pzc.dead{opacity:.35}
+.pzc{flex:0 0 calc(25% - 5px);box-sizing:border-box}.pzc .hd{justify-content:space-between;padding:10px 9px}
+.pzc .cbs{display:none;gap:5px;padding:2px 10px 10px;grid-template-columns:repeat(auto-fill,minmax(74px,1fr))}
+.pzc.open{flex-basis:100%}.pzc.open .cbs{display:grid;animation:pzin .22s both ease-out}.pzc.open .hd{justify-content:flex-start}
+.cb{display:flex;gap:3px;justify-content:center;padding:6px 4px;border-radius:9px;background:#ffffff0d;border:1px solid transparent;opacity:.45;cursor:pointer;transition:opacity .15s,transform .15s,background .25s,border-color .25s}
+.cb.on{opacity:1;border-color:#ffffff40;transform:scale(1.03)}.cb.ok{background:#2fd39a33;border-color:var(--accent);opacity:1}.cb.miss{border-color:var(--bad);background:#ff5d5d22;opacity:1}.cb.extra{border-color:var(--warn);background:#ffb84d22;opacity:1}
+.mc{font-weight:700;font-size:13px;background:#fff;color:#111;border-radius:5px;padding:2px 4px;min-width:26px;text-align:center}.mc.h,.mc.d{color:#d22}.mc.d{color:#1565c0}.mc.c{color:#1b7f3b}
+@keyframes pzin{from{opacity:0;transform:translateY(8px) scale(.92)}to{opacity:1;transform:none}}
 .chip.on{color:#06110c;background:var(--accent);border-color:var(--accent);font-weight:600}
 .table{margin-top:10px;background:radial-gradient(120% 90% at 50% 0%,#17303a 0%,#10202a 55%,#0d161e 100%);border:1px solid var(--line);border-radius:22px;padding:14px 14px 16px;position:relative;overflow:hidden}
 .meta{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em}
@@ -390,13 +403,13 @@ function renderRangeCheck(){
     const vmax = Math.max(...s.vr, 1e-9), T = s.vr.map(t => Math.min(1, t / vmax));
     const combos = i => (i%14 === 0 ? 6 : Math.floor(i/13) < i%13 ? 4 : 12);
     T.forEach((t, i) => { const n = combos(i), on = sel.has(i); hitW += on ? t*n : 0; miss += on ? 0 : t*n; extra += on ? (1-t)*n : 0; });
-    // The truth is fractional (a cell can be 40% there) but the player paints whole cells, so even a perfect
-    // painting cannot reach 100% raw overlap. Score against the best painting that is possible.
-    const raw = 2*hitW / (2*hitW + miss + extra || 1), tot = T.reduce((a, t, i) => a + t*combos(i), 0);
-    let best = 0, h = 0, e = 0; [...T.keys()].sort((x, y) => T[y] - T[x]).forEach(i => { h += T[i]*combos(i); e += (1-T[i])*combos(i); best = Math.max(best, 2*h / (2*h + (tot-h) + e)); });
-    const score = Math.min(1, raw / (best || 1));
-    [...g.children].forEach((c, i) => { const t = T[i], on = sel.has(i); c.className = "cell" + (t > 0.02 ? " in" : "") + (t >= 0.5 && !on ? " miss" : t < 0.15 && on ? " extra" : t >= 0.25 && !on ? " miss soft" : t < 0.35 && on ? " extra soft" : ""); c.firstChild.style.cssText = t > 0.02 ? `background:var(--call);opacity:${0.2+0.8*t}` : ""; });
-    sheet.querySelector(".prompt").innerHTML = `Range read: <b>${pct(score)}</b> overlap. <span style="color:var(--bad)">Red</span> = hands you missed, <span style="color:var(--warn)">amber</span> = hands they don't have. Now act.`;
+    // Painting is all-or-nothing, so the truth is too: a cell is in the range if villain gets here with it at least
+    // 30% as often as with their fullest cell, out if under 12%, and in between either answer is accepted.
+    const IN = 0.3, OUT = 0.12; hitW = miss = extra = 0;
+    T.forEach((t, i) => { if (t >= OUT && t < IN) return; const n = combos(i), on = sel.has(i), tin = t >= IN; if (tin && on) hitW += n; else if (tin) miss += n; else if (on) extra += n; });
+    const score = 2*hitW / (2*hitW + miss + extra || 1);
+    [...g.children].forEach((c, i) => { const t = T[i], on = sel.has(i); c.className = "cell" + (t > 0.02 ? " in" : "") + (t >= IN && !on ? " miss" : t < OUT && on ? " extra" : ""); c.firstChild.style.cssText = t > 0.02 ? `background:var(--call);opacity:${0.2+0.8*t}` : ""; });
+    sheet.querySelector(".prompt").innerHTML = `Range read: <b>${pct(score)}</b> overlap. <span style="color:var(--bad)">Red</span> = hands you missed, <span style="color:var(--warn)">amber</span> = hands they don't have. ${suitNote(s)} Now act.`;
     sheet.querySelector("#presets").remove(); wrap.remove(); done.remove(); g.style.pointerEvents = "none";
     state.cur.rangeScore = score; renderActions(); document.getElementById("actions").scrollIntoView({ behavior: "smooth", block: "center" });
   };
@@ -654,6 +667,17 @@ function valueSheet(f, s, d, chosen, gr){
   return sheet;
 }
 
+const SUITCH = { s: "♠", h: "♥", d: "♦", c: "♣" };
+/* cells where villain's flush-suit combos and the other suits are treated very differently */
+function suitCells(s){
+  if (!s.vsuit) return []; const mx = Math.max(...s.vr, 1e-9), W = s.vsuit.with, O = s.vsuit.without;
+  return [...Array(169).keys()].filter(i => W[i] >= 0 && O[i] >= 0 && Math.abs(W[i] - O[i]) / mx >= 0.4).sort((x, y) => Math.abs(W[y] - O[y]) - Math.abs(W[x] - O[x]));
+}
+function suitNote(s){
+  const c = suitCells(s); if (!c.length) return ""; const ch = SUITCH[s.vsuit.suit], W = s.vsuit.with, O = s.vsuit.without;
+  const more = c.filter(i => W[i] > O[i]).slice(0, 3).map(cellName), less = c.filter(i => W[i] < O[i]).slice(0, 3).map(cellName);
+  return ` <span style="color:var(--dim)">Suits matter: ${more.length ? `${more.join(", ")} mostly with a ${ch}` : ""}${more.length && less.length ? "; " : ""}${less.length ? `${less.join(", ")} mostly without` : ""}.</span>`;
+}
 function lens(f, s, d, chosen, gr){
   const sheet = $(`<div class="sheet"><h3>Range lens — ${s.villain}</h3><div class="seg" id="tabs"></div><div class="kpis" id="kpis"></div><div id="g"></div><div class="legend" id="leg"></div><div class="bars" id="bars"></div></div>`);
   const g = gridEl(); sheet.querySelector("#g").appendChild(g);
@@ -662,10 +686,16 @@ function lens(f, s, d, chosen, gr){
     [...sheet.querySelectorAll("#tabs div")].forEach((el, k) => el.classList.toggle("on", tabs[k] === t));
     const kp = sheet.querySelector("#kpis"), leg = sheet.querySelector("#leg"), bars = sheet.querySelector("#bars");
     const barRow = (name, parts, val) => `<div class="bar"><span>${name}</span><div class="t">${parts.map(p => `<i style="width:${100*p.v}%;background:${p.c}"></i>`).join("")}</div><b>${val}</b></div>`;
+    [...g.children].forEach(c => c.classList.remove("sd"));
     if (t.a === -1){
-      paintSplit(g, s.vr, [{ color: "var(--call)", grid: Array(169).fill(1) }], -1);
+      const sv = sheet._suit || 0, src = !s.vsuit || !sv ? s.vr : (sv === 1 ? s.vsuit.with : s.vsuit.without).map(x => Math.max(0, x));
+      paintSplit(g, src, [{ color: "var(--call)", grid: Array(169).fill(1) }], -1);
+      const marks = new Set(sv ? [] : suitCells(s)); [...g.children].forEach((c, i) => c.classList.toggle("sd", marks.has(i)));
       kp.innerHTML = `<div class="kpi"><b>${pct(d.eq)}</b><span>your equity</span></div><div class="kpi"><b>${pct(s.vclass[0]+s.vclass[1])}</b><span>top pair+</span></div><div class="kpi"><b>${pct(s.vclass[5]+s.vclass[6])}</b><span>ace-high / air</span></div>`;
       leg.innerHTML = `<span><i style="background:var(--call)"></i>in range (brighter = more combos)</span>`;
+      if (s.vsuit){ const ch = SUITCH[s.vsuit.suit], row = $(`<div class="chips" style="margin:6px 0 0">${["All suits", "With a " + ch, "No " + ch].map((n, k) => `<div class="chip ${k === (sheet._suit || 0) ? "on" : ""}">${n}</div>`).join("")}</div>`);
+        [...row.children].forEach((el, k) => el.onclick = () => { sheet._suit = k; show(t); }); leg.appendChild(row);
+        if (marks.size) leg.appendChild($(`<span><i style="background:none;border:1px solid #fff;border-radius:50%"></i>${ch} combos play differently</span>`)); }
       bars.innerHTML = f.class_names.map((n, c) => barRow(n, [{ v: s.vclass[c], c: "var(--call)" }], pct(s.vclass[c]))).join("");
     } else if (t.a === -2){
       const bi = k => s.actions.filter(x => x.kind === s.actions[k].kind).indexOf(s.actions[k]);
@@ -722,9 +752,9 @@ function leakSheet(){
 }
 function renderFilters(){
   const el = document.getElementById("filters"); el.innerHTML = "";
-  [["Hands","hands"],["Drills","drills"]].forEach(([n, v]) => { const c = $(`<div class="chip ${state.mode === v ? "on" : ""}">${n}</div>`); c.onclick = () => { state.mode = v; store.set("mode", v); start(); }; el.appendChild(c); });
+  [["Hands","hands"],["Drills","drills"],["Puzzle","puzzle"]].forEach(([n, v]) => { const c = $(`<div class="chip ${state.mode === v ? "on" : ""}">${n}</div>`); c.onclick = () => { state.mode = v; store.set("mode", v); start(); }; el.appendChild(c); });
   const lk = $(`<div class="chip">Leaks</div>`); lk.onclick = leakSheet; el.appendChild(lk);
-  if (state.mode === "hands") return;
+  if (state.mode === "hands" || state.mode === "puzzle") return;
   [["All",-1],["Flop",0],["Turn",1],["River",2]].forEach(([n, v]) => { const c = $(`<div class="chip ${state.street === v ? "on" : ""}">${n}</div>`); c.onclick = () => { state.street = v; store.set("street", v); state.queue = []; renderFilters(); next(); }; el.appendChild(c); });
   const fc = $(`<div class="chip ${state.focus ? "on" : ""}">${state.focus ? "Focus: " + (state.focus === "leaks" ? "my leaks" : state.focus) : "Focus"}</div>`); fc.onclick = focusSheet; el.appendChild(fc);
   const rc = $(`<div class="chip ${state.rangeCheck ? "on" : ""}">Range check</div>`); rc.onclick = () => { state.rangeCheck = !state.rangeCheck; store.set("rangeCheck", state.rangeCheck); renderFilters(); renderSpot(); }; el.appendChild(rc);
@@ -747,7 +777,55 @@ async function loadFoldpack(url){
   if (!PACK || !PACK.flops.length){ main.innerHTML = `<div class="empty">No pack found. Run <code>fold-cli solve</code> then <code>fold-cli pack</code>.</div>`; return; }
   start();
 })();
-function start(){ state.hand = null; renderFilters(); renderStats(); state.mode === "hands" ? nextHand() : next(); }
+/* ---------- range puzzle: name villain's exact combos when the range is narrow ---------- */
+function puzzlePool(){ const out = []; PACK.flops.forEach(f => f.spots.forEach(s => { if (s.vcombos && s.vcombos.filter(c => c[1] >= 0.3).length >= 6) out.push({ f, s }); })); return out; }
+function comboCell(c){ return cellOf([c.slice(0, 2), c.slice(2, 4)]); }
+function allCombos(cell, board){
+  const r = Math.floor(cell / 13), c = cell % 13, S = "shdc", out = [], hi = R[Math.min(r, c)], lo = R[Math.max(r, c)];
+  for (const a of S) for (const b of S){ if (r === c ? S.indexOf(a) >= S.indexOf(b) : (r < c) !== (a === b)) continue; const x = hi + a, y = lo + b; if (board.includes(x) || board.includes(y)) continue; out.push(x + y); }
+  return out;
+}
+function nextPuzzle(){
+  const pool = state.ppool || (state.ppool = puzzlePool());
+  if (!pool.length){ main.innerHTML = `<div class="empty">This pack has no narrow ranges to puzzle over yet.</div>`; return; }
+  const { f, s } = pool[Math.floor(Math.random() * pool.length)], F = formInfo(f), tb = F.three_bet || f.three_bet || 0;
+  const norm = c => { const a = c.slice(0, 2), b = c.slice(2, 4); return R.indexOf(a[0]) < R.indexOf(b[0]) || (a[0] === b[0] && "shdc".indexOf(a[1]) < "shdc".indexOf(b[1])) ? a + b : b + a; };
+  const W = {}; s.vcombos.forEach(([c, w]) => W[norm(c)] = w);
+  const truthCells = [...new Set(s.vcombos.filter(c => c[1] >= 0.3).map(c => comboCell(c[0])))];
+  // decoys: hands villain started with that did not make it here, closest neighbours of the real ones first
+  const pre = F.pre ? F.pre[F.pos.indexOf(s.villain)] : null, dist = i => Math.min(...truthCells.map(t => Math.abs(Math.floor(t/13) - Math.floor(i/13)) + Math.abs(t%13 - i%13)));
+  const decoys = [...Array(169).keys()].filter(i => !truthCells.includes(i) && (!pre || pre[i] >= 0.3) && allCombos(i, s.board).length).sort((x, y) => dist(x) - dist(y) + (Math.random() - 0.5)).slice(0, Math.max(6, Math.round(truthCells.length * 0.8)));
+  const cells = [...truthCells, ...decoys].sort((x, y) => x - y), sel = new Set(), open = new Set();
+  const pill = (pos, txt, kind) => `<span class="pl ${kind}"><b>${pos}</b>${txt}</span>`, hk = h => /call/i.test(h.label) ? "call" : /bet|raise|all/i.test(h.label) ? "raise" : "chk";
+  const rows = [[-1, tb ? [pill(F.caller, bbf(F.open_size), "raise"), pill(F.opener, "3-bet " + bbf(tb), "raise"), pill(F.caller, "call", "call")] : [pill(F.opener, bbf(F.open_size), "raise"), pill(F.caller, "call", "call")]]];
+  (s._raw ? s._raw.history : s.history).forEach(h => { if (rows[rows.length-1][0] !== h.street) rows.push([h.street, []]); rows[rows.length-1][1].push(pill(h.pos, String(h.label).toLowerCase(), hk(h))); });
+  const need = s.vcombos.filter(c => c[1] >= 0.3).length;
+  main.innerHTML = "";
+  main.appendChild($(`<div class="table"><div class="hist">${rows.map(([st, ps]) => `<div class="hrow past"><span class="st">${st < 0 ? "Pre" : STREETS[st]}</span><div class="pls">${ps.join("")}</div></div>`).join("")}</div><div class="board">${s.board.map(c => cardEl(c)).join("")}</div></div>`));
+  const sheet = $(`<div class="sheet pz"><p class="prompt"><b>${s.villain}</b> gets here with about <b>${need}</b> combos. Find them. Tap a hand to add all its combos, tap a combo to drop it.</p><div class="pzcount"><b id="pzn">0</b> / ${need} picked</div><div class="pzg" id="pzg"></div></div>`);
+  const grid = sheet.querySelector("#pzg"), mini = c => `<span class="mc ${c[1]}">${c[0] === "T" ? "10" : c[0]}${SUITCH[c[1]]}</span>`;
+  const draw = () => { sheet.querySelector("#pzn").textContent = sel.size; [...grid.children].forEach(el => { const i = +el.dataset.i, cs = allCombos(i, s.board), n = cs.filter(c => sel.has(c)).length;
+      el.classList.toggle("on", n > 0); el.classList.toggle("part", n > 0 && n < cs.length); el.classList.toggle("open", open.has(i)); el.querySelector(".n").textContent = n ? `${n}/${cs.length}` : cs.length;
+      [...el.querySelectorAll(".cb")].forEach(b => b.classList.toggle("on", sel.has(b.dataset.c))); }); };
+  cells.forEach((i, k) => { const cs = allCombos(i, s.board);
+    const el = $(`<div class="pzc" data-i="${i}" style="animation-delay:${k * 18}ms"><div class="hd"><b>${cellName(i)}</b><span class="n"></span></div><div class="cbs">${cs.map(c => `<div class="cb" data-c="${c}">${mini(c.slice(0, 2))}${mini(c.slice(2, 4))}</div>`).join("")}</div></div>`);
+    el.querySelector(".hd").onclick = () => { if (state.pzDone) return; const any = cs.some(c => sel.has(c)); if (any && open.has(i)){ cs.forEach(c => sel.delete(c)); open.delete(i); } else { if (!any) cs.forEach(c => sel.add(c)); open.clear(); open.add(i); } draw(); };
+    [...el.querySelectorAll(".cb")].forEach(b => b.onclick = e => { e.stopPropagation(); if (state.pzDone) return; sel.has(b.dataset.c) ? sel.delete(b.dataset.c) : sel.add(b.dataset.c); draw(); });
+    grid.appendChild(el); });
+  state.pzDone = false; draw();
+  const done = $(`<button class="next" style="position:static;margin-top:10px">Lock in</button>`);
+  done.onclick = () => {
+    state.pzDone = true; let hit = 0, miss = 0, extra = 0, k = 0;
+    [...grid.children].forEach(el => { [...el.querySelectorAll(".cb")].forEach(b => { const w = W[b.dataset.c] || 0, on = sel.has(b.dataset.c), tin = w >= 0.3, grey = w >= 0.05 && w < 0.3;
+      const cls = tin && on ? "ok" : tin ? "miss" : grey ? "" : on ? "extra" : ""; if (cls === "ok" && tin) hit++; if (cls === "miss") miss++; if (cls === "extra") extra++;
+      b.style.transitionDelay = (k++ * 6) + "ms"; if (cls) b.classList.add(cls); if (w >= 0.05) b.title = Math.round(100 * w) + "%"; }); el.classList.toggle("open", !!el.querySelector(".cb.ok,.cb.miss,.cb.extra")); el.classList.toggle("dead", ![...el.querySelectorAll(".cb")].some(b => b.classList.contains("ok") || b.classList.contains("miss") || b.classList.contains("extra"))); });
+    const score = 2*hit / (2*hit + miss + extra || 1), st = store.get("puzzle", { n: 0, sum: 0 }); st.n++; st.sum += score; store.set("puzzle", st);
+    sheet.querySelector(".prompt").innerHTML = `<b>${pct(score)}</b> · found ${hit} of ${need}${miss ? `, <span style="color:var(--bad)">missed ${miss}</span>` : ""}${extra ? `, <span style="color:var(--warn)">${extra} not there</span>` : ""}. ${suitNote(s)} <span style="color:var(--dim)">Average ${pct(st.sum / st.n)} over ${st.n}.</span>`;
+    done.textContent = "Next puzzle →"; done.onclick = nextPuzzle; window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+  sheet.appendChild(done); main.appendChild(sheet); window.scrollTo(0, 0);
+}
+function start(){ state.hand = null; renderFilters(); renderStats(); state.mode === "puzzle" ? nextPuzzle() : state.mode === "hands" ? nextHand() : next(); }
 </script>
 </body>
 </html>

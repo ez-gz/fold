@@ -33,7 +33,15 @@ struct Spot {
     vr: Vec<f32>, hr: Vec<f32>, hs: Vec<Vec<f32>>, range_freq: Vec<f32>,
     vclass: Vec<f32>, hclass: Vec<f32>, hclass_strat: Vec<Vec<f32>>,
     resp: Vec<Option<Resp>>, drills: Vec<Drill>,
+    /// villain's range split by the board's flush suit (boards with 2+ of one suit): cells for combos that hold
+    /// the suit (both cards if suited, at least one otherwise) and for the rest
+    #[serde(skip_serializing_if = "Option::is_none")] vsuit: Option<SuitSplit>,
+    /// villain's exact combos when the range is narrow enough to name them (weight relative to the fullest combo)
+    #[serde(skip_serializing_if = "Option::is_none")] vcombos: Option<Vec<(String, f32)>>,
 }
+
+#[derive(Serialize)]
+struct SuitSplit { suit: char, with: Vec<f32>, without: Vec<f32> }
 
 #[derive(Serialize)]
 struct Step { spot: Spot, line: usize }
@@ -455,6 +463,30 @@ fn build_spot(s: &Solved, c: &Cand, idx: usize, rng: &mut Rng, forced: Option<us
     for k in 0..7 { for x in 0..na { hclass_strat[k][x] = r3(hclass_strat[k][x] / hclass_mass[k].max(1e-9)); } }
 
     let pot = s.cfg.start_pot + a.commit[0] + a.commit[1];
+    let vsuit = {
+        let mut n = [0u8; 4]; for c in &c.board { n[(*c % 4) as usize] += 1; }
+        let (si, cnt) = n.iter().enumerate().max_by_key(|x| *x.1).map(|(i, k)| (i as u8, *k)).unwrap();
+        if cnt >= 2 {
+            let holds = |h: &(u8, u8)| { let (a, b) = (h.0 % 4 == si, h.1 % 4 == si); if h.0 % 4 == h.1 % 4 { a } else { a || b } };
+            let part = |want: bool| -> Vec<f32> {
+                let (mut g, mut den) = (vec![0f32; 169], vec![0f32; 169]);
+                for (i, h) in ctx.hands[vp].iter().enumerate() {
+                    if holds(h) != want || c.board.contains(&h.0) || c.board.contains(&h.1) { continue; }
+                    g[grid_cell(*h)] += vreach[i]; den[grid_cell(*h)] += 1.0;
+                }
+                g.iter().zip(&den).map(|(x, d)| if *d > 0.0 { r3(x / d) } else { -1.0 }).collect()
+            };
+            Some(SuitSplit { suit: card_str(si).chars().nth(1).unwrap(), with: part(true), without: part(false) })
+        } else { None }
+    };
+    let vcombos = {
+        let mx = vreach.iter().cloned().fold(0f32, f32::max).max(1e-9);
+        let mut v: Vec<(String, f32)> = ctx.hands[vp].iter().enumerate()
+            .filter(|(i, h)| vreach[*i] / mx >= 0.05 && !c.board.contains(&h.0) && !c.board.contains(&h.1))
+            .map(|(i, h)| (format!("{}{}", card_str(h.1), card_str(h.0)), r3(vreach[i] / mx))).collect();
+        v.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        if v.len() <= 90 { Some(v) } else { None }
+    };
     Some(Spot {
         id: format!("{}-{}", s.flop.iter().map(|c| card_str(*c)).collect::<String>(), idx),
         board: c.board.iter().map(|c| card_str(*c)).collect(),
@@ -464,7 +496,7 @@ fn build_spot(s: &Solved, c: &Cand, idx: usize, rng: &mut Rng, forced: Option<us
         actions: a.actions.iter().map(|x| { let (label, kind, amt) = act_label(x); ActOut { label, kind, amt: r3(amt) } }).collect(),
         vr: grid(&ctx.hands[vp], vreach, &av), hr: grid(&ctx.hands[hp], hreach, &av), hs, range_freq,
         vclass: class_share(&vcls, vreach, vtotal), hclass: class_share(&hcls, hreach, htotal), hclass_strat,
-        resp, drills,
+        resp, drills, vsuit, vcombos,
     })
 }
 
