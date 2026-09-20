@@ -150,7 +150,43 @@ pub fn equity_all(s: &Solved, board: &[u8], p: usize, wp: &[f32], wo: &[f32]) ->
 #[derive(Serialize)]
 struct FlopFile {
     flop: String, formation: &'static str, pos: [&'static str; 2], opener: &'static str, caller: &'static str, open_size: f32, three_bet: f32, hands: Vec<Hand>, rake: &'static str, exploitability_pct_pot: f32, iterations: u32,
-    start_pot: f32, eff_stack: f32, tree: String, ranges: &'static str, class_names: Vec<&'static str>, spots: Vec<Spot>,
+    start_pot: f32, eff_stack: f32, tree: String, ranges: &'static str, class_names: Vec<&'static str>, spots: Vec<Spot>, briefing: Briefing,
+}
+
+/// Flop-level summary shown before the first decision: whose board this is and how each range starts.
+#[derive(Serialize)]
+struct Briefing {
+    /// per player [OOP, IP]: range equity, share of range with 75%+ equity, share under 35%, class shares
+    equity: [f32; 2], strong: [f32; 2], weak: [f32; 2], classes: [Vec<f32>; 2],
+    /// OOP's first action, then IP's action after a check: labels and range frequencies
+    first: Vec<(String, f32)>, after_check: Vec<(String, f32)>,
+}
+
+fn briefing(s: &Solved) -> Briefing {
+    let ctx = &s.ctx;
+    let w = [&ctx.weights[0], &ctx.weights[1]];
+    let (mut equity, mut strong, mut weak) = ([0f32; 2], [0f32; 2], [0f32; 2]);
+    let mut classes: [Vec<f32>; 2] = [vec![], vec![]];
+    for p in 0..2 {
+        let eq = equity_all(s, &s.flop, p, w[p], w[1 - p]);
+        let mut tot = 0f32;
+        for g in 0..eq.len() { if eq[g] < 0.0 { continue; } tot += w[p][g]; equity[p] += w[p][g] * eq[g]; if eq[g] >= 0.75 { strong[p] += w[p][g]; } if eq[g] < 0.35 { weak[p] += w[p][g]; } }
+        equity[p] = r3(equity[p] / tot); strong[p] = r3(strong[p] / tot); weak[p] = r3(weak[p] / tot);
+        let cls: Vec<u8> = ctx.hands[p].iter().map(|h| classify(*h, &s.flop)).collect();
+        classes[p] = class_share(&cls, w[p], w[p].iter().sum());
+    }
+    let freq = |a: &ActionNode, reach: &[f32]| -> Vec<(String, f32)> {
+        let n = ctx.hands[a.player as usize].len(); let st = avg_strategy(a, n); let tot: f32 = reach.iter().sum();
+        (0..a.actions.len()).map(|x| (act_label(&a.actions[x]).0, r3((0..n).map(|h| reach[h] * st[x * n + h]).sum::<f32>() / tot))).collect()
+    };
+    let (mut first, mut after_check) = (vec![], vec![]);
+    if let Node::Action(a) = &s.root {
+        first = freq(a, w[a.player as usize]);
+        if let Some(ci) = a.actions.iter().position(|x| matches!(x, Act::Check)) {
+            if let Node::Action(b) = &a.children[ci] { after_check = freq(b, w[b.player as usize]); }
+        }
+    }
+    Briefing { equity, strong, weak, classes, first, after_check }
 }
 
 struct Rng(u64);
@@ -429,7 +465,7 @@ pub fn export(s: &Solved, rake: bool, seed: u64, out: &str) {
         exploitability_pct_pot: r3(100.0 * s.expl / s.cfg.start_pot), iterations: s.iters,
         start_pot: s.cfg.start_pot, eff_stack: s.cfg.eff_stack,
         tree: format!("bets {:?} raises {:?} max_raises {}", s.cfg.bets, s.cfg.raises, s.cfg.max_raises),
-        ranges: "PLACEHOLDER hand-written approximations of 100bb charts", class_names: CLASS_NAMES.to_vec(), spots,
+        ranges: "PLACEHOLDER hand-written approximations of 100bb charts", class_names: CLASS_NAMES.to_vec(), spots, briefing: briefing(s),
     };
     std::fs::create_dir_all(std::path::Path::new(out).parent().unwrap()).unwrap();
     std::fs::write(out, serde_json::to_string(&file).unwrap()).unwrap();
