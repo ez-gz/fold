@@ -819,12 +819,13 @@ function nextPuzzle(){
   // decoys: hands villain started with that did not make it here, closest neighbours of the real ones first
   const pre = F.pre ? F.pre[F.pos.indexOf(s.villain)] : null, dist = i => Math.min(...truthCells.map(t => Math.abs(Math.floor(t/13) - Math.floor(i/13)) + Math.abs(t%13 - i%13)));
   const decoys = [...Array(169).keys()].filter(i => !truthCells.includes(i) && (!pre || pre[i] >= 0.3) && allCombos(i, s.board).length).sort((x, y) => dist(x) - dist(y) + (Math.random() - 0.5)).slice(0, Math.max(6, Math.round(truthCells.length * 0.8)));
+  const BIG = [0, 14, 28, 42, 56, 70, 84, 1, 13]; // AA-88, AKs, AKo: always on offer
   // premium hands villain never gets here with because of the preflop action (they would have raised again, or
   // never called): offered as traps, and explained after the reveal
-  const traps = pre ? [0, 14, 28, 1, 13].filter(i => pre[i] < 0.3 && !truthCells.includes(i) && allCombos(i, s.board).length).slice(0, 3) : [];
+  const traps = pre ? BIG.filter(i => pre[i] < 0.3 && !truthCells.includes(i) && allCombos(i, s.board).length) : [];
   // the obvious big hands are always on offer, so leaving them out is a decision and their absence gets explained
   const allIn = new Set(s.vcombos.map(c => comboCell(c[0])));
-  const must = [0, 14, 28, 1, 13].filter(i => (!pre || pre[i] >= 0.3) && !truthCells.includes(i) && allCombos(i, s.board).length);
+  const must = BIG.filter(i => (!pre || pre[i] >= 0.3) && !truthCells.includes(i) && allCombos(i, s.board).length);
   const cells = [...new Set([...truthCells, ...decoys, ...traps, ...must])].sort((x, y) => x - y), sel = new Set(), open = new Set();
   const pill = (pos, txt, kind) => `<span class="pl ${kind}"><b>${pos}</b>${txt}</span>`, hk = h => /call/i.test(h.label) ? "call" : /bet|raise|all/i.test(h.label) ? "raise" : "chk";
   const rows = [[-1, tb ? [pill(F.caller, bbf(F.open_size), "raise"), pill(F.opener, "3-bet " + bbf(tb), "raise"), pill(F.caller, "call", "call")] : [pill(F.opener, bbf(F.open_size), "raise"), pill(F.caller, "call", "call")]]];
