@@ -50,6 +50,7 @@ header .stats{margin-left:auto;flex:none}header .chips{flex-wrap:wrap;min-width:
 .sq i{position:absolute;inset:0;opacity:.9}.sq .lb,.sq small{position:relative;z-index:1}.sq .lb{display:flex;gap:3px;font-weight:700;font-size:13px}.sq .lb em{font-style:normal;background:#fff;border-radius:4px;padding:1px 3px;color:#111}.sq .lb em.h{color:#d22}.sq .lb em.d{color:#1565c0}.sq .lb em.c{color:#1b7f3b}
 .sq small{font-size:9.5px;line-height:1.15;color:#fff;text-shadow:0 1px 2px #000c}.sq.none{background:none}.sq.dead,.sq.out{opacity:.4}.sq.dead small,.sq.out small{color:var(--dim);text-shadow:none}.sq.me{outline:2px solid #fff}
 .pzwhy{margin:0 0 10px;padding:10px 12px;border-radius:12px;background:#ffffff0a;font-size:13px;line-height:1.4}.pzwhy p{margin:0 0 7px}.pzwhy p:last-child{margin:0}
+.who .rk{display:block;text-transform:none;font-size:10px;font-weight:600;color:var(--accent);letter-spacing:.02em;margin-top:1px;white-space:nowrap}
 .chip.on{color:#06110c;background:var(--accent);border-color:var(--accent);font-weight:600}
 .table{margin-top:10px;background:radial-gradient(120% 90% at 50% 0%,#17303a 0%,#10202a 55%,#0d161e 100%);border:1px solid var(--line);border-radius:22px;padding:14px 14px 16px;position:relative;overflow:hidden}
 .meta{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em}
@@ -544,10 +545,13 @@ function handEnd(){
   state.cur = null; state.hn++; state.hsum += score; renderStats();
   const endTxt = h.end === "showdown" ? (h.result === 1 ? "You win at showdown" : h.result === 0.5 ? "Chop" : `${h.villain} wins at showdown`) : h.end === "villain_fold" ? `${h.villain} folds — you take it` : "You fold";
   main.innerHTML = "";
+  // where each hand sat in its own range (hero: at the last decision; villain: at the end)
+  const lastD = h.steps.length ? h.steps[h.steps.length - 1].spot.drills[0] : null, heroTop = lastD ? lastD.top : null;
+  const rk = t => t == null ? "" : `<small class="rk">${t <= 0.5 ? "top " + Math.max(1, Math.round(100 * t)) : "bottom " + Math.max(1, Math.round(100 * (1 - t)))}%</small>`;
   main.appendChild($(`<div class="table"><div class="meta"><span>${endTxt}</span></div>
     <div class="hist"><div class="hrow past"><div class="pls">${h._tail.map(x => `<span class="pl ${/call/i.test(x.label) ? "call" : /bet|raise|all/i.test(x.label) ? "raise" : "chk"} ${x.pos === h.hero ? "me" : ""}"><b>${x.pos}</b>${x.label.toLowerCase()}</span>`).join('<span class="arr">›</span>')}</div></div></div>
     <div class="board">${h.board.map(c => cardEl(c)).join("")}</div>
-    <div class="hero"><div class="who"><b>${h.hero}</b></div>${h.hero_hand.map(c => cardEl(c)).join("")}<div class="who" style="margin-left:6px"><b>${h.villain}</b></div>${h.villain_hand ? h.villain_hand.map(c => cardEl(c)).join("") : ""}</div>${h.villain_top == null ? "" : `<div class="pot" style="margin-top:8px">${h.villain} had the <b>${h.villain_top <= 0.5 ? "top " + Math.max(1, Math.round(100*h.villain_top)) : "bottom " + Math.max(1, Math.round(100*(1-h.villain_top)))}%</b> of ${h.end === "villain_fold" ? "the range they got there with" : "their range at the end"}</div>`}</div>`));
+    <div class="hero"><div class="who"><b>${h.hero}</b>${rk(heroTop)}</div>${h.hero_hand.map(c => cardEl(c)).join("")}<div class="who" style="margin-left:6px"><b>${h.villain}</b>${rk(h.villain_top)}</div>${h.villain_hand ? h.villain_hand.map(c => cardEl(c)).join("") : ""}</div></div>`));
   let luck = "";
   if (h.net != null){
     const s0 = h.steps[0], exp = s0.spot.drills[0].ev[s0.line] - (f.eff_stack - s0.spot.stack), sg = v => (v >= 0 ? "+" : "") + v.toFixed(1) + "bb";
