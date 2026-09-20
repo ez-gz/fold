@@ -112,6 +112,14 @@ fn play_hand(s: &Solved, idx: usize, rng: &mut Rng) -> Option<Hand> {
 
 /// Share of player `p`'s range (weights `wp`) that has more equity than hand `h` against `wo`.
 fn range_rank(s: &Solved, board: &[u8], p: usize, h: usize, wp: &[f32], wo: &[f32]) -> f32 {
+    let eq = equity_all(s, board, p, wp, wo);
+    let (mut above, mut all) = (0f32, 0f32);
+    for g in 0..eq.len() { if eq[g] < 0.0 { continue; } all += wp[g]; if eq[g] > eq[h] { above += wp[g]; } else if eq[g] == eq[h] { above += 0.5 * wp[g]; } }
+    r3(above / all.max(1e-9))
+}
+
+/// Equity of every hand of player `p` (with weight > 0) against the opponent weights `wo`; -1 where undefined.
+pub fn equity_all(s: &Solved, board: &[u8], p: usize, wp: &[f32], wo: &[f32]) -> Vec<f32> {
     let ctx = &s.ctx;
     let deck: Vec<u8> = (0..52u8).filter(|x| !board.contains(x)).collect();
     let mut runouts: Vec<Vec<u8>> = Vec::new();
@@ -136,9 +144,7 @@ fn range_rank(s: &Solved, board: &[u8], p: usize, h: usize, wp: &[f32], wo: &[f3
         }
         if den > 0.0 { (num / den) as f32 } else { -1.0 }
     }).collect();
-    let (mut above, mut all) = (0f32, 0f32);
-    for g in 0..eq.len() { if eq[g] < 0.0 { continue; } all += wp[g]; if eq[g] > eq[h] { above += wp[g]; } else if eq[g] == eq[h] { above += 0.5 * wp[g]; } }
-    r3(above / all.max(1e-9))
+    eq
 }
 
 #[derive(Serialize)]

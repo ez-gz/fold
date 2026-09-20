@@ -11,3 +11,7 @@ gpu/nohup.out
 proto/pack*.js
 proto/*.foldpack
 solver/*.log
+solver/calib/
+solver/refcheck/*.json
+solver/refcheck/*.log
+preflop/preeq.json

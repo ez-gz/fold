@@ -46,6 +46,13 @@ pub const FORMATIONS: [Formation; 9] = [
 pub const TREE_VERSION: &str = "tree-v1";
 pub fn tree_config(f: &Formation) -> TreeConfig {
     let v = |x: &[f32]| x.to_vec();
+    if std::env::var("FOLD_TREE").as_deref() == Ok("ref") {
+        // cross-check tree, chosen so an external solver can build the identical game:
+        // one bet size everywhere, 60% raises with no cap, bets only become all-in when they exceed the stack
+        let one = || [v(&[0.5]), v(&[0.5]), v(&[0.5])];
+        let r = || [v(&[0.6]), v(&[0.6]), v(&[0.6])];
+        return TreeConfig { start_pot: f.start_pot, eff_stack: f.eff_stack, bets: [one(), one()], raises: [r(), r()], max_raises: 99, allin_threshold: 1.0 };
+    }
     let agg = if f.three_bet > 0.0 { [v(&[0.33, 0.66]), v(&[0.66]), v(&[0.5, 1.0])] } else { [v(&[0.33, 1.0]), v(&[0.66]), v(&[0.5, 1.25])] };
     let lead = if f.opener == 1 && f.three_bet == 0.0 { v(&[0.33]) } else if f.opener == 1 { v(&[]) } else { v(&[0.66]) };
     let caller = [lead, v(&[0.66]), v(&[0.66])];
@@ -172,6 +179,84 @@ fn main() {
             s.iters = get("--iters", "0").parse().unwrap();
             eprintln!("  imported: exploitability (Rust best response) {:.4} bb = {:.3}% pot   EV OOP {:.3} IP {:.3}", e, 100.0 * e / s.cfg.start_pot, ev0, ev1);
             export::export(&s, false, get("--seed", "1").parse().unwrap(), &get("--out", &format!("out/{}_{}.json", form.key, args[3])));
+        }
+        Some("refcheck") => {
+            // solve the cross-check tree and print what an external solver can be compared on
+            let form = FORMATIONS.iter().find(|f| f.key == args[2]).expect("unknown formation");
+            let s = solve(form, &args[3], get("--iters", "1000").parse().unwrap(), get("--target", "0.1").parse().unwrap(), false);
+            let (_, ev0, ev1) = exploitability(&s.ctx, &s.root);
+            let Node::Action(a) = &s.root else { panic!() };
+            let n = s.ctx.hands[0].len();
+            let strat = cfr::avg_strategy(a, n);
+            let total: f32 = s.ctx.weights[0].iter().sum();
+            let freq: Vec<f32> = (0..a.actions.len()).map(|x| (0..n).map(|h| s.ctx.weights[0][h] * strat[x * n + h]).sum::<f32>() / total).collect();
+            let hands: serde_json::Map<String, serde_json::Value> = (0..n).map(|h| {
+                let c = s.ctx.hands[0][h];
+                (format!("{}{}", cards::card_str(c.1), cards::card_str(c.0)), serde_json::json!((0..a.actions.len()).map(|x| strat[x * n + h]).collect::<Vec<f32>>()))
+            }).collect();
+            let class_range = |r: &str| { let mut m = std::collections::BTreeMap::<usize, (f32, f32)>::new();
+                for (h, w) in range::parse_range(r) { let e = m.entry(cards::grid_cell(h)).or_insert((0.0, 0.0)); e.0 += w; e.1 += 1.0; }
+                m.iter().map(|(c, (w, k))| { let (row, col) = (c / 13, c % 13); let rk = |i: usize| cards::RANKS[12 - i] as char;
+                    let name = if row == col { format!("{}{}", rk(row), rk(row)) } else if row < col { format!("{}{}s", rk(row), rk(col)) } else { format!("{}{}o", rk(col), rk(row)) };
+                    format!("{}:{:.3}", name, w / k) }).collect::<Vec<_>>().join(",") };
+            println!("{}", serde_json::json!({ "formation": form.key, "flop": args[3], "start_pot": s.cfg.start_pot, "eff_stack": s.cfg.eff_stack,
+                "range_oop": class_range(form.ranges[0]), "range_ip": class_range(form.ranges[1]),
+                "exploitability_pct_pot": 100.0 * s.expl / s.cfg.start_pot, "ev_oop": ev0, "ev_ip": ev1, "root_freq": freq, "root_hands": hands }));
+        }
+        Some("calib") => {
+            // per-class root EV and equity for both players from a cached strategy: input to the preflop model
+            let form = FORMATIONS.iter().find(|f| f.key == args[2]).expect("unknown formation");
+            let mut s = solve(form, &args[3], 0, 0.0, false);
+            let bytes = std::fs::read(&args[4]).expect("strategy file");
+            let nh = [s.ctx.hands[0].len(), s.ctx.hands[1].len()];
+            let mut deck_pos = [0usize; 52];
+            for (i, c) in (0..52u8).filter(|c| !s.flop.contains(c)).enumerate() { deck_pos[c as usize] = i; }
+            let mut shapes = Vec::new();
+            import::shapes(&s.root, nh, &mut 0, &mut shapes);
+            import::fill(&mut s.root, &bytes, &shapes, &mut 0, [0, 0], &deck_pos, nh);
+            let mut players = Vec::new();
+            for t in 0..2 {
+                let wo = s.ctx.weights[1 - t].clone();
+                let cfv = cfr::walk(&s.ctx, &s.root, t, &wo, cfr::Mode::Average);
+                let vm = s.ctx.valid_mass(t, &wo);
+                let eq = export::equity_all(&s, &s.flop, t, &s.ctx.weights[t], &wo);
+                let mut cells = vec![[0f64; 3]; 169];
+                for h in 0..nh[t] {
+                    if vm[h] <= 1e-6 || eq[h] < 0.0 { continue; }
+                    let (w, c) = (s.ctx.weights[t][h] as f64, cards::grid_cell(s.ctx.hands[t][h]));
+                    cells[c][0] += w; cells[c][1] += w * (cfv[h] / vm[h]) as f64; cells[c][2] += w * eq[h] as f64;
+                }
+                players.push(cells.iter().map(|c| c.to_vec()).collect::<Vec<_>>());
+            }
+            println!("{}", serde_json::json!({ "formation": form.key, "flop": args[3], "pot": s.cfg.start_pot, "stack": s.cfg.eff_stack, "opener": form.opener, "three_bet": form.three_bet, "cells": players }));
+        }
+        Some("preeq") => {
+            // Monte Carlo preflop all-in equity, 169 x 169 classes (row beats column), plus the number of non-conflicting combo pairs
+            use rayon::prelude::*;
+            let n: usize = get("--samples", "10000").parse().unwrap();
+            let mut combos: Vec<Vec<(u8, u8)>> = vec![Vec::new(); 169];
+            for a in 0..52u8 { for b in a + 1..52 { combos[cards::grid_cell((a, b))].push((a, b)); } }
+            let rows: Vec<(Vec<f32>, Vec<f32>)> = (0..169usize).into_par_iter().map(|i| {
+                let mut x = (i as u64 + 1) * 0x9E3779B97F4A7C15;
+                let mut rnd = move || { x ^= x << 13; x ^= x >> 7; x ^= x << 17; x };
+                let (mut eq, mut cnt) = (vec![0f32; 169], vec![0f32; 169]);
+                for j in 0..169 {
+                    let pairs: Vec<((u8, u8), (u8, u8))> = combos[i].iter().flat_map(|&a| combos[j].iter().filter(move |&&b| a.0 != b.0 && a.0 != b.1 && a.1 != b.0 && a.1 != b.1).map(move |&b| (a, b))).collect();
+                    cnt[j] = pairs.len() as f32;
+                    if pairs.is_empty() { continue; }
+                    let mut win = 0f64;
+                    for _ in 0..n {
+                        let (a, b) = pairs[(rnd() % pairs.len() as u64) as usize];
+                        let mut board = [0u8; 5]; let mut k = 0;
+                        while k < 5 { let c = (rnd() % 52) as u8; if c == a.0 || c == a.1 || c == b.0 || c == b.1 || board[..k].contains(&c) { continue; } board[k] = c; k += 1; }
+                        let (ea, eb) = (eval::eval(&[board[0], board[1], board[2], board[3], board[4], a.0, a.1]), eval::eval(&[board[0], board[1], board[2], board[3], board[4], b.0, b.1]));
+                        win += if ea > eb { 1.0 } else if ea == eb { 0.5 } else { 0.0 };
+                    }
+                    eq[j] = (win / n as f64) as f32;
+                }
+                (eq, cnt)
+            }).collect();
+            println!("{}", serde_json::json!({ "eq": rows.iter().map(|r| r.0.clone()).collect::<Vec<_>>(), "pairs": rows.iter().map(|r| r.1.clone()).collect::<Vec<_>>() }));
         }
         Some("ranges") => for f in FORMATIONS.iter() {
             let pct = |r: &str| range::parse_range(r).iter().map(|e| e.1).sum::<f32>() / 13.26;
