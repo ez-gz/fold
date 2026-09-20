@@ -162,6 +162,8 @@ struct Briefing {
     first: Vec<(String, f32)>, after_check: Vec<(String, f32)>,
 }
 
+pub fn briefing_json(s: &Solved) -> serde_json::Value { serde_json::to_value(briefing(s)).unwrap() }
+
 fn briefing(s: &Solved) -> Briefing {
     let ctx = &s.ctx;
     let w = [&ctx.weights[0], &ctx.weights[1]];

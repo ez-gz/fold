@@ -418,3 +418,9 @@ Do those first (week 1), then six streams run independently.
 - `preflop/solve_preflop.py` (two-player subgames over 169 classes, fitted share-of-pot curves) runs, but its ranges are not usable: the curves are only measured on hands inside the ranges we solved with, and the decisions we need are exactly about hands at or beyond those boundaries. Fitted realization cannot extrapolate there (3-bets and cold calls come out far too wide, opens too tight).
 - **Measured-EV design.** Solve flops with every out-of-range hand added at a tiny weight (`FOLD_EPS=0.02`, one player at a time with `FOLD_EPS_P` to fit 8 GB) on a coarse tree (`FOLD_TREE=pre`). A tiny weight does not move the equilibrium (checked: root EV 2.300 vs 2.303), so the solve yields the true flop EV of *every* hand against the current ranges. Average over ~50 frequency-weighted flops per matchup and side, feed those EVs into the preflop subgames in place of fitted realization, update ranges, repeat until stable.
 - **Cost.** ~1-2 GPU-minutes per run; 9 matchups x 2 sides x 50 flops is 15-30 GPU-hours per outer round, 2-3 rounds expected, and opening ranges additionally need the seat pairs we do not train yet.
+
+### 13.5 Learning-tool additions (2026-09-20)
+
+- Every decision is tagged with its situation (c-bet, facing a c-bet, second barrel, delayed c-bet, probe, facing a raise, ...). Results are kept per situation, street, hand type and role; the Leaks sheet shows average EV lost for each, and Focus drills one situation or the three costliest.
+- Played hands mostly go to the river (80%), some stop earlier so folding out villain still shows up.
+- Each flop export has a `briefing`: range equity, share of range at 75%+ and under 35% equity, class shares, and the opening frequencies for OOP and for IP after a check. `fold-cli import ... --brief-into <export.json>` adds it to an existing export without a best-response pass.

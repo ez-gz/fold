@@ -205,6 +205,14 @@ fn main() {
             import::shapes(&s.root, nh, &mut 0, &mut shapes);
             assert_eq!(shapes.last().map(|x| x.0 + x.1).unwrap(), bytes.len(), "strategy file size mismatch");
             import::fill(&mut s.root, &bytes, &shapes, &mut 0, [0, 0], &deck_pos, nh);
+            let patch = get("--brief-into", "");
+            if !patch.is_empty() {
+                // only add the flop briefing to an export that already exists (no best response, no re-sampling)
+                let mut v: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&patch).unwrap()).unwrap();
+                v["briefing"] = export::briefing_json(&s);
+                std::fs::write(get("--out", &patch), serde_json::to_string(&v).unwrap()).unwrap();
+                return;
+            }
             let (e, ev0, ev1) = exploitability(&s.ctx, &s.root);
             s.expl = e;
             s.iters = get("--iters", "0").parse().unwrap();
