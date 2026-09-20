@@ -35,6 +35,15 @@ header .stats{margin-left:auto;font-size:12px;color:var(--dim);font-variant-nume
 .cr{display:flex;align-items:center;gap:4px;padding:7px 8px;border-radius:10px;margin-bottom:5px;background:#ffffff0a;animation:pzin .2s both}.cr.me{outline:1.5px solid #fff}
 .cr .cx{flex:1;margin-left:8px;min-width:0}.cr .t{height:8px;border-radius:4px;background:#ffffff14;overflow:hidden}.cr .t i{display:block;height:100%}.cr small{display:block;font-size:11px;margin-top:3px;color:var(--dim)}.cr em{font-style:normal;font-weight:600}
 .cr.out{opacity:.35}.cr .why{margin-left:8px;font-size:11px;color:var(--dim)}
+.cell.foc{outline:2px solid #fff;outline-offset:-1px;z-index:2}.pz .cell i{inset:auto 0 0 0;top:0}
+.pzf{margin-top:8px;padding:9px 10px;border-radius:12px;background:#ffffff0a;border:1px solid #ffffff1a;animation:pzin .2s both}
+.pzf .hd{display:flex;gap:8px;align-items:baseline;margin-bottom:7px}.pzf .hd b{font-size:16px}.pzf .hd span{font-size:11px;color:var(--dim);flex:1}.pzf .hd em{font-style:normal;font-size:11px;padding:3px 8px;border-radius:999px;background:#ffffff14;cursor:pointer}
+.pzf .cbs{display:grid;gap:5px;grid-template-columns:repeat(auto-fill,minmax(70px,1fr))}.pzf .cb{flex-wrap:wrap}.pzf .cb small{flex-basis:100%;text-align:center;font-size:10px;color:var(--dim);margin-top:2px}
+.pztray{margin-top:12px;padding:12px 10px 8px;border-radius:16px;background:radial-gradient(ellipse at 50% 0,#17543f,#0e2a22 75%);border:1px solid #ffffff14;display:flex;flex-wrap:wrap;gap:10px 14px;min-height:54px}
+.pztray .hint{font-size:12px;color:#ffffff66;margin:auto}.pztray .grp{cursor:pointer}.pztray label{display:block;font-size:9.5px;color:#ffffff8c;letter-spacing:.06em;margin:0 0 3px 2px}
+.pztray .fan{display:flex;flex-wrap:wrap;row-gap:4px;padding-left:5px}.pztray .cb{padding:0;background:none;border:0;gap:0;margin-left:-5px;animation:pzin .22s both;opacity:1;transform:none;filter:drop-shadow(0 1px 2px #0009)}
+.pztray .cb .mc{min-width:22px;font-size:11.5px;padding:3px 2px 9px;border:1px solid #0003}.pztray .cb .mc+.mc{margin-left:-4px}
+.pztray .cb.ok .mc{box-shadow:0 0 0 2px var(--accent)}.pztray .cb.miss .mc{box-shadow:0 0 0 2px var(--bad);opacity:.75}.pztray .cb.extra .mc{box-shadow:0 0 0 2px var(--warn)}
 .chip.on{color:#06110c;background:var(--accent);border-color:var(--accent);font-weight:600}
 .table{margin-top:10px;background:radial-gradient(120% 90% at 50% 0%,#17303a 0%,#10202a 55%,#0d161e 100%);border:1px solid var(--line);border-radius:22px;padding:14px 14px 16px;position:relative;overflow:hidden}
 .meta{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em}
@@ -815,62 +824,84 @@ function nextPuzzle(){
   const { f, s } = pool[Math.floor(Math.random() * pool.length)], F = formInfo(f), tb = F.three_bet || f.three_bet || 0;
   const norm = c => { const a = c.slice(0, 2), b = c.slice(2, 4); return R.indexOf(a[0]) < R.indexOf(b[0]) || (a[0] === b[0] && "shdc".indexOf(a[1]) < "shdc".indexOf(b[1])) ? a + b : b + a; };
   const W = {}; s.vcombos.forEach(([c, w]) => W[norm(c)] = w);
-  const truthCells = [...new Set(s.vcombos.filter(c => c[1] >= 0.3).map(c => comboCell(c[0])))];
-  // decoys: hands villain started with that did not make it here, closest neighbours of the real ones first
-  const pre = F.pre ? F.pre[F.pos.indexOf(s.villain)] : null, dist = i => Math.min(...truthCells.map(t => Math.abs(Math.floor(t/13) - Math.floor(i/13)) + Math.abs(t%13 - i%13)));
-  const decoys = [...Array(169).keys()].filter(i => !truthCells.includes(i) && (!pre || pre[i] >= 0.3) && allCombos(i, s.board).length).sort((x, y) => dist(x) - dist(y) + (Math.random() - 0.5)).slice(0, Math.max(6, Math.round(truthCells.length * 0.8)));
-  const BIG = [0, 14, 28, 42, 56, 70, 84, 1, 13]; // AA-88, AKs, AKo: always on offer
-  // premium hands villain never gets here with because of the preflop action (they would have raised again, or
-  // never called): offered as traps, and explained after the reveal
-  const traps = pre ? BIG.filter(i => pre[i] < 0.3 && !truthCells.includes(i) && allCombos(i, s.board).length) : [];
-  // the obvious big hands are always on offer, so leaving them out is a decision and their absence gets explained
-  const allIn = new Set(s.vcombos.map(c => comboCell(c[0])));
-  const must = BIG.filter(i => (!pre || pre[i] >= 0.3) && !truthCells.includes(i) && allCombos(i, s.board).length);
-  const cells = [...new Set([...truthCells, ...decoys, ...traps, ...must])].sort((x, y) => x - y), sel = new Set(), open = new Set();
+  const pre = F.pre ? F.pre[F.pos.indexOf(s.villain)] : null, inPre = i => !pre || pre[i] >= 0.3;
+  const CO = Array.from({ length: 169 }, (_, i) => allCombos(i, s.board)), sel = new Set(); let focus = -1, done = false;
+  const need = s.vcombos.filter(c => c[1] >= 0.3).length;
   const pill = (pos, txt, kind) => `<span class="pl ${kind}"><b>${pos}</b>${txt}</span>`, hk = h => /call/i.test(h.label) ? "call" : /bet|raise|all/i.test(h.label) ? "raise" : "chk";
   const rows = [[-1, tb ? [pill(F.caller, bbf(F.open_size), "raise"), pill(F.opener, "3-bet " + bbf(tb), "raise"), pill(F.caller, "call", "call")] : [pill(F.opener, bbf(F.open_size), "raise"), pill(F.caller, "call", "call")]]];
   (s._raw ? s._raw.history : s.history).forEach(h => { if (rows[rows.length-1][0] !== h.street) rows.push([h.street, []]); rows[rows.length-1][1].push(pill(h.pos, String(h.label).toLowerCase(), hk(h))); });
-  const need = s.vcombos.filter(c => c[1] >= 0.3).length;
   main.innerHTML = "";
   main.appendChild($(`<div class="table"><div class="hist">${rows.map(([st, ps]) => `<div class="hrow past"><span class="st">${st < 0 ? "Pre" : STREETS[st]}</span><div class="pls">${ps.join("")}</div></div>`).join("")}</div><div class="board">${s.board.map(c => cardEl(c)).join("")}</div></div>`));
-  const sheet = $(`<div class="sheet pz"><p class="prompt"><b>${s.villain}</b> gets here with about <b>${need}</b> combos. Find them. Tap a hand to add all its combos, tap a combo to drop it.</p><div class="pzcount"><b id="pzn">0</b> / ${need} picked</div><div class="pzg" id="pzg"></div></div>`);
-  const grid = sheet.querySelector("#pzg"), mini = c => `<span class="mc ${c[1]}">${c[0] === "T" ? "10" : c[0]}${SUITCH[c[1]]}</span>`;
-  const draw = () => { sheet.querySelector("#pzn").textContent = sel.size; [...grid.children].forEach(el => { const i = +el.dataset.i, cs = allCombos(i, s.board), n = cs.filter(c => sel.has(c)).length;
-      el.classList.toggle("on", n > 0); el.classList.toggle("part", n > 0 && n < cs.length); el.classList.toggle("open", open.has(i)); el.querySelector(".n").textContent = n ? `${n}/${cs.length}` : cs.length;
-      [...el.querySelectorAll(".cb")].forEach(b => b.classList.toggle("on", sel.has(b.dataset.c))); }); };
-  cells.forEach((i, k) => { const cs = allCombos(i, s.board);
-    const el = $(`<div class="pzc" data-i="${i}" style="animation-delay:${k * 18}ms"><div class="hd"><b>${cellName(i)}</b><span class="n"></span></div><div class="cbs">${cs.map(c => `<div class="cb" data-c="${c}">${mini(c.slice(0, 2))}${mini(c.slice(2, 4))}</div>`).join("")}</div></div>`);
-    el.querySelector(".hd").onclick = () => { if (state.pzDone) return; const any = cs.some(c => sel.has(c)); if (any && open.has(i)){ cs.forEach(c => sel.delete(c)); open.delete(i); } else { if (!any) cs.forEach(c => sel.add(c)); open.clear(); open.add(i); } draw(); };
-    [...el.querySelectorAll(".cb")].forEach(b => b.onclick = e => { e.stopPropagation(); if (state.pzDone) return; sel.has(b.dataset.c) ? sel.delete(b.dataset.c) : sel.add(b.dataset.c); draw(); });
-    grid.appendChild(el); });
-  state.pzDone = false; draw();
-  const done = $(`<button class="next" style="position:static;margin-top:10px">Lock in</button>`);
-  done.onclick = () => {
-    state.pzDone = true; let hit = 0, miss = 0, extra = 0, k = 0;
-    [...grid.children].forEach(el => { [...el.querySelectorAll(".cb")].forEach(b => { const w = W[b.dataset.c] || 0, on = sel.has(b.dataset.c), tin = w >= 0.3, grey = w >= 0.05 && w < 0.3;
-      const cls = tin && on ? "ok" : tin ? "miss" : grey ? "" : on ? "extra" : ""; if (cls === "ok" && tin) hit++; if (cls === "miss") miss++; if (cls === "extra") extra++;
-      b.style.transitionDelay = (k++ * 6) + "ms"; if (cls) b.classList.add(cls); if (w >= 0.05) b.title = Math.round(100 * w) + "%"; }); el.classList.toggle("open", !!el.querySelector(".cb.ok,.cb.miss,.cb.extra")); el.classList.toggle("dead", ![...el.querySelectorAll(".cb")].some(b => b.classList.contains("ok") || b.classList.contains("miss") || b.classList.contains("extra"))); });
-    const score = 2*hit / (2*hit + miss + extra || 1), st = store.get("puzzle", { n: 0, sum: 0 }); st.n++; st.sum += score; store.set("puzzle", st);
-    sheet.querySelector(".prompt").innerHTML = `<b>${pct(score)}</b> · found ${hit} of ${need}${miss ? `, <span style="color:var(--bad)">missed ${miss}</span>` : ""}${extra ? `, <span style="color:var(--warn)">${extra} not there</span>` : ""}. ${suitNote(s)} <span style="color:var(--dim)">Average ${pct(st.sum / st.n)} over ${st.n}.</span>`;
-    { const gone = must.filter(i => !allIn.has(i)); if (gone.length) sheet.querySelector(".prompt").innerHTML += ` <span style="color:var(--dim)">${gone.map(cellName).join(", ")} started in ${s.villain}'s range but ${gone.length > 1 ? "take" : "takes"} a different line (almost never plays it this way).</span>`; }
-    if (traps.length){ const vIsOpener = s.villain === F.opener, why = tb ? (vIsOpener ? `does not 3-bet these over ${F.caller}'s open` : `opened, ${F.opener} 3-bet, and with these ${s.villain} 4-bets rather than just calling the 3-bet`) : (vIsOpener ? "does not open these" : `would have 3-bet ${F.opener}'s open instead of calling`);
-      sheet.querySelector(".prompt").innerHTML += ` <span style="color:var(--dim)">No ${traps.map(cellName).join(", ")}: ${s.villain} ${why}.</span>`;
-      traps.forEach(i => { const el = grid.querySelector(`[data-i="${i}"]`); if (el) el.querySelector(".n").textContent = "not preflop"; }); }
-    done.textContent = "Next puzzle →"; done.onclick = nextPuzzle; window.scrollTo({ top: 0, behavior: "smooth" });
+  const sheet = $(`<div class="sheet pz"><p class="prompt"><b>${s.villain}</b> gets here with about <b>${need}</b> exact combos. Find them. Dim squares were never in ${s.villain}'s preflop range.</p>
+    <div class="pzcount"><b id="pzn">0</b> / ${need} picked</div><div class="chips" id="pzp" style="margin-bottom:9px"></div><div id="pzgrid"></div><div id="pzfocus"></div>
+    <div class="pztray" id="pztray"></div></div>`);
+  const g = gridEl(); sheet.querySelector("#pzgrid").appendChild(g);
+  const mini = c => `<span class="mc ${c[1]}">${c[0] === "T" ? "10" : c[0]}${SUITCH[c[1]]}</span>`, pair = (c, cls = "") => `<div class="cb ${cls}" data-c="${c}">${mini(c.slice(0, 2))}${mini(c.slice(2, 4))}</div>`;
+  // the board's flush suit, if any: lets a whole selection be cut down to the combos that hold it
+  const sc = {}; s.board.forEach(c => sc[c[1]] = (sc[c[1]] || 0) + 1); const fs = Object.keys(sc).sort((x, y) => sc[y] - sc[x])[0], hasFs = sc[fs] >= 2;
+  const holds = c => c[1] === c[3] ? c[1] === fs : (c[1] === fs || c[3] === fs);
+  const markOf = c => { const w = W[c] || 0, on = sel.has(c); return w >= 0.3 ? (on ? "ok" : "miss") : w >= 0.05 ? "" : on ? "extra" : ""; };
+  const draw = () => {
+    sheet.querySelector("#pzn").textContent = sel.size;
+    [...g.children].forEach((el, i) => { const cs = CO[i], n = cs.filter(c => sel.has(c)).length, fr = cs.length ? n / cs.length : 0;
+      let cls = "cell" + (inPre(i) && cs.length ? " in" : "") + (n ? " sel" : "") + (i === focus ? " foc" : "");
+      if (done){ const m = cs.map(markOf); cls += m.includes("miss") ? " miss" : m.includes("extra") ? " extra" : ""; }
+      el.className = cls; el.firstChild.style.cssText = n ? `background:var(--accent);opacity:.55;top:${100 - 100 * fr}%` : ""; });
+    const fo = sheet.querySelector("#pzfocus");
+    if (focus < 0 || !CO[focus].length) fo.innerHTML = "";
+    else { fo.innerHTML = `<div class="pzf"><div class="hd"><b>${cellName(focus)}</b><span>${done ? "weight = how often this combo gets here" : "tap a combo to drop or add it"}</span>${done ? "" : `<em data-a="all">all</em>${hasFs ? `<em data-a="fs">${SUITCH[fs]} only</em>` : ""}<em data-a="none">none</em>`}</div><div class="cbs">${CO[focus].map(c => pair(c, (sel.has(c) ? "on " : "") + (done ? markOf(c) : ""))).join("")}</div></div>`;
+      if (done) [...fo.querySelectorAll(".cb")].forEach(b => { const w = W[b.dataset.c] || 0; if (w >= 0.05) b.insertAdjacentHTML("beforeend", `<small>${Math.round(100 * w)}%</small>`); });
+      [...fo.querySelectorAll(".cb")].forEach(b => b.onclick = () => { if (done) return; sel.has(b.dataset.c) ? sel.delete(b.dataset.c) : sel.add(b.dataset.c); draw(); });
+      [...fo.querySelectorAll("em")].forEach(e => e.onclick = () => { CO[focus].forEach(c => (e.dataset.a === "all" || (e.dataset.a === "fs" && holds(c))) ? sel.add(c) : sel.delete(c)); draw(); }); }
+    // the table: every exact holding laid out, overlapping, grouped by hand
+    const tray = sheet.querySelector("#pztray"), list = done ? [...new Set([...sel, ...Object.keys(W).filter(c => W[c] >= 0.3)])] : [...sel];
+    const by = {}; list.forEach(c => (by[comboCell(c)] = by[comboCell(c)] || []).push(c));
+    tray.innerHTML = list.length ? Object.keys(by).map(Number).sort((x, y) => x - y).map(i => `<div class="grp" data-i="${i}"><label>${cellName(i)}</label><div class="fan">${by[i].map(c => pair(c, "on " + (done ? markOf(c) : ""))).join("")}</div></div>`).join("") : `<span class="hint">Picked hands show up here as cards.</span>`;
+    [...tray.querySelectorAll(".grp")].forEach(el => el.onclick = () => { focus = +el.dataset.i; draw(); });
   };
-  // copy a compact text description of this puzzle (for asking about it elsewhere)
+  g.onclick = e => { const el = e.target.closest(".cell"); if (!el) return; const i = [...g.children].indexOf(el), cs = CO[i]; if (!cs.length) return;
+    if (!done){ const any = cs.some(c => sel.has(c)); if (any && focus === i){ cs.forEach(c => sel.delete(c)); focus = -1; draw(); return; } if (!any) cs.forEach(c => sel.add(c)); }
+    focus = i; draw(); };
+  // one-tap groups; they only touch hands villain can have preflop
+  const rc = i => [Math.floor(i/13), i%13], br = [...new Set(s.board.map(c => R.indexOf(c[0])))].sort((x, y) => x - y), top = br[0];
+  const presets = {
+    "Sets": i => { const [r, c] = rc(i); return r === c && br.includes(r); }, "Two pair": i => { const [r, c] = rc(i); return r !== c && br.includes(r) && br.includes(c); },
+    [`${R[top]}x top pair`]: i => { const [r, c] = rc(i); return r !== c && (r === top || c === top); }, "Overpairs": i => { const [r, c] = rc(i); return r === c && r < top; },
+    "Pairs": i => { const [r, c] = rc(i); return r === c; }, "Broadway": i => { const [r, c] = rc(i); return r !== c && r <= 4 && c <= 4; },
+    "Suited aces": i => { const [r, c] = rc(i); return r === 0 && c > 0; }, "Suited connectors": i => { const [r, c] = rc(i); return r < c && c - r === 1; },
+    "Suited gappers": i => { const [r, c] = rc(i); return r < c && (c - r === 2 || c - r === 3); }, "Offsuit": i => { const [r, c] = rc(i); return r > c; },
+  };
+  const pz = sheet.querySelector("#pzp");
+  Object.entries(presets).forEach(([name, fn]) => { const cells = [...Array(169).keys()].filter(i => fn(i) && inPre(i) && CO[i].length); if (!cells.length) return;
+    const chip = $(`<div class="chip">${name}</div>`); chip.onclick = () => { if (done) return; const all = cells.every(i => CO[i].every(c => sel.has(c))); cells.forEach(i => CO[i].forEach(c => all ? sel.delete(c) : sel.add(c))); focus = -1; draw(); }; pz.appendChild(chip); });
+  if (hasFs){ const chip = $(`<div class="chip" style="border-color:var(--accent)">Keep ${SUITCH[fs]} only</div>`); chip.onclick = () => { if (done) return; [...sel].forEach(c => { if (!holds(c)) sel.delete(c); }); draw(); }; pz.appendChild(chip); }
+  { const chip = $(`<div class="chip">Clear</div>`); chip.onclick = () => { if (done) return; sel.clear(); focus = -1; draw(); }; pz.appendChild(chip); }
+  draw();
+  const lock = $(`<button class="next" style="position:static;margin-top:10px">Lock in</button>`);
+  lock.onclick = () => {
+    done = true; state.pzDone = true; let hit = 0, miss = 0, extra = 0;
+    new Set([...sel, ...Object.keys(W)]).forEach(c => { const m = markOf(c); if (m === "ok") hit++; else if (m === "miss") miss++; else if (m === "extra") extra++; });
+    const score = 2*hit / (2*hit + miss + extra || 1), st = store.get("puzzle", { n: 0, sum: 0 }); st.n++; st.sum += score; store.set("puzzle", st);
+    const P = sheet.querySelector(".prompt");
+    P.innerHTML = `<b>${pct(score)}</b> · found ${hit} of ${need}${miss ? `, <span style="color:var(--bad)">missed ${miss}</span>` : ""}${extra ? `, <span style="color:var(--warn)">${extra} not there</span>` : ""}. ${suitNote(s)} <span style="color:var(--dim)">Average ${pct(st.sum / st.n)} over ${st.n}. Tap any square for its exact combos.</span>`;
+    const BIG = [0, 14, 28, 42, 56, 70, 84, 1, 13], allIn = new Set(s.vcombos.map(c => comboCell(c[0])));
+    const gone = BIG.filter(i => inPre(i) && CO[i].length && !allIn.has(i)), never = pre ? BIG.filter(i => !inPre(i) && CO[i].length) : [];
+    if (gone.length) P.innerHTML += ` <span style="color:var(--dim)">${gone.map(cellName).join(", ")} started in ${s.villain}'s range but ${gone.length > 1 ? "take" : "takes"} a different line.</span>`;
+    if (never.length){ const vOp = s.villain === F.opener, why = tb ? (vOp ? `does not 3-bet these over ${F.caller}'s open` : `opened, ${F.opener} 3-bet, and with these ${s.villain} 4-bets rather than just calling`) : (vOp ? "does not open these" : `would have 3-bet ${F.opener}'s open instead of calling`);
+      P.innerHTML += ` <span style="color:var(--dim)">No ${never.map(cellName).join(", ")}: ${s.villain} ${why}.</span>`; }
+    pz.remove(); focus = -1; draw(); lock.textContent = "Next puzzle →"; lock.onclick = nextPuzzle; window.scrollTo({ top: 0, behavior: "smooth" });
+  };
   const cp = $(`<button class="next ghost" style="position:static;margin-top:8px;font-size:12px;padding:9px">Copy puzzle</button>`);
   cp.onclick = async () => {
     const H = (s._raw ? s._raw.history : s.history).map(h => `${STREETS[h.street][0]}:${h.pos} ${h.label}`).join(", ");
     const byCell = list => { const m = {}; list.forEach(([c, w]) => { const k = cellName(comboCell(c)); (m[k] = m[k] || []).push(w == null ? c : `${c}${w < 1 ? ":" + Math.round(100 * w) : ""}`); }); return Object.entries(m).map(([k, v]) => `${k}[${v.join(" ")}]`).join(" "); };
     const txt = [`FOLD puzzle ${f.formation} | flop ${f.flop} | spot ${s.id} | pack ${PACK.tree || ""} ${PACK.ranges || ""}`.trim(),
       `board ${s.board.join(" ")} | villain ${s.villain} | hero ${s.hero} | pot ${s.pot} | to_call ${s.to_call}`, `line: ${tb ? "3-bet pot; " : ""}${H || "(first to act)"}`,
-      `offered: ${cells.map(cellName).join(" ")}`, `picked (${sel.size}): ${byCell([...sel].map(c => [c, null])) || "-"}`,
-      `truth (weight % of fullest, none = 100): ${byCell(s.vcombos)}`, state.pzDone ? `result: ${sheet.querySelector(".prompt").innerText}` : "not locked in yet"].join("\n");
+      `picked (${sel.size}): ${byCell([...sel].map(c => [c, null])) || "-"}`, `truth (weight % of fullest, none = 100): ${byCell(s.vcombos)}`, done ? `result: ${sheet.querySelector(".prompt").innerText}` : "not locked in yet"].join("\n");
     try { await navigator.clipboard.writeText(txt); } catch (e) { const ta = document.createElement("textarea"); ta.value = txt; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); }
     cp.textContent = "Copied ✓"; setTimeout(() => cp.textContent = "Copy puzzle", 1400);
   };
-  sheet.appendChild(done); sheet.appendChild(cp); main.appendChild(sheet); window.scrollTo(0, 0);
+  sheet.appendChild(lock); sheet.appendChild(cp); main.appendChild(sheet); window.scrollTo(0, 0);
 }
 function start(){ state.hand = null; renderFilters(); renderStats(); state.mode === "puzzle" ? nextPuzzle() : state.mode === "hands" ? nextHand() : next(); }
 </script>
