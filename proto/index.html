@@ -494,8 +494,13 @@ function nextHand(){
   if (!pool.length){ main.innerHTML = `<div class="empty">This pack has no played hands yet — switch to Drills.</div>`; return; }
   // mostly hands that play all three streets (more decisions, more to learn); early folds still show up sometimes
   const river = pool.filter(x => x.h.board.length === 5 && x.h.steps.length > 1), deep = pool.filter(x => x.h.steps.length > 1), r = Math.random();
-  const from = river.length && r < 0.8 ? river : deep.length && r < 0.95 ? deep : pool;
-  const sh = takeShared("h"), pick = sh && PACK.flops[sh[0]] && (PACK.flops[sh[0]].hands || [])[sh[1]] ? { f: PACK.flops[sh[0]], h: PACK.flops[sh[0]].hands[sh[1]] } : from[Math.floor(Math.random() * from.length)];
+  let from = river.length && r < 0.8 ? river : deep.length && r < 0.95 ? deep : pool;
+  // deal matchups roughly as often as they come up at a real table, and nudge more hands to end facing a river bet (the bluff-catch decision)
+  const FREQ = { "BTN vs BB": 3, "CO vs BB": 2, "SB vs BB": 2, "UTG vs BB": 1.5, "CO vs BTN": 1, "UTG vs BTN": 0.7 }, wt = x => FREQ[x.f.formation] || 0.6;
+  const facing = from.filter(x => { const l = x.h.steps[x.h.steps.length - 1].spot; return l.board.length === 5 && l.to_call > 0; });
+  if (facing.length && Math.random() < 0.15) from = facing;
+  const tot = from.reduce((a, x) => a + wt(x), 0); let u = Math.random() * tot, wi = 0; while (wi < from.length - 1 && (u -= wt(from[wi])) > 0) wi++;
+  const sh = takeShared("h"), pick = sh && PACK.flops[sh[0]] && (PACK.flops[sh[0]].hands || [])[sh[1]] ? { f: PACK.flops[sh[0]], h: PACK.flops[sh[0]].hands[sh[1]] } : from[wi];
   const { f, h } = pick; setShare("h", PACK.flops.indexOf(f), f.hands.indexOf(h));
   state.hand = { f, h, k: 0, res: [] }; handStep(true); window.scrollTo(0, 0);
 }
