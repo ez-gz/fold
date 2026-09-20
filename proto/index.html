@@ -44,6 +44,11 @@ header .stats{margin-left:auto;font-size:12px;color:var(--dim);font-variant-nume
 .pztray .fan{display:flex;flex-wrap:wrap;row-gap:4px;padding-left:5px}.pztray .cb{padding:0;background:none;border:0;gap:0;margin-left:-5px;animation:pzin .22s both;opacity:1;transform:none;filter:drop-shadow(0 1px 2px #0009)}
 .pztray .cb .mc{min-width:22px;font-size:11.5px;padding:3px 2px 9px;border:1px solid #0003}.pztray .cb .mc+.mc{margin-left:-4px}
 .pztray .cb.ok .mc{box-shadow:0 0 0 2px var(--accent)}.pztray .cb.miss .mc{box-shadow:0 0 0 2px var(--bad);opacity:.75}.pztray .cb.extra .mc{box-shadow:0 0 0 2px var(--warn)}
+.sqg{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}.sqg.two{grid-template-columns:repeat(2,1fr);max-width:260px;margin:0 auto}
+.sq{position:relative;aspect-ratio:1;border-radius:8px;background:#0e151c;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;padding:6px;animation:pzin .2s both}
+.sq i{position:absolute;inset:0;opacity:.9}.sq .lb,.sq small{position:relative;z-index:1}.sq .lb{display:flex;gap:3px;font-weight:700;font-size:13px}.sq .lb em{font-style:normal;background:#fff;border-radius:4px;padding:1px 3px;color:#111}.sq .lb em.h{color:#d22}.sq .lb em.d{color:#1565c0}.sq .lb em.c{color:#1b7f3b}
+.sq small{font-size:9.5px;line-height:1.15;color:#fff;text-shadow:0 1px 2px #000c}.sq.none{background:none}.sq.dead,.sq.out{opacity:.4}.sq.dead small,.sq.out small{color:var(--dim);text-shadow:none}.sq.me{outline:2px solid #fff}
+.pzwhy{margin:0 0 10px;padding:10px 12px;border-radius:12px;background:#ffffff0a;font-size:13px;line-height:1.4}.pzwhy p{margin:0 0 7px}.pzwhy p:last-child{margin:0}
 .chip.on{color:#06110c;background:var(--accent);border-color:var(--accent);font-weight:600}
 .table{margin-top:10px;background:radial-gradient(120% 90% at 50% 0%,#17303a 0%,#10202a 55%,#0d161e 100%);border:1px solid var(--line);border-radius:22px;padding:14px 14px 16px;position:relative;overflow:hidden}
 .meta{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em}
@@ -317,11 +322,13 @@ function explainFull(f, spot, d, chosen, gr){
 /* ---------- grids ---------- */
 function gridEl(paint){ const g = $(`<div class="grid"></div>`); for (let i = 0; i < 169; i++) g.appendChild($(`<div class="cell" data-i="${i}"><i></i><span>${cellName(i)}</span></div>`)); if (paint) paint(g); return g; }
 function paintSplit(g, weight, parts, me){ // parts: [{color, grid}]
+  const wmax = Math.max(...weight, 1e-9);
   [...g.children].forEach((c, i) => {
     const w = weight[i]; c.className = "cell" + (w > 0.02 ? " in" : "") + (i === me ? " me" : "");
     let acc = 0; const stops = [];
     if (w > 0.02) parts.forEach(p => { const v = p.grid[i] * 100; if (v > 0.5){ stops.push(`${p.color} ${acc}% ${acc+v}%`); acc += v; } });
-    c.firstChild.style.cssText = stops.length ? `background:linear-gradient(90deg,${stops.join(",")});opacity:${0.25 + 0.75*Math.min(1,w)}` : "";
+    // height = how much of this hand is still in the range (relative to the fullest square), colours = what it does
+    c.firstChild.style.cssText = stops.length ? `background:linear-gradient(90deg,${stops.join(",")});top:${Math.round(100 - 100 * Math.max(0.08, Math.min(1, w / wmax)))}%;opacity:.92` : "";
   });
 }
 
@@ -697,13 +704,21 @@ function cellPopup(f, s, d, cell, tab){
   const idx = {}; list.forEach((x, k) => idx[norm(x[0])] = k);
   const acts = mine ? s.actions.map((a, k) => ({ label: a.label, color: kindColor(a.kind, s.actions.filter(x => x.kind === a.kind).indexOf(a)) })) : r ? r.labels.map((l, k) => ({ label: l, color: kindColor(r.kinds[k], 1) })) : [];
   const mini = c => `<span class="mc ${c[1]}">${c[0] === "T" ? "10" : c[0]}${SUITCH[c[1]]}</span>`, me = norm(d.hand.join(""));
-  const rows = allCombos(cell, s.board).map(c => { const k = idx[c], heroBlock = !mine && (d.hand.includes(c.slice(0, 2)) || d.hand.includes(c.slice(2, 4)));
-    if (k == null) return { c, w: 0, html: `<div class="cr out">${mini(c.slice(0, 2))}${mini(c.slice(2, 4))}<span class="why">${heroBlock ? "you hold one of these cards" : "not in range"}</span></div>` };
-    const w = mine ? list[k][1][0] : list[k][1], fr = mine ? list[k][1].slice(1) : r ? r.combo.map(row => row[k]) : [];
-    const bar = acts.length ? `<div class="t" style="display:flex">${fr.map((v, a) => `<i style="width:${v}%;background:${acts[a].color}"></i>`).join("")}</div>` : `<div class="t"><i style="width:${w}%;background:var(--call)"></i></div>`;
-    const txt = acts.length ? fr.map((v, a) => v >= 1 ? `<em style="color:${acts[a].color}">${acts[a].label.replace("Raise to", "Raise").toLowerCase()} ${v}%</em>` : "").filter(Boolean).join(" · ") : `here ${w}% as often as their fullest combo`;
-    return { c, w, html: `<div class="cr ${mine && c === me ? "me" : ""}" style="opacity:${0.45 + 0.55 * Math.min(1, w / 100)}">${mini(c.slice(0, 2))}${mini(c.slice(2, 4))}<div class="cx">${bar}<small>${txt}${acts.length ? ` <span style="color:var(--dim)">· weight ${w}%</span>` : ""}</small></div></div>` }; }).sort((x, y) => y.w - x.w);
-  const inN = rows.filter(x => x.w > 0).length, body = $(`<div><p style="color:var(--dim);font-size:12px;margin:0 0 8px">${inN} of ${rows.length} possible combos are in ${who}'s range here${r ? `, facing ${s.actions[tab].label.toLowerCase()}` : ""}. Weight = how often the combo gets here, relative to the fullest one.</p>${rows.map(x => x.html).join("")}</div>`);
+  const r0 = Math.floor(cell / 13), c0 = cell % 13, hi = R[Math.min(r0, c0)], lo = R[Math.max(r0, c0)], S = "shdc", suited = r0 < c0, pairC = r0 === c0;
+  const wOf = k => mine ? list[k][1][0] : list[k][1], frOf = k => mine ? list[k][1].slice(1) : r ? r.combo.map(row => row[k]) : [];
+  const tile = (a, b) => { // a = suit of the higher card, b = suit of the lower
+    if (suited ? a !== b : pairC ? S.indexOf(a) >= S.indexOf(b) : a === b) return `<div class="sq none"></div>`;
+    const c = norm(hi + a + lo + b), dead = s.board.includes(hi + a) || s.board.includes(lo + b), k = idx[c], held = !mine && (d.hand.includes(hi + a) || d.hand.includes(lo + b));
+    const lab = `<span class="lb"><em class="${a}">${hi}${SUITCH[a]}</em><em class="${b}">${lo}${SUITCH[b]}</em></span>`;
+    if (dead) return `<div class="sq dead">${lab}<small>on board</small></div>`;
+    if (k == null) return `<div class="sq out">${lab}<small>${held ? "you hold it" : "not here"}</small></div>`;
+    const w = wOf(k), fr = frOf(k); let acc = 0; const stops = acts.length ? fr.map((v, x) => { const st = `${acts[x].color} ${acc}% ${acc + v}%`; acc += v; return st; }) : [`var(--call) 0 100%`];
+    const topA = acts.length ? fr.map((v, x) => [v, x]).sort((x, y) => y[0] - x[0]).filter(x => x[0] >= 5).slice(0, 2).map(x => `${acts[x[1]].label.replace("Raise to", "Raise").replace(/^Bet /, "").replace(/\s*\(.*\)/, "").toLowerCase()} ${x[0]}%`).join(" · ") : `${w}%`;
+    return `<div class="sq ${mine && c === me ? "me" : ""}"><i style="background:linear-gradient(90deg,${stops.join(",")});top:${100 - Math.max(8, w)}%"></i>${lab}<small>${topA}</small></div>`; };
+  const su = suited ? [...S].map(a => tile(a, a)).join("") : [...S].map(a => [...S].map(b => tile(a, b)).join("")).join("");
+  const inN = allCombos(cell, s.board).filter(c => idx[c] != null).length, tot = allCombos(cell, s.board).length;
+  const body = $(`<div><p style="color:var(--dim);font-size:12px;margin:0 0 10px">${inN} of ${tot} possible combos are in ${who}'s range here${r ? `, facing ${s.actions[tab].label.toLowerCase()}` : ""}. Height = how often that exact combo gets here; colours = what it does${suited ? "" : pairC ? "" : ` (rows: suit of the ${hi}, columns: suit of the ${lo})`}.</p>
+    <div class="sqg ${suited ? "two" : ""}">${su}</div>${acts.length ? `<div class="legend" style="margin-top:10px">${acts.map(a => `<span><i style="background:${a.color}"></i>${a.label}</span>`).join("")}</div>` : ""}</div>`);
   overlay(`${cellName(cell)} — ${mine ? "your plan" : r ? who + "'s answer" : who + "'s range"}`, body);
 }
 function lens(f, s, d, chosen, gr){
@@ -722,7 +737,7 @@ function lens(f, s, d, chosen, gr){
       paintSplit(g, src, [{ color: "var(--call)", grid: Array(169).fill(1) }], -1);
       const marks = new Set(sv ? [] : suitCells(s)); [...g.children].forEach((c, i) => c.classList.toggle("sd", marks.has(i)));
       kp.innerHTML = `<div class="kpi"><b>${pct(d.eq)}</b><span>your equity</span></div><div class="kpi"><b>${pct(s.vclass[0]+s.vclass[1])}</b><span>top pair+</span></div><div class="kpi"><b>${pct(s.vclass[5]+s.vclass[6])}</b><span>ace-high / air</span></div>`;
-      leg.innerHTML = `<span><i style="background:var(--call)"></i>in range (brighter = more combos)</span>`;
+      leg.innerHTML = `<span><i style="background:var(--call)"></i>in range (taller = more of the hand's combos still here)</span>`;
       if (s.vsuit){ const ch = SUITCH[s.vsuit.suit], row = $(`<div class="chips" style="margin:6px 0 0">${["All suits", "With a " + ch, "No " + ch].map((n, k) => `<div class="chip ${k === (sheet._suit || 0) ? "on" : ""}">${n}</div>`).join("")}</div>`);
         [...row.children].forEach((el, k) => el.onclick = () => { sheet._suit = k; show(t); }); leg.appendChild(row);
         if (marks.size) leg.appendChild($(`<span><i style="background:none;border:1px solid #fff;border-radius:50%"></i>${ch} combos play differently</span>`)); }
@@ -818,6 +833,42 @@ function allCombos(cell, board){
   for (const a of S) for (const b of S){ if (r === c ? S.indexOf(a) >= S.indexOf(b) : (r < c) !== (a === b)) continue; const x = hi + a, y = lo + b; if (board.includes(x) || board.includes(y)) continue; out.push(x + y); }
   return out;
 }
+/* made hand from hole cards + board, coarse: enough to tell value from air and to find blockers */
+function madeHand(cards){
+  const rk = cards.map(c => 12 - R.indexOf(c[0])), cnt = {}, su = {}; rk.forEach(r => cnt[r] = (cnt[r] || 0) + 1); cards.forEach(c => su[c[1]] = (su[c[1]] || 0) + 1);
+  const flush = Object.values(su).some(n => n >= 5), u = [...new Set(rk)].sort((a, b) => b - a); if (u.includes(12)) u.push(-1);
+  let straight = false; for (let i = 0; i + 4 < u.length; i++) if (u[i] - u[i + 4] === 4) straight = true;
+  const groups = Object.values(cnt).sort((a, b) => b - a);
+  if (groups[0] === 4) return 7; if (groups[0] === 3 && groups[1] >= 2) return 6; if (flush) return 5; if (straight) return 4; if (groups[0] === 3) return 3; if (groups[0] === 2 && groups[1] === 2) return 2; if (groups[0] === 2) return 1; return 0;
+}
+const MADE = ["no pair", "one pair", "two pair", "trips or a set", "a straight", "a flush", "a full house", "quads"];
+function puzzleWhy(s, W, inPre, CO){
+  const B = s.board, river = B.length === 5, topR = Math.min(...B.map(c => R.indexOf(c[0]))), boardMade = madeHand(B.length >= 5 ? B : B.concat(["2x", "3y"]).slice(0, 5));
+  const kind = c => { const m = madeHand([c.slice(0, 2), c.slice(2, 4), ...B]); if (m >= 2) return "strong"; if (m === 1){ const pr = [c[0], c[2]].find(r => B.some(b => b[0] === r)) || (c[0] === c[2] ? c[0] : null); if (pr == null) return "air"; const pi = R.indexOf(pr); return pi <= topR ? "top" : "mid"; } return "air"; };
+  const T = Object.keys(W).filter(c => W[c] >= 0.3), G = { strong: [], top: [], mid: [], air: [] }; T.forEach(c => G[kind(c)].push(c));
+  const cellsOf = l => [...new Set(l.map(c => cellName(comboCell(c))))], names = l => cellsOf(l).slice(0, 6).join(", ") + (cellsOf(l).length > 6 ? "…" : "");
+  const out = [], nV = G.strong.length + G.top.length, nB = G.air.length;
+  if (nV) out.push(`<b>Value (${nV}):</b> ${[G.strong.length ? `two pair or better — ${names(G.strong)}` : "", G.top.length ? `top pair or an overpair — ${names(G.top)}` : ""].filter(Boolean).join("; ")}.`);
+  if (G.mid.length) out.push(`<b>Thin (${G.mid.length}):</b> ${names(G.mid)} — a smaller pair that still bets, usually for protection or because worse hands call.`);
+  if (nB){
+    // which card do the bluffs share, and what does it block?
+    const rc = {}; G.air.forEach(c => new Set([c[0], c[2]]).forEach(r => rc[r] = (rc[r] || 0) + 1));
+    const fake = B.map((b, i) => b[0] + "zwvut"[i]), boardStraight = madeHand(fake.concat(["2q", "3r"]).slice(0, 7)) >= 4;
+    const hitsOf = br => boardStraight ? [] : [...R].filter(x => x !== br && madeHand([br + "x", x + "y", ...fake]) >= 4);
+    const cand = Object.entries(rc).filter(e => e[1] >= Math.max(2, nB * 0.4)).map(([br, bn]) => ({ br, bn, hits: hitsOf(br) })).sort((x, y) => (y.hits.length > 0) - (x.hits.length > 0) || y.bn - x.bn)[0];
+    let blocks = ""; if (cand){ const { br, bn, hits } = cand;
+      blocks = hits.length ? ` ${bn} of them hold a <b>${br}</b>, which blocks ${s.hero}'s straights (${hits.slice(0, 2).map(x => R.indexOf(x) < R.indexOf(br) ? x + br : br + x).join(", ")}) and ${br}x pairs that would call.` : ` ${bn} of them hold a <b>${br}</b>, removing some ${br}x hands ${s.hero} would call with.`; }
+    out.push(`<b>${river ? "Bluffs" : "Draws and air"} (${nB}):</b> ${names(G.air)} — ${river ? "no pair, so they can never win by checking; betting is the only way they make money." : "no made hand yet; they bet as semi-bluffs."}${blocks}`);
+    if (river && nV) out.push(`<span style="color:var(--dim)">Ratio: ${nV} value to ${nB} bluffs. A bet of this size needs roughly that mix so ${s.hero} can't profit by always calling or always folding.</span>`);
+  }
+  // the hands that are NOT here although they beat the bluffs: the checked-back middle
+  const mids = [...Array(169).keys()].filter(i => inPre(i) && CO[i].length && !CO[i].some(c => (W[c] || 0) >= 0.05) && kind(CO[i][0]) === "mid").slice(0, 5).map(cellName);
+  const tops = [...Array(169).keys()].filter(i => inPre(i) && CO[i].length && !CO[i].some(c => (W[c] || 0) >= 0.05) && ["strong"].includes(kind(CO[i][0]))).slice(0, 4).map(cellName);
+  if (mids.length) out.push(`<b>Missing middle:</b> ${mids.join(", ")} have a pair that beats every bluff but loses to the value hands. Betting them folds out worse and gets called by better, so they take a checking line instead.`);
+  if (tops.length) out.push(`<b>Missing monsters:</b> ${tops.join(", ")} would be strong here but mostly played an earlier street differently (bet or raised sooner, or chose the other bet size).`);
+  out.push(`<span style="color:var(--dim)">Which exact bluff combos get picked is partly arbitrary: the solver spreads bluffs over many near-equal hands, which is why weights under 30% are not required.</span>`);
+  return `<div class="pzwhy">${out.map(x => `<p>${x}</p>`).join("")}</div>`;
+}
 function nextPuzzle(){
   const pool = state.ppool || (state.ppool = puzzlePool());
   if (!pool.length){ main.innerHTML = `<div class="empty">This pack has no narrow ranges to puzzle over yet.</div>`; return; }
@@ -889,6 +940,7 @@ function nextPuzzle(){
     if (gone.length) P.innerHTML += ` <span style="color:var(--dim)">${gone.map(cellName).join(", ")} started in ${s.villain}'s range but ${gone.length > 1 ? "take" : "takes"} a different line.</span>`;
     if (never.length){ const vOp = s.villain === F.opener, why = tb ? (vOp ? `does not 3-bet these over ${F.caller}'s open` : `opened, ${F.opener} 3-bet, and with these ${s.villain} 4-bets rather than just calling`) : (vOp ? "does not open these" : `would have 3-bet ${F.opener}'s open instead of calling`);
       P.innerHTML += ` <span style="color:var(--dim)">No ${never.map(cellName).join(", ")}: ${s.villain} ${why}.</span>`; }
+    sheet.querySelector("#pzgrid").insertAdjacentHTML("beforebegin", puzzleWhy(s, W, inPre, CO));
     pz.remove(); focus = -1; draw(); lock.textContent = "Next puzzle →"; lock.onclick = nextPuzzle; window.scrollTo({ top: 0, behavior: "smooth" });
   };
   const cp = $(`<button class="next ghost" style="position:static;margin-top:8px;font-size:12px;padding:9px">Copy puzzle</button>`);
