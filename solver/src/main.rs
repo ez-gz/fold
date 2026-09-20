@@ -213,7 +213,9 @@ fn main() {
                 std::fs::write(get("--out", &patch), serde_json::to_string(&v).unwrap()).unwrap();
                 return;
             }
-            let (e, ev0, ev1) = exploitability(&s.ctx, &s.root);
+            // --expl <bb>: reuse a best-response result already verified for this strategy file (re-exports only)
+            let known: f32 = get("--expl", "-1").parse().unwrap();
+            let (e, ev0, ev1) = if known >= 0.0 { (known, 0.0, 0.0) } else { exploitability(&s.ctx, &s.root) };
             s.expl = e;
             s.iters = get("--iters", "0").parse().unwrap();
             eprintln!("  imported: exploitability (Rust best response) {:.4} bb = {:.3}% pot   EV OOP {:.3} IP {:.3}", e, 100.0 * e / s.cfg.start_pot, ev0, ev1);

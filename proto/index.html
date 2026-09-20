@@ -413,6 +413,7 @@ function answer(i){
   main.appendChild($(`<div class="verdict g-${gr.g}"><div class="g">${gr.g}</div><div class="l">${lossText(gr)}</div></div>`));
   main.appendChild($(`<div class="sheet why"><h3>Why</h3>${explain(f, s, d, i, gr)}</div>`));
   main.appendChild(lens(f, s, d, i, gr));
+  { const b = betSheet(f, s, d); if (b) main.appendChild(b); }
   { const b = boardSheet(f); if (b) main.appendChild(b); }
   { const b = patternSheet(f, s, d); if (b) main.appendChild(b); }
   { const v = valueSheet(f, s, d, i, gr); if (v) main.appendChild(v); }
@@ -530,6 +531,7 @@ function handEnd(){
     review.innerHTML = "";
     review.appendChild($(`<div class="sheet why"><h3>${STREETS[sp.street]} · ${sp.actions[r.i].label} · ${r.gr.g}</h3>${explain(f, sp, d, r.i, r.gr)}</div>`));
     review.appendChild(lens(f, sp, d, r.i, r.gr));
+    { const b = betSheet(f, sp, d); if (b) review.appendChild(b); }
     { const b = boardSheet(f); if (b) review.appendChild(b); }
     { const b = patternSheet(f, sp, d); if (b) review.appendChild(b); }
     const v = valueSheet(f, sp, d, r.i, r.gr); if (v) review.appendChild(v);
@@ -547,6 +549,7 @@ function replay(k){
   main.appendChild($(`<div class="verdict g-${r.gr.g}"><div class="g">${r.gr.g}</div><div class="l">${lossText(r.gr)}</div></div>`));
   main.appendChild($(`<div class="sheet why"><h3>Why</h3>${explain(f, s, d, r.i, r.gr)}</div>`));
   main.appendChild(lens(f, s, d, r.i, r.gr));
+  { const b = betSheet(f, s, d); if (b) main.appendChild(b); }
   { const b = boardSheet(f); if (b) main.appendChild(b); }
   { const b = patternSheet(f, s, d); if (b) main.appendChild(b); }
   { const v = valueSheet(f, s, d, r.i, r.gr); if (v) main.appendChild(v); }
@@ -569,6 +572,25 @@ function valueText(f, s, d, chosen, gr){
   const up = delta.filter(x => x[0] > 0.04).sort((x, y) => y[0] - x[0]).slice(0, 2).map(x => `${nm(x[1])} (+${x[0].toFixed(2)}bb)`).join(", ");
   const dn = delta.filter(x => x[0] < -0.04).sort((x, y) => x[0] - y[0]).slice(0, 2).map(x => `${nm(x[1])} (${(-x[0]).toFixed(2)}bb)`).join(", ");
   return `<span class="k">Where the money comes from:</span> ${la} earns most from ${s.villain}'s ${earn || "whole range about evenly"}. Against ${lb}, it does better versus ${up || "nothing in particular"}${dn ? `, and gives back some versus ${dn}` : ""}.`;
+}
+/* What each bet does to villain's range, against this exact hand: who folds and who continues, split by whether
+   they were beating us. Folding out better hands and getting called by worse is what a bet is for; folding out
+   hands we already beat gains little. This is why very different sizes often land within a few hundredths of a bb. */
+function betSheet(f, s, d){
+  if (!d.vs) return null;
+  const rows = s.actions.map((a, i) => [a, i, d.vs[i]]).filter(x => x[2] && x[0].kind !== "fold" && x[0].kind !== "call" && x[0].kind !== "check");
+  if (!rows.length) return null;
+  const pc = x => Math.round(100 * x) + "%", v = s.villain, first = rows[0][2], ahead = first[0] + first[2], small = rows[0], big = rows[rows.length - 1];
+  const say = [`${v} is ahead of this hand with <b>${pc(ahead)}</b> of their range.`];
+  const line = r => { const q = r[2], fo = q[0] + q[1]; if (fo < 0.03) return `<b>${r[0].label}</b> folds almost nothing.`;
+    const good = q[0] / fo; return `<b>${r[0].label}</b> folds ${pc(fo)}: ${good > 0.66 ? "mostly hands that were beating you, which is the point of the bet" : good < 0.33 ? "mostly hands you already beat. Those folds earn little; the money comes from worse hands that call" : `${pc(q[0])} better hands, ${pc(q[1])} worse`}.`; };
+  say.push(line(small));
+  if (big !== small){ const dq = big[2].map((x, k) => x - small[2][k]);
+    say.push(`Going to <b>${big[0].label}</b> folds ${pc(Math.max(0, dq[0]))} more better hands and ${pc(Math.max(0, dq[1]))} more worse ones${dq[3] < -0.03 ? `, and loses ${pc(-dq[3])} of the worse hands that would have paid` : ""}.`);
+    const ev = Math.abs(d.ev[big[1]] - d.ev[small[1]]); if (ev < 0.15) say.push(`That trade nearly cancels, which is why the two sizes are only ${ev.toFixed(2)}bb apart.`); }
+  const cols = ["var(--accent)", "#5a6472", "var(--warn)", "var(--bad)"], names = ["folds, was ahead", "folds, was behind", "continues, behind", "continues, ahead"], order = [0, 1, 3, 2];
+  const bars = rows.map(r => `<div class="bar"><span style="width:92px">${r[0].label}</span><div class="t" style="display:flex">${order.map(k => `<i style="width:${100*r[2][k]}%;background:${cols[k === 3 ? 2 : k === 2 ? 3 : k]}"></i>`).join("")}</div><b style="width:40px;text-align:right">${pc(r[2][0] + r[2][1])}</b></div>`).join("");
+  return $(`<div class="sheet"><h3>What your bet does to ${v}</h3>${say.map(x => `<p>${x}</p>`).join("")}<div class="bars">${bars}</div><div class="legend"><span><i style="background:${cols[0]}"></i>${names[0]}</span><span><i style="background:${cols[1]}"></i>${names[1]}</span><span><i style="background:${cols[2]}"></i>${names[2]}</span><span><i style="background:${cols[3]}"></i>${names[3]}</span></div></div>`);
 }
 /* How the solver plays this situation in general: hand type by hand type, averaged over every flop in the pack
    (same pot type). Lets the player compare "the usual pattern" with what this particular board asks for. */

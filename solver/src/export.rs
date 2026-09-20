@@ -21,7 +21,10 @@ struct ActOut { label: String, kind: &'static str, amt: f32 }
 struct Resp { labels: Vec<String>, kinds: Vec<&'static str>, freq: Vec<f32>, grid: Vec<Vec<f32>>, cls: Vec<Vec<f32>> }
 
 #[derive(Serialize)]
-struct Drill { hand: [String; 2], cls: u8, w: f32, strat: Vec<f32>, ev: Vec<f32>, eq: f32, top: f32, eq_cont: Vec<Option<f32>>, src: Vec<Vec<f32>> }
+struct Drill { hand: [String; 2], cls: u8, w: f32, strat: Vec<f32>, ev: Vec<f32>, eq: f32, top: f32, eq_cont: Vec<Option<f32>>, src: Vec<Vec<f32>>,
+    /// per hero action that villain answers: share of villain's range that [folds & was ahead, folds & was behind,
+    /// continues & is ahead, continues & is behind]; "ahead" = more than 50% equity against this exact hand
+    vs: Vec<Option<[f32; 4]>> }
 
 #[derive(Serialize)]
 struct Spot {
@@ -407,6 +410,24 @@ fn build_spot(s: &Solved, c: &Cand, idx: usize, rng: &mut Rng, forced: Option<us
     if let Some(h) = forced { picked = if vm[h] > 1e-6 { vec![h] } else { vec![] }; }
     for h in picked {
         let hand = ctx.hands[hp][h];
+        // equity of every villain hand against this exact hero hand
+        let ahead: Vec<bool> = (0..nv).into_par_iter().map(|vi| {
+            let vh = ctx.hands[vp][vi];
+            if vreach[vi] <= 0.0 || vh.0 == hand.0 || vh.0 == hand.1 || vh.1 == hand.0 || vh.1 == hand.1 { return false; }
+            let (mut win, mut n) = (0f32, 0f32);
+            for ri in 0..runouts.len() { let (me, x) = (sh[ri][h], sv[ri][vi]); if me == 0 || x == 0 { continue; } n += 1.0; win += if x > me { 1.0 } else if x == me { 0.5 } else { 0.0 }; }
+            n > 0.0 && win / n > 0.5
+        }).collect();
+        let vs: Vec<Option<[f32; 4]>> = cont_reach.iter().map(|cr| cr.as_ref().map(|cont| {
+            let (mut q, mut tot) = ([0f32; 4], 0f32);
+            for vi in 0..nv {
+                let vh = ctx.hands[vp][vi];
+                if vreach[vi] <= 0.0 || vh.0 == hand.0 || vh.0 == hand.1 || vh.1 == hand.0 || vh.1 == hand.1 { continue; }
+                let (c, f) = (cont[vi], (vreach[vi] - cont[vi]).max(0.0)); tot += vreach[vi];
+                if ahead[vi] { q[0] += f; q[2] += c; } else { q[1] += f; q[3] += c; }
+            }
+            [r3(q[0] / tot.max(1e-9)), r3(q[1] / tot.max(1e-9)), r3(q[2] / tot.max(1e-9)), r3(q[3] / tot.max(1e-9))]
+        })).collect();
         drills.push(Drill {
             hand: [card_str(hand.1), card_str(hand.0)], cls: hcls[h], w: r3(hreach[h]),
             strat: (0..na).map(|x| r3(strat[x * nh + h])).collect(),
@@ -414,6 +435,7 @@ fn build_spot(s: &Solved, c: &Cand, idx: usize, rng: &mut Rng, forced: Option<us
             eq: heq[h].max(0.0), top: top_of(h),
             eq_cont: cont_reach.iter().map(|cr| cr.as_ref().map(|w| equity(h, w))).collect(),
             src: (0..na).map(|x| (0..7).map(|k| r3(parts[k * na + x][h])).collect()).collect(),
+            vs,
         });
     }
     if drills.is_empty() { return None; }
