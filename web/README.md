@@ -29,5 +29,5 @@ Web-only layer: `static/extras.js` (injected by the build, never loaded by proto
   Without keys the sheet just says progress is saved on this device. Sync = the `fold.*` localStorage keys as one JSON row per user;
   on first sign-in the side with more answered spots wins, after that writes are pushed (debounced). Sign-out keeps local progress.
 
-Deploy (not done yet): Cloudflare Pages, build command `python3 web/build.py`, output dir `web/dist`.
+Deploy: `web/deploy.sh` (build + `wrangler deploy`, config in `web/wrangler.jsonc`). Live at https://fold-poker.gtarpenning.workers.dev
 Still to do: Supabase project + OAuth provider setup (needs the owner's accounts), a real share-preview image, privacy page, analytics.

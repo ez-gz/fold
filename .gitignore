@@ -18,3 +18,10 @@ preflop/preeq.json
 proto/old/
 solver/calib_pre/
 solver/calib_pre_r*/
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example
