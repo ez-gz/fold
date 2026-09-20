@@ -819,7 +819,13 @@ function nextPuzzle(){
   // decoys: hands villain started with that did not make it here, closest neighbours of the real ones first
   const pre = F.pre ? F.pre[F.pos.indexOf(s.villain)] : null, dist = i => Math.min(...truthCells.map(t => Math.abs(Math.floor(t/13) - Math.floor(i/13)) + Math.abs(t%13 - i%13)));
   const decoys = [...Array(169).keys()].filter(i => !truthCells.includes(i) && (!pre || pre[i] >= 0.3) && allCombos(i, s.board).length).sort((x, y) => dist(x) - dist(y) + (Math.random() - 0.5)).slice(0, Math.max(6, Math.round(truthCells.length * 0.8)));
-  const cells = [...truthCells, ...decoys].sort((x, y) => x - y), sel = new Set(), open = new Set();
+  // premium hands villain never gets here with because of the preflop action (they would have raised again, or
+  // never called): offered as traps, and explained after the reveal
+  const traps = pre ? [0, 14, 28, 1, 13].filter(i => pre[i] < 0.3 && !truthCells.includes(i) && allCombos(i, s.board).length).slice(0, 3) : [];
+  // the obvious big hands are always on offer, so leaving them out is a decision and their absence gets explained
+  const allIn = new Set(s.vcombos.map(c => comboCell(c[0])));
+  const must = [0, 14, 28, 1, 13].filter(i => (!pre || pre[i] >= 0.3) && !truthCells.includes(i) && allCombos(i, s.board).length);
+  const cells = [...new Set([...truthCells, ...decoys, ...traps, ...must])].sort((x, y) => x - y), sel = new Set(), open = new Set();
   const pill = (pos, txt, kind) => `<span class="pl ${kind}"><b>${pos}</b>${txt}</span>`, hk = h => /call/i.test(h.label) ? "call" : /bet|raise|all/i.test(h.label) ? "raise" : "chk";
   const rows = [[-1, tb ? [pill(F.caller, bbf(F.open_size), "raise"), pill(F.opener, "3-bet " + bbf(tb), "raise"), pill(F.caller, "call", "call")] : [pill(F.opener, bbf(F.open_size), "raise"), pill(F.caller, "call", "call")]]];
   (s._raw ? s._raw.history : s.history).forEach(h => { if (rows[rows.length-1][0] !== h.street) rows.push([h.street, []]); rows[rows.length-1][1].push(pill(h.pos, String(h.label).toLowerCase(), hk(h))); });
@@ -845,6 +851,10 @@ function nextPuzzle(){
       b.style.transitionDelay = (k++ * 6) + "ms"; if (cls) b.classList.add(cls); if (w >= 0.05) b.title = Math.round(100 * w) + "%"; }); el.classList.toggle("open", !!el.querySelector(".cb.ok,.cb.miss,.cb.extra")); el.classList.toggle("dead", ![...el.querySelectorAll(".cb")].some(b => b.classList.contains("ok") || b.classList.contains("miss") || b.classList.contains("extra"))); });
     const score = 2*hit / (2*hit + miss + extra || 1), st = store.get("puzzle", { n: 0, sum: 0 }); st.n++; st.sum += score; store.set("puzzle", st);
     sheet.querySelector(".prompt").innerHTML = `<b>${pct(score)}</b> · found ${hit} of ${need}${miss ? `, <span style="color:var(--bad)">missed ${miss}</span>` : ""}${extra ? `, <span style="color:var(--warn)">${extra} not there</span>` : ""}. ${suitNote(s)} <span style="color:var(--dim)">Average ${pct(st.sum / st.n)} over ${st.n}.</span>`;
+    { const gone = must.filter(i => !allIn.has(i)); if (gone.length) sheet.querySelector(".prompt").innerHTML += ` <span style="color:var(--dim)">${gone.map(cellName).join(", ")} started in ${s.villain}'s range but ${gone.length > 1 ? "take" : "takes"} a different line (almost never plays it this way).</span>`; }
+    if (traps.length){ const vIsOpener = s.villain === F.opener, why = tb ? (vIsOpener ? "is not in their 3-betting range" : "would have 4-bet before the flop instead of calling") : (vIsOpener ? "is not in their opening range" : "would have 3-bet before the flop instead of calling");
+      sheet.querySelector(".prompt").innerHTML += ` <span style="color:var(--dim)">No ${traps.map(cellName).join(", ")}: ${s.villain} ${why}.</span>`;
+      traps.forEach(i => { const el = grid.querySelector(`[data-i="${i}"]`); if (el) el.querySelector(".n").textContent = "not preflop"; }); }
     done.textContent = "Next puzzle →"; done.onclick = nextPuzzle; window.scrollTo({ top: 0, behavior: "smooth" });
   };
   sheet.appendChild(done); main.appendChild(sheet); window.scrollTo(0, 0);
