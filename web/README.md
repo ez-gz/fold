@@ -18,8 +18,16 @@ What changed in proto/index.html to support this (keep these when editing)
   streams the rest into `PACK.flops` in the background and clears `state.ppool`. So `PACK.flops` **grows during a session**
   and is in random order — never cache things derived from it at startup, and never use array position as an id.
 - Every flop has `f._i` = its position in the pack (set by both loaders). Share links (`#h=<_i>.<hand>` / `#p=<_i>.<spot>`)
-  use `_i` via `flopAt(i)`, not `PACK.flops.indexOf`.
+  now use the stable key `f._k` (`<flop>-<formation slug>`, see `flopKey`) via `flopAt(key)`, plus `&s=<score>` once the sharer has finished;
+  the recipient gets a "A friend scored X" banner (`challengeNote`). `state.shareScore` is set where hand and puzzle scores are recorded.
 - `?pack=foo.foldpack` still loads a monolithic pack exactly as before.
 
+Web-only layer: `static/extras.js` (injected by the build, never loaded by proto)
+- First-run explainer (skipped for visitors arriving on a share link), the You sheet (account, invite, install hint, reset, delete account).
+  Opened from the round button in the header, or from the score badge once one exists (keeps the header on one line at 375px).
+- Optional cloud sync via Supabase: fill `static/config.json`, run `supabase.sql` once, enable Apple/Google providers.
+  Without keys the sheet just says progress is saved on this device. Sync = the `fold.*` localStorage keys as one JSON row per user;
+  on first sign-in the side with more answered spots wins, after that writes are pushed (debounced). Sign-out keeps local progress.
+
 Deploy (not done yet): Cloudflare Pages, build command `python3 web/build.py`, output dir `web/dist`.
-Still to do: stable share ids (flop name + spot id instead of pack position), 375px audit, first-run explainer, optional sign-in.
+Still to do: Supabase project + OAuth provider setup (needs the owner's accounts), a real share-preview image, privacy page, analytics.

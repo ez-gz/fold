@@ -42,15 +42,21 @@ rep("<title>Fold — backbone prototype</title>", """<title>Fold</title>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Fold">
 <link rel="apple-touch-icon" href="icon-180.png">
-<link rel="icon" href="icon-192.png">""")
-rep("</body>", """<script>if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js"));</script>
+<link rel="icon" href="icon-192.png">
+<meta name="description" content="Solver-backed poker trainer. Play hands, drill decisions, solve range puzzles.">
+<meta property="og:title" content="Fold — can you beat my score?">
+<meta property="og:description" content="Solver-backed poker trainer. Play the exact hand or range puzzle your friend just played.">
+<meta property="og:image" content="icon-512.png">
+<meta name="twitter:card" content="summary">""")
+rep("</body>", """<script src="extras.js"></script>
+<script>if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js"));</script>
 </body>""")
 (DIST / "index.html").write_text(html)
 
 for f in (WEB / "static").iterdir():
     if f.name != "sw.js": shutil.copy(f, DIST / f.name)
 # cache name changes whenever the app or the pack changes, so clients pick up new builds
-ver = hashlib.sha1(html.encode() + buf[:12 + n]).hexdigest()[:10]
+ver = hashlib.sha1(html.encode() + buf[:12 + n] + b"".join(f.read_bytes() for f in sorted((WEB / "static").iterdir()))).hexdigest()[:10]
 (DIST / "sw.js").write_text((WEB / "static" / "sw.js").read_text().replace("__VERSION__", ver))
 size = sum(f.stat().st_size for f in DIST.rglob("*") if f.is_file())
 print(f"web/dist: {len(index['flops'])} flops, {size/1e6:.1f} MB, version {ver}")

@@ -132,6 +132,7 @@ header .stats{margin-left:auto;flex:none}header .chips{flex-wrap:wrap;min-width:
 .foot{margin-top:14px;font-size:10.5px;color:#56677b;text-align:center;line-height:1.5}
 .empty{padding:40px 10px;text-align:center;color:var(--dim)}
 .sharerow{position:sticky;bottom:calc(10px + env(safe-area-inset-bottom));display:grid;grid-template-columns:1fr 4fr;gap:8px;margin-top:12px}.next.share{margin:0;position:static;background:#e8c547;color:#222;font-size:22px}
+.challenge{margin:0 0 10px;padding:10px 12px;border-radius:12px;background:#e8c54722;border:1px solid #e8c54766;color:#f3dc83;font-size:14px}
 </style>
 </head>
 <body>
@@ -501,8 +502,8 @@ function nextHand(){
   if (facing.length && Math.random() < 0.15) from = facing;
   const tot = from.reduce((a, x) => a + wt(x), 0); let u = Math.random() * tot, wi = 0; while (wi < from.length - 1 && (u -= wt(from[wi])) > 0) wi++;
   const sh = takeShared("h"), sf = sh && flopAt(sh[0]), pick = sf && (sf.hands || [])[sh[1]] ? { f: sf, h: sf.hands[sh[1]] } : from[wi];
-  const { f, h } = pick; setShare("h", f._i, f.hands.indexOf(h));
-  state.hand = { f, h, k: 0, res: [] }; handStep(true); window.scrollTo(0, 0);
+  const { f, h } = pick; setShare("h", f._k, f.hands.indexOf(h));
+  state.hand = { f, h, k: 0, res: [] }; Promise.resolve(handStep(true)).then(challengeNote); window.scrollTo(0, 0);
 }
 async function handStep(first){
   const H = state.hand, step = H.h.steps[H.k], s = step.spot;
@@ -563,7 +564,7 @@ function handEnd(){
   const H = state.hand, { f, h } = H;
   if (!h._tail){ const last = h.steps[h.steps.length-1], raw = last.spot._raw; const full = relabelHistory(f, raw.history.concat([{ street: last.spot.street, pos: h.hero, label: raw.actions[last.line] }], h.tail)); h._tail = full.slice(raw.history.length); }
   const hs = handScore(H), score = hs.score, lost = H.res.reduce((a, r) => a + r.gr.loss, 0);
-  state.cur = null; state.hn++; state.hsum += score; renderStats();
+  state.cur = null; state.hn++; state.hsum += score; state.shareScore = score.toFixed(1); renderStats();
   const endTxt = h.end === "showdown" ? (h.result === 1 ? "You win at showdown" : h.result === 0.5 ? "Chop" : `${h.villain} wins at showdown`) : h.end === "villain_fold" ? `${h.villain} folds — you take it` : "You fold";
   main.innerHTML = "";
   // where each hand sat in its own range (hero: at the last decision; villain: at the end)
@@ -837,11 +838,13 @@ document.addEventListener("touchend", e => { if (sx !== null && state.cur && sta
 /* .foldpack v1 (docs/FOLDPACK.md): "FOLDPK01", u32 LE index length, JSON index, one gzip(JSON) blob per flop */
 // split pack (web build): <dir>/index.json lists the flops, each flop is its own gzip file, so the first hand needs ~1 file, not the whole pack.
 // Two flops (plus any share-linked one) load before play starts; the rest stream in behind and join PACK.flops as they arrive. f._i = position in the pack.
+const flopKey = f => f.flop + "-" + f.formation.toLowerCase().replace(/[^a-z0-9]/g, "");   // stable across pack rebuilds, used in share links
 async function loadSplit(url){
   const dir = url.replace(/[^/]*$/, ""), index = await (await fetch(url)).json(), n = index.flops.length;
-  const one = async i => { const f = JSON.parse(await new Response((await fetch(dir + index.flops[i].file)).body.pipeThrough(new DecompressionStream("gzip"))).text()); f._i = i; return f; };
+  const one = async i => { const f = JSON.parse(await new Response((await fetch(dir + index.flops[i].file)).body.pipeThrough(new DecompressionStream("gzip"))).text()); f._i = i; f._k = flopKey(f); return f; };
   const order = [...Array(n).keys()].sort(() => Math.random() - 0.5);
-  if (SHARED && SHARED[1] < n) order.unshift(...order.splice(order.indexOf(SHARED[1]), 1));
+  const want = SHARED ? index.flops.findIndex(e => flopKey(e) === SHARED[1]) : -1;
+  if (want >= 0) order.unshift(...order.splice(order.indexOf(want), 1));
   const pack = { version: index.version, ranges: index.ranges, tree: index.tree, formations: index.formations, flops: await Promise.all(order.slice(0, 2).map(one)) };
   (async () => { for (let k = 2; k < n; k += 3) { try { (await Promise.all(order.slice(k, k + 3).map(one))).forEach(f => pack.flops.push(f)); state.ppool = null; } catch (e) { console.error(e); } } })();
   return pack;
@@ -851,7 +854,7 @@ async function loadFoldpack(url){
   const buf = await (await fetch(url)).arrayBuffer(), dv = new DataView(buf);
   if (new TextDecoder().decode(buf.slice(0, 8)) !== "FOLDPK01") throw new Error("not a foldpack");
   const n = dv.getUint32(8, true), index = JSON.parse(new TextDecoder().decode(buf.slice(12, 12 + n))), base = 12 + n;
-  const flops = await Promise.all(index.flops.map(async (e, i) => Object.assign(JSON.parse(await new Response(new Blob([buf.slice(base + e.offset, base + e.offset + e.length)]).stream().pipeThrough(new DecompressionStream("gzip"))).text()), { _i: i })));
+  const flops = await Promise.all(index.flops.map(async (e, i) => Object.assign(JSON.parse(await new Response(new Blob([buf.slice(base + e.offset, base + e.offset + e.length)]).stream().pipeThrough(new DecompressionStream("gzip"))).text()), { _i: i, _k: flopKey(index.flops[i]) })));
   return { version: index.version, ranges: index.ranges, tree: index.tree, formations: index.formations, flops };
 }
 (async () => {
@@ -862,14 +865,18 @@ async function loadFoldpack(url){
   start();
 })();
 /* ---------- range puzzle: name villain's exact combos when the range is narrow ---------- */
-// share links: the exact hand or puzzle lives in the URL hash (#h=flop.hand or #p=flop.spot), so a link reopens it
-let SHARED = (m => m ? [m[1], +m[2], +m[3]] : null)(location.hash.match(/^#([hp])=(\d+)\.(\d+)$/));
-function flopAt(i){ return PACK.flops.find(f => f._i === i); }
-function takeShared(k){ if (!SHARED || SHARED[0] !== k) return null; const s = SHARED; SHARED = null; return [s[1], s[2]]; }
-function setShare(k, a, b){ history.replaceState(null, "", location.pathname + location.search + `#${k}=${a}.${b}`); }
+// share links: #h=<flop key>.<hand> or #p=<flop key>.<spot>, plus &s=<sharer's score> once they have finished it.
+// The link reopens that exact hand or puzzle; the recipient sees the score to beat.
+let SHARED = (m => m ? [m[1], m[2], +m[3], m[4] ? decodeURIComponent(m[4]) : null] : null)(location.hash.match(/^#([hp])=([\w-]+)\.(\d+)(?:&s=([\w.%]+))?$/));
+function flopAt(k){ return PACK.flops.find(f => f._k === k); }
+function takeShared(k){ if (!SHARED || SHARED[0] !== k) return null; const s = SHARED; SHARED = null; state.challenge = s[3]; return [s[1], s[2]]; }
+function setShare(k, a, b){ state.shareScore = null; history.replaceState(null, "", location.pathname + location.search + `#${k}=${a}.${b}`); }
+function challengeNote(){ if (!state.challenge) return; const c = state.challenge; state.challenge = null; main.prepend($(`<div class="challenge">A friend scored <b>${c}</b> on this one. Your turn.</div>`)); }
 function shareBtn(){
   const b = $(`<button class="next share" aria-label="Share">↗</button>`);
-  b.onclick = async () => { try { if (navigator.share) await navigator.share({ title: "Fold", url: location.href }); else { await navigator.clipboard.writeText(location.href); b.textContent = "✓"; setTimeout(() => b.textContent = "↗", 1200); } } catch (e) {} };
+  b.onclick = async () => { const sc = state.shareScore, url = location.href.replace(/&s=.*$/, "") + (sc ? "&s=" + encodeURIComponent(sc) : ""), pz = location.hash[1] === "p";
+    const text = sc ? `I scored ${sc}${pz ? "" : "/10"} on this ${pz ? "range puzzle" : "poker hand"}. Can you beat it?` : `Try this ${pz ? "range puzzle" : "poker hand"} on Fold`;
+    try { if (navigator.share) await navigator.share({ title: "Fold", text, url }); else { await navigator.clipboard.writeText(text + " " + url); b.textContent = "✓"; setTimeout(() => b.textContent = "↗", 1200); } } catch (e) {} };
   return b;
 }
 function puzzlePool(){ const out = []; PACK.flops.forEach(f => f.spots.forEach(s => { if (s.vcombos && s.vcombos.filter(c => c[1] >= 0.3).length >= 6) out.push({ f, s }); })); return out; }
@@ -919,7 +926,7 @@ function nextPuzzle(){
   const pool = state.ppool || (state.ppool = puzzlePool());
   if (!pool.length){ main.innerHTML = `<div class="empty">This pack has no narrow ranges to puzzle over yet.</div>`; return; }
   const sh = takeShared("p"), sf = sh && flopAt(sh[0]), { f, s } = sf && sf.spots[sh[1]] && sf.spots[sh[1]].vcombos ? { f: sf, s: sf.spots[sh[1]] } : pool[Math.floor(Math.random() * pool.length)], F = formInfo(f), tb = F.three_bet || f.three_bet || 0;
-  setShare("p", f._i, f.spots.indexOf(s));
+  setShare("p", f._k, f.spots.indexOf(s));
   const norm = c => { const a = c.slice(0, 2), b = c.slice(2, 4); return R.indexOf(a[0]) < R.indexOf(b[0]) || (a[0] === b[0] && "shdc".indexOf(a[1]) < "shdc".indexOf(b[1])) ? a + b : b + a; };
   const W = {}; s.vcombos.forEach(([c, w]) => W[norm(c)] = w);
   const pre = F.pre ? F.pre[F.pos.indexOf(s.villain)] : null, inPre = i => !pre || pre[i] >= 0.3;
@@ -979,7 +986,7 @@ function nextPuzzle(){
   lock.onclick = () => {
     done = true; state.pzDone = true; let hit = 0, miss = 0, extra = 0;
     new Set([...sel, ...Object.keys(W)]).forEach(c => { const m = markOf(c); if (m === "ok") hit++; else if (m === "miss") miss++; else if (m === "extra") extra++; });
-    const score = 2*hit / (2*hit + miss + extra || 1), st = store.get("puzzle", { n: 0, sum: 0 }); st.n++; st.sum += score; store.set("puzzle", st); renderStats();
+    const score = 2*hit / (2*hit + miss + extra || 1), st = store.get("puzzle", { n: 0, sum: 0 }); st.n++; st.sum += score; store.set("puzzle", st); state.shareScore = Math.round(100 * score) + "%"; renderStats();
     const P = sheet.querySelector(".prompt");
     P.innerHTML = `<b>${pct(score)}</b> · found ${hit} of ${need}${miss ? `, <span style="color:var(--bad)">missed ${miss}</span>` : ""}${extra ? `, <span style="color:var(--warn)">${extra} not there</span>` : ""}. ${suitNote(s)} <span style="color:var(--dim)">Average ${pct(st.sum / st.n)} over ${st.n}. Tap any square for its exact combos.</span>`;
     const BIG = [0, 14, 28, 42, 56, 70, 84, 1, 13], allIn = new Set(s.vcombos.map(c => comboCell(c[0])));
@@ -1000,7 +1007,7 @@ function nextPuzzle(){
     try { await navigator.clipboard.writeText(txt); } catch (e) { const ta = document.createElement("textarea"); ta.value = txt; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); }
     cp.textContent = "Copied ✓"; setTimeout(() => cp.textContent = "Copy puzzle", 1400);
   };
-  const prow = $(`<div class="sharerow" style="position:static"></div>`); lock.style.marginTop = "0"; prow.appendChild(shareBtn()); prow.appendChild(lock); sheet.appendChild(prow); sheet.appendChild(cp); main.appendChild(sheet); window.scrollTo(0, 0);
+  const prow = $(`<div class="sharerow" style="position:static"></div>`); lock.style.marginTop = "0"; prow.appendChild(shareBtn()); prow.appendChild(lock); sheet.appendChild(prow); sheet.appendChild(cp); main.appendChild(sheet); challengeNote(); window.scrollTo(0, 0);
 }
 function start(){ state.hand = null; renderFilters(); renderStats(); state.mode === "puzzle" ? nextPuzzle() : state.mode === "hands" ? nextHand() : next(); }
 </script>
