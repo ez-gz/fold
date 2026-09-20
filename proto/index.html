@@ -18,6 +18,7 @@ header .stats{margin-left:auto;font-size:12px;color:var(--dim);font-variant-nume
 .chips{display:flex;gap:6px;flex-wrap:wrap}
 .chip{border:1px solid var(--line);background:var(--panel);color:var(--dim);border-radius:999px;padding:5px 11px;font-size:12px;cursor:pointer;user-select:none}
 .overlay{position:fixed;inset:0;background:#000a;z-index:50;display:flex;align-items:flex-end;justify-content:center}.overlay>.sheet{width:min(560px,100%);max-height:86vh;overflow:auto;margin:0;border-radius:18px 18px 0 0}.overlay h3{display:flex;justify-content:space-between}.overlay .x{color:var(--dim);font-size:12px;cursor:pointer}
+.cell.miss.soft{box-shadow:inset 0 0 0 1px var(--bad)}.cell.extra.soft{box-shadow:inset 0 0 0 1px var(--warn)}
 .chip.on{color:#06110c;background:var(--accent);border-color:var(--accent);font-weight:600}
 .table{margin-top:10px;background:radial-gradient(120% 90% at 50% 0%,#17303a 0%,#10202a 55%,#0d161e 100%);border:1px solid var(--line);border-radius:22px;padding:14px 14px 16px;position:relative;overflow:hidden}
 .meta{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em}
@@ -384,10 +385,17 @@ function renderRangeCheck(){
   const done = $(`<button class="next" style="position:static">Lock in range</button>`);
   done.onclick = () => {
     let hitW = 0, miss = 0, extra = 0;
+    // cell weights relative to the fullest cell: after a line villain takes 30% of the time every cell is <= 0.3,
+    // and what matters is which hands are in the range, not how often the line happens
+    const vmax = Math.max(...s.vr, 1e-9), T = s.vr.map(t => Math.min(1, t / vmax));
     const combos = i => (i%14 === 0 ? 6 : Math.floor(i/13) < i%13 ? 4 : 12);
-    s.vr.forEach((t, i) => { const n = combos(i), on = sel.has(i); hitW += on ? t*n : 0; miss += on ? 0 : t*n; extra += on ? (1-t)*n : 0; });
-    const score = 2*hitW / (2*hitW + miss + extra || 1);
-    [...g.children].forEach((c, i) => { const t = s.vr[i], on = sel.has(i); c.className = "cell" + (t > 0.02 ? " in" : "") + (t >= 0.5 && !on ? " miss" : t < 0.15 && on ? " extra" : ""); c.firstChild.style.cssText = t > 0.02 ? `background:var(--call);opacity:${0.2+0.8*t}` : ""; });
+    T.forEach((t, i) => { const n = combos(i), on = sel.has(i); hitW += on ? t*n : 0; miss += on ? 0 : t*n; extra += on ? (1-t)*n : 0; });
+    // The truth is fractional (a cell can be 40% there) but the player paints whole cells, so even a perfect
+    // painting cannot reach 100% raw overlap. Score against the best painting that is possible.
+    const raw = 2*hitW / (2*hitW + miss + extra || 1), tot = T.reduce((a, t, i) => a + t*combos(i), 0);
+    let best = 0, h = 0, e = 0; [...T.keys()].sort((x, y) => T[y] - T[x]).forEach(i => { h += T[i]*combos(i); e += (1-T[i])*combos(i); best = Math.max(best, 2*h / (2*h + (tot-h) + e)); });
+    const score = Math.min(1, raw / (best || 1));
+    [...g.children].forEach((c, i) => { const t = T[i], on = sel.has(i); c.className = "cell" + (t > 0.02 ? " in" : "") + (t >= 0.5 && !on ? " miss" : t < 0.15 && on ? " extra" : t >= 0.25 && !on ? " miss soft" : t < 0.35 && on ? " extra soft" : ""); c.firstChild.style.cssText = t > 0.02 ? `background:var(--call);opacity:${0.2+0.8*t}` : ""; });
     sheet.querySelector(".prompt").innerHTML = `Range read: <b>${pct(score)}</b> overlap. <span style="color:var(--bad)">Red</span> = hands you missed, <span style="color:var(--warn)">amber</span> = hands they don't have. Now act.`;
     sheet.querySelector("#presets").remove(); wrap.remove(); done.remove(); g.style.pointerEvents = "none";
     state.cur.rangeScore = score; renderActions(); document.getElementById("actions").scrollIntoView({ behavior: "smooth", block: "center" });

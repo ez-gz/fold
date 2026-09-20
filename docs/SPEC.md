@@ -424,3 +424,12 @@ Do those first (week 1), then six streams run independently.
 - Every decision is tagged with its situation (c-bet, facing a c-bet, second barrel, delayed c-bet, probe, facing a raise, ...). Results are kept per situation, street, hand type and role; the Leaks sheet shows average EV lost for each, and Focus drills one situation or the three costliest.
 - Played hands mostly go to the river (80%), some stop earlier so folding out villain still shows up.
 - Each flop export has a `briefing`: range equity, share of range at 75%+ and under 35% equity, class shares, and the opening frequencies for OOP and for IP after a check. `fold-cli import ... --brief-into <export.json>` adds it to an existing export without a best-response pass.
+
+### 13.6 Possible solver speed-ups (noted 2026-09-20, none started)
+
+- More flops at lower precision for the preflop measurement rounds: per-class noise comes from the 25-flop sample (0.2-0.5bb), not from solving to 1% of pot. Half the iterations on twice the flops is better for the same time. Start on a fresh round, not mid-loop.
+- Half precision on the GPU for the showdown sweeps (keep regret and strategy sums in 32-bit); maybe 1.3-1.6x on the 2080. Re-run the reference cross-check afterwards.
+- Batch the many small per-node GPU calls (CUDA graphs or fused per-street kernels). Profile one solve first: 97% utilisation does not show whether launch overhead or memory bandwidth is the limit.
+- Warm-start each preflop round from the previous round's strategy. Needs regrets saved as well as the average strategy.
+- Done: the Mac side of the measurement rounds is one-sided (FOLD_EPS_P=0) like the GPU.
+- Not worth it: suit isomorphism (about 1.3x, nothing on rainbow flops); river bucketing (costs accuracy).

@@ -2,7 +2,7 @@
 # usage: measure_round.sh <k>   -- measure per-hand flop EVs with the round-k big-blind ranges (preflop/rounds/r<k>/*.p0).
 # Resumable: one JSON per flop, written atomically, finished flops are skipped.
 cd "$(dirname "$0")"; k="$1"; out="calib_pre_r$k"; mkdir -p "$out"
-export FOLD_TREE=pre FOLD_EPS=0.02
+export FOLD_TREE=pre FOLD_EPS=0.02 FOLD_EPS_P=0  # only the BB side is read by round.py; one-sided is much cheaper
 while read -r form flop <&3; do
   n="${form}_${flop}"; [ -s "$out/$n.json" ] && continue
   unset FOLD_RANGE0; [ -s "../preflop/rounds/r$k/$form.p0" ] && export FOLD_RANGE0="$(cat ../preflop/rounds/r$k/$form.p0)"
