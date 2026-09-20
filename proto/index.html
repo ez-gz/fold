@@ -32,6 +32,9 @@ header .stats{margin-left:auto;font-size:12px;color:var(--dim);font-variant-nume
 .cb.on{opacity:1;border-color:#ffffff40;transform:scale(1.03)}.cb.ok{background:#2fd39a33;border-color:var(--accent);opacity:1}.cb.miss{border-color:var(--bad);background:#ff5d5d22;opacity:1}.cb.extra{border-color:var(--warn);background:#ffb84d22;opacity:1}
 .mc{font-weight:700;font-size:13px;background:#fff;color:#111;border-radius:5px;padding:2px 4px;min-width:26px;text-align:center}.mc.h,.mc.d{color:#d22}.mc.d{color:#1565c0}.mc.c{color:#1b7f3b}
 @keyframes pzin{from{opacity:0;transform:translateY(8px) scale(.92)}to{opacity:1;transform:none}}
+.cr{display:flex;align-items:center;gap:4px;padding:7px 8px;border-radius:10px;margin-bottom:5px;background:#ffffff0a;animation:pzin .2s both}.cr.me{outline:1.5px solid #fff}
+.cr .cx{flex:1;margin-left:8px;min-width:0}.cr .t{height:8px;border-radius:4px;background:#ffffff14;overflow:hidden}.cr .t i{display:block;height:100%}.cr small{display:block;font-size:11px;margin-top:3px;color:var(--dim)}.cr em{font-style:normal;font-weight:600}
+.cr.out{opacity:.35}.cr .why{margin-left:8px;font-size:11px;color:var(--dim)}
 .chip.on{color:#06110c;background:var(--accent);border-color:var(--accent);font-weight:600}
 .table{margin-top:10px;background:radial-gradient(120% 90% at 50% 0%,#17303a 0%,#10202a 55%,#0d161e 100%);border:1px solid var(--line);border-radius:22px;padding:14px 14px 16px;position:relative;overflow:hidden}
 .meta{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em}
@@ -678,12 +681,30 @@ function suitNote(s){
   const more = c.filter(i => W[i] > O[i]).slice(0, 3).map(cellName), less = c.filter(i => W[i] < O[i]).slice(0, 3).map(cellName);
   return ` <span style="color:var(--dim)">Suits matter: ${more.length ? `${more.join(", ")} mostly with a ${ch}` : ""}${more.length && less.length ? "; " : ""}${less.length ? `${less.join(", ")} mostly without` : ""}.</span>`;
 }
+function cellPopup(f, s, d, cell, tab){
+  if (cell < 0 || !s.vdetail) return;
+  const mine = tab === -2, list = mine ? s.hdetail : s.vdetail, who = mine ? s.hero : s.villain, r = tab >= 0 ? s.resp[tab] : null;
+  const norm = c => { const a = c.slice(0, 2), b = c.slice(2, 4); return R.indexOf(a[0]) < R.indexOf(b[0]) || (a[0] === b[0] && "shdc".indexOf(a[1]) < "shdc".indexOf(b[1])) ? a + b : b + a; };
+  const idx = {}; list.forEach((x, k) => idx[norm(x[0])] = k);
+  const acts = mine ? s.actions.map((a, k) => ({ label: a.label, color: kindColor(a.kind, s.actions.filter(x => x.kind === a.kind).indexOf(a)) })) : r ? r.labels.map((l, k) => ({ label: l, color: kindColor(r.kinds[k], 1) })) : [];
+  const mini = c => `<span class="mc ${c[1]}">${c[0] === "T" ? "10" : c[0]}${SUITCH[c[1]]}</span>`, me = norm(d.hand.join(""));
+  const rows = allCombos(cell, s.board).map(c => { const k = idx[c], heroBlock = !mine && (d.hand.includes(c.slice(0, 2)) || d.hand.includes(c.slice(2, 4)));
+    if (k == null) return { c, w: 0, html: `<div class="cr out">${mini(c.slice(0, 2))}${mini(c.slice(2, 4))}<span class="why">${heroBlock ? "you hold one of these cards" : "not in range"}</span></div>` };
+    const w = mine ? list[k][1][0] : list[k][1], fr = mine ? list[k][1].slice(1) : r ? r.combo.map(row => row[k]) : [];
+    const bar = acts.length ? `<div class="t" style="display:flex">${fr.map((v, a) => `<i style="width:${v}%;background:${acts[a].color}"></i>`).join("")}</div>` : `<div class="t"><i style="width:${w}%;background:var(--call)"></i></div>`;
+    const txt = acts.length ? fr.map((v, a) => v >= 1 ? `<em style="color:${acts[a].color}">${acts[a].label.replace("Raise to", "Raise").toLowerCase()} ${v}%</em>` : "").filter(Boolean).join(" · ") : `here ${w}% as often as their fullest combo`;
+    return { c, w, html: `<div class="cr ${mine && c === me ? "me" : ""}" style="opacity:${0.45 + 0.55 * Math.min(1, w / 100)}">${mini(c.slice(0, 2))}${mini(c.slice(2, 4))}<div class="cx">${bar}<small>${txt}${acts.length ? ` <span style="color:var(--dim)">· weight ${w}%</span>` : ""}</small></div></div>` }; }).sort((x, y) => y.w - x.w);
+  const inN = rows.filter(x => x.w > 0).length, body = $(`<div><p style="color:var(--dim);font-size:12px;margin:0 0 8px">${inN} of ${rows.length} possible combos are in ${who}'s range here${r ? `, facing ${s.actions[tab].label.toLowerCase()}` : ""}. Weight = how often the combo gets here, relative to the fullest one.</p>${rows.map(x => x.html).join("")}</div>`);
+  overlay(`${cellName(cell)} — ${mine ? "your plan" : r ? who + "'s answer" : who + "'s range"}`, body);
+}
 function lens(f, s, d, chosen, gr){
   const sheet = $(`<div class="sheet"><h3>Range lens — ${s.villain}</h3><div class="seg" id="tabs"></div><div class="kpis" id="kpis"></div><div id="g"></div><div class="legend" id="leg"></div><div class="bars" id="bars"></div></div>`);
   const g = gridEl(); sheet.querySelector("#g").appendChild(g);
   const tabs = [{ label: "Before", a: -1 }].concat(s.actions.map((a, i) => ({ label: a.label.replace("Raise to","Raise"), a: i })).filter(t => s.resp[t.a])).concat([{ label: "My plan", a: -2 }]);
+  let curTab = null;
   const show = t => {
     [...sheet.querySelectorAll("#tabs div")].forEach((el, k) => el.classList.toggle("on", tabs[k] === t));
+    curTab = t;
     const kp = sheet.querySelector("#kpis"), leg = sheet.querySelector("#leg"), bars = sheet.querySelector("#bars");
     const barRow = (name, parts, val) => `<div class="bar"><span>${name}</span><div class="t">${parts.map(p => `<i style="width:${100*p.v}%;background:${p.c}"></i>`).join("")}</div><b>${val}</b></div>`;
     [...g.children].forEach(c => c.classList.remove("sd"));
@@ -713,6 +734,9 @@ function lens(f, s, d, chosen, gr){
       bars.innerHTML = f.class_names.map((n, c) => { const tot = s.vclass[c] || 1e-9; return barRow(n, r.labels.map((_, k) => ({ v: r.cls[k][c]/tot, c: col(k) })), pct(s.vclass[c])); }).join("");
     }
   };
+  // tap a cell: every exact combo of that hand, how often it is here and what it does
+  g.style.cursor = "pointer";
+  g.onclick = e => { const el = e.target.closest(".cell"); if (!el || !curTab) return; cellPopup(f, s, d, [...g.children].indexOf(el), curTab.a); };
   tabs.forEach(t => { const el = $(`<div>${t.label}</div>`); el.onclick = () => show(t); sheet.querySelector("#tabs").appendChild(el); });
   show(tabs.find(t => t.a === chosen) || tabs.find(t => t.a === gr.bestIdx) || tabs[0]);
   return sheet;

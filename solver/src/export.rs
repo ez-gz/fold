@@ -18,7 +18,9 @@ struct Hist { street: u8, pos: &'static str, label: String }
 struct ActOut { label: String, kind: &'static str, amt: f32 }
 
 #[derive(Serialize)]
-struct Resp { labels: Vec<String>, kinds: Vec<&'static str>, freq: Vec<f32>, grid: Vec<Vec<f32>>, cls: Vec<Vec<f32>> }
+struct Resp { labels: Vec<String>, kinds: Vec<&'static str>, freq: Vec<f32>, grid: Vec<Vec<f32>>, cls: Vec<Vec<f32>>,
+    /// per villain action, percent (0-100) for every combo listed in the spot's `vdetail`, same order
+    combo: Vec<Vec<u8>> }
 
 #[derive(Serialize)]
 struct Drill { hand: [String; 2], cls: u8, w: f32, strat: Vec<f32>, ev: Vec<f32>, eq: f32, top: f32, eq_cont: Vec<Option<f32>>, src: Vec<Vec<f32>>,
@@ -38,6 +40,10 @@ struct Spot {
     #[serde(skip_serializing_if = "Option::is_none")] vsuit: Option<SuitSplit>,
     /// villain's exact combos when the range is narrow enough to name them (weight relative to the fullest combo)
     #[serde(skip_serializing_if = "Option::is_none")] vcombos: Option<Vec<(String, f32)>>,
+    /// every listed villain combo with its weight (percent of the fullest combo); `resp[..].combo` lines up with it
+    vdetail: Vec<(String, u8)>,
+    /// every listed hero combo: [weight, then percent per action]
+    hdetail: Vec<(String, Vec<u8>)>,
 }
 
 #[derive(Serialize)]
@@ -245,7 +251,8 @@ fn collect<'a>(s: &'a Solved, node: &'a Node, board: &mut Vec<u8>, reach: [Vec<f
         Node::Action(a) => {
             let p = a.player as usize;
             let line_p = mass(ctx, s, &reach);
-            if line_p < 0.02 { return; }
+            // rarer lines are kept too: that is where ranges get narrow enough to name combo by combo
+            if line_p < 0.004 { return; }
             out.push(Cand { node: a, board: board.clone(), reach: reach.clone(), hist: hist.clone(), p: line_p * chance_p });
             let n = ctx.hands[p].len();
             let strat = avg_strategy(a, n);
@@ -331,6 +338,18 @@ fn build_spot(s: &Solved, c: &Cand, idx: usize, rng: &mut Rng, forced: Option<us
     let vcls: Vec<u8> = ctx.hands[vp].iter().map(|h| classify(*h, &c.board)).collect();
     let hcls: Vec<u8> = ctx.hands[hp].iter().map(|h| classify(*h, &c.board)).collect();
 
+    // combos worth listing one by one (the cell popup): at least 2% of the fullest combo, not blocked by the board
+    let listed = |hands: &[(u8, u8)], w: &[f32]| -> Vec<usize> {
+        let mx = w.iter().cloned().fold(0f32, f32::max).max(1e-9);
+        (0..hands.len()).filter(|&i| w[i] / mx >= 0.02 && !c.board.contains(&hands[i].0) && !c.board.contains(&hands[i].1)).collect()
+    };
+    let (vlist, hlist) = (listed(&ctx.hands[vp], vreach), listed(&ctx.hands[hp], hreach));
+    let pc = |x: f32| (100.0 * x).round().clamp(0.0, 100.0) as u8;
+    let vmx = vreach.iter().cloned().fold(0f32, f32::max).max(1e-9);
+    let hmx = hreach.iter().cloned().fold(0f32, f32::max).max(1e-9);
+    let vdetail: Vec<(String, u8)> = vlist.iter().map(|&i| (format!("{}{}", card_str(ctx.hands[vp][i].1), card_str(ctx.hands[vp][i].0)), pc(vreach[i] / vmx))).collect();
+    let hdetail: Vec<(String, Vec<u8>)> = hlist.iter().map(|&i| (format!("{}{}", card_str(ctx.hands[hp][i].1), card_str(ctx.hands[hp][i].0)),
+        std::iter::once(pc(hreach[i] / hmx)).chain((0..na).map(|x| pc(strat[x * nh + i]))).collect())).collect();
     // villain responses one ply down
     let mut resp = Vec::new();
     let mut cont_reach: Vec<Option<Vec<f32>>> = Vec::new();
@@ -340,7 +359,7 @@ fn build_spot(s: &Solved, c: &Cand, idx: usize, rng: &mut Rng, forced: Option<us
                 let vs = avg_strategy(v, nv);
                 let nva = v.actions.len();
                 let vcell = { let mut g = vec![0f32; 169]; for (i, h) in ctx.hands[vp].iter().enumerate() { g[grid_cell(*h)] += vreach[i]; } g };
-                let mut r = Resp { labels: vec![], kinds: vec![], freq: vec![], grid: vec![], cls: vec![] };
+                let mut r = Resp { labels: vec![], kinds: vec![], freq: vec![], grid: vec![], cls: vec![], combo: vec![] };
                 let mut cont = vec![0f32; nv];
                 for x in 0..nva {
                     let w: Vec<f32> = (0..nv).map(|h| vreach[h] * vs[x * nv + h]).collect();
@@ -350,6 +369,7 @@ fn build_spot(s: &Solved, c: &Cand, idx: usize, rng: &mut Rng, forced: Option<us
                     r.freq.push(r3(w.iter().sum::<f32>() / vtotal));
                     r.grid.push(grid(&ctx.hands[vp], &w, &vcell));
                     r.cls.push(class_share(&vcls, &w, vtotal));
+                    r.combo.push(vlist.iter().map(|&h| (100.0 * vs[x * nv + h]).round() as u8).collect());
                 }
                 resp.push(Some(r));
                 cont_reach.push(Some(cont));
@@ -485,7 +505,7 @@ fn build_spot(s: &Solved, c: &Cand, idx: usize, rng: &mut Rng, forced: Option<us
             .filter(|(i, h)| vreach[*i] / mx >= 0.05 && !c.board.contains(&h.0) && !c.board.contains(&h.1))
             .map(|(i, h)| (format!("{}{}", card_str(h.1), card_str(h.0)), r3(vreach[i] / mx))).collect();
         v.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
-        if v.len() <= 90 { Some(v) } else { None }
+        if v.len() <= 50 { Some(v) } else { None }
     };
     Some(Spot {
         id: format!("{}-{}", s.flop.iter().map(|c| card_str(*c)).collect::<String>(), idx),
@@ -496,7 +516,7 @@ fn build_spot(s: &Solved, c: &Cand, idx: usize, rng: &mut Rng, forced: Option<us
         actions: a.actions.iter().map(|x| { let (label, kind, amt) = act_label(x); ActOut { label, kind, amt: r3(amt) } }).collect(),
         vr: grid(&ctx.hands[vp], vreach, &av), hr: grid(&ctx.hands[hp], hreach, &av), hs, range_freq,
         vclass: class_share(&vcls, vreach, vtotal), hclass: class_share(&hcls, hreach, htotal), hclass_strat,
-        resp, drills, vsuit, vcombos,
+        resp, drills, vsuit, vcombos, vdetail, hdetail,
     })
 }
 
@@ -507,9 +527,23 @@ pub fn export(s: &Solved, rake: bool, seed: u64, out: &str) {
     collect(s, &s.root, &mut s.flop.clone(), reach, &mut Vec::new(), 1.0, &mut rng, &mut cands);
     let mut chosen: Vec<usize> = Vec::new();
     for (street, k) in [(0u8, 12usize), (1, 12), (2, 12)] {
-        let w: Vec<f32> = cands.iter().map(|c| if c.node.street == street && c.node.actions.len() > 1 { c.p } else { 0.0 }).collect();
+        let w: Vec<f32> = cands.iter().map(|c| if c.node.street == street && c.node.actions.len() > 1 && c.p >= 0.02 { c.p } else { 0.0 }).collect();
         chosen.extend(rng.pick(&w, k));
     }
+    // a forced share of compressed-range spots for the puzzle mode: villain is down to 10-50 combos spread over
+    // at least 6 different hands (so not just AA/KK), on the turn or river
+    let narrow = |c: &Cand| -> bool {
+        if c.node.street == 0 || c.node.actions.len() < 2 { return false; }
+        let vr = &c.reach[1 - c.node.player as usize];
+        let mx = vr.iter().cloned().fold(0f32, f32::max); if mx <= 0.0 { return false; }
+        let hands = &s.ctx.hands[1 - c.node.player as usize];
+        let (mut n, mut cells) = (0, std::collections::HashSet::new());
+        for (i, w) in vr.iter().enumerate() { if w / mx >= 0.05 && !c.board.contains(&hands[i].0) && !c.board.contains(&hands[i].1) { n += 1; cells.insert(grid_cell(hands[i])); } }
+        (10..=50).contains(&n) && cells.len() >= 6
+    };
+    let nw: Vec<f32> = cands.iter().enumerate().map(|(i, c)| if !chosen.contains(&i) && narrow(c) { c.p } else { 0.0 }).collect();
+    eprintln!("  narrow-range candidates: {} ({} on the river) of {}", nw.iter().filter(|w| **w > 0.0).count(), cands.iter().zip(&nw).filter(|(c, w)| **w > 0.0 && c.node.street == 2).count(), cands.len());
+    chosen.extend(rng.pick(&nw, 6));
     chosen.sort_unstable();
     eprintln!("  exporting {} of {} candidate nodes", chosen.len(), cands.len());
     let spots: Vec<Spot> = chosen.iter().enumerate().filter_map(|(i, &ci)| build_spot(s, &cands[ci], i, &mut rng, None)).collect();
