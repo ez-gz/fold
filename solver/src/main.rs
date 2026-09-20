@@ -98,6 +98,27 @@ fn load_hands(form: &Formation, flop: &[u8]) -> ([Vec<(u8, u8)>; 2], [Vec<f32>; 
     (hands, weights)
 }
 
+/// Per-class root EV and equity for both players under the average strategy: [weight, sum w*EV, sum w*equity] per cell.
+fn class_cells(s: &Solved, flop: &str) -> serde_json::Value {
+    let mut players = Vec::new();
+    for t in 0..2 {
+        let wo = s.ctx.weights[1 - t].clone();
+        let cfv = cfr::walk(&s.ctx, &s.root, t, &wo, cfr::Mode::Average);
+        let vm = s.ctx.valid_mass(t, &wo);
+        let eq = export::equity_all(s, &s.flop, t, &s.ctx.weights[t], &wo);
+        let mut cells = vec![[0f64; 3]; 169];
+        for h in 0..s.ctx.hands[t].len() {
+            if vm[h] <= 1e-6 || eq[h] < 0.0 { continue; }
+            // unweighted within the class here: eps-weight hands must count as much as in-range ones
+            let c = cards::grid_cell(s.ctx.hands[t][h]);
+            cells[c][0] += 1.0; cells[c][1] += (cfv[h] / vm[h]) as f64; cells[c][2] += eq[h] as f64;
+        }
+        players.push(cells.iter().map(|c| c.to_vec()).collect::<Vec<_>>());
+    }
+    serde_json::json!({ "formation": s.form.key, "flop": flop, "pot": s.cfg.start_pot, "stack": s.cfg.eff_stack, "opener": s.form.opener, "three_bet": s.form.three_bet,
+        "exploitability_pct_pot": 100.0 * s.expl / s.cfg.start_pot, "iterations": s.iters, "cells": players })
+}
+
 fn solve(form: &'static Formation, flop_s: &str, max_iters: u32, target_pct: f32, rake: bool) -> Solved {
     let flop = cards::parse_board(flop_s);
     let cfg = tree_config(form);
@@ -222,21 +243,7 @@ fn main() {
             let mut shapes = Vec::new();
             import::shapes(&s.root, nh, &mut 0, &mut shapes);
             import::fill(&mut s.root, &bytes, &shapes, &mut 0, [0, 0], &deck_pos, nh);
-            let mut players = Vec::new();
-            for t in 0..2 {
-                let wo = s.ctx.weights[1 - t].clone();
-                let cfv = cfr::walk(&s.ctx, &s.root, t, &wo, cfr::Mode::Average);
-                let vm = s.ctx.valid_mass(t, &wo);
-                let eq = export::equity_all(&s, &s.flop, t, &s.ctx.weights[t], &wo);
-                let mut cells = vec![[0f64; 3]; 169];
-                for h in 0..nh[t] {
-                    if vm[h] <= 1e-6 || eq[h] < 0.0 { continue; }
-                    let (w, c) = (s.ctx.weights[t][h] as f64, cards::grid_cell(s.ctx.hands[t][h]));
-                    cells[c][0] += w; cells[c][1] += w * (cfv[h] / vm[h]) as f64; cells[c][2] += w * eq[h] as f64;
-                }
-                players.push(cells.iter().map(|c| c.to_vec()).collect::<Vec<_>>());
-            }
-            println!("{}", serde_json::json!({ "formation": form.key, "flop": args[3], "pot": s.cfg.start_pot, "stack": s.cfg.eff_stack, "opener": form.opener, "three_bet": form.three_bet, "cells": players }));
+            println!("{}", class_cells(&s, &args[3]));
         }
         Some("preeq") => {
             // Monte Carlo preflop all-in equity, 169 x 169 classes (row beats column), plus the number of non-conflicting combo pairs
@@ -265,6 +272,12 @@ fn main() {
                 (eq, cnt)
             }).collect();
             println!("{}", serde_json::json!({ "eq": rows.iter().map(|r| r.0.clone()).collect::<Vec<_>>(), "pairs": rows.iter().map(|r| r.1.clone()).collect::<Vec<_>>() }));
+        }
+        Some("measure") => {
+            // solve on the CPU (use with FOLD_TREE=pre FOLD_EPS=..) and print per-class EVs; no strategy file needed
+            let form = FORMATIONS.iter().find(|f| f.key == args[2]).expect("unknown formation");
+            let s = solve(form, &args[3], get("--iters", "300").parse().unwrap(), get("--target", "1.0").parse().unwrap(), false);
+            println!("{}", class_cells(&s, &args[3]));
         }
         Some("ranges") => for f in FORMATIONS.iter() {
             let pct = |r: &str| range::parse_range(r).iter().map(|e| e.1).sum::<f32>() / 13.26;

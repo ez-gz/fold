@@ -16,3 +16,4 @@ solver/refcheck/*.json
 solver/refcheck/*.log
 preflop/preeq.json
 proto/old/
+solver/calib_pre/

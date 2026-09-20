@@ -4,7 +4,9 @@ import itertools, random, sys, collections
 R = "23456789TJQKA"
 FORMS = ["btn_bb", "co_bb", "utg_bb", "sb_bb", "co_btn", "utg_btn", "btn_bb_3b", "btn_sb_3b", "co_btn_3b"]
 per = int(sys.argv[1]) if len(sys.argv) > 1 else 8
-rng = random.Random(7)
+if len(sys.argv) > 2: FORMS = sys.argv[2].split(",")
+OUT = sys.argv[3] if len(sys.argv) > 3 else "batch1.txt"
+rng = random.Random(7 if len(sys.argv) < 3 else 11)
 
 def category(ranks, suits):
     hi = max(ranks)
@@ -48,7 +50,7 @@ out = []
 for i, (k, f) in enumerate(picked):
     cards = sorted(f, reverse=True)
     out.append((FORMS[i % len(FORMS)], "".join(R[r] + "shdc"[s] for r, s in cards), k))
-with open("batch1.txt", "w") as fh:
+with open(OUT, "w") as fh:
     for form, flop, k in out: fh.write(f"{form} {flop}\n")
 for form in FORMS:
     print(form, " ".join(f"{fl}" for fo, fl, k in out if fo == form))
