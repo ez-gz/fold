@@ -46,6 +46,12 @@ pub const FORMATIONS: [Formation; 9] = [
 pub const TREE_VERSION: &str = "tree-v1";
 pub fn tree_config(f: &Formation) -> TreeConfig {
     let v = |x: &[f32]| x.to_vec();
+    if std::env::var("FOLD_TREE").as_deref() == Ok("pre") {
+        // coarse tree for measuring per-hand flop EVs that feed the preflop solve: one size, one raise
+        let one = || [v(&[0.66]), v(&[0.66]), v(&[0.66])];
+        let r = || [v(&[0.6]), v(&[0.6]), v(&[0.6])];
+        return TreeConfig { start_pot: f.start_pot, eff_stack: f.eff_stack, bets: [one(), one()], raises: [r(), r()], max_raises: 1, allin_threshold: 0.67 };
+    }
     if std::env::var("FOLD_TREE").as_deref() == Ok("ref") {
         // cross-check tree, chosen so an external solver can build the identical game:
         // one bet size everywhere, 60% raises with no cap, bets only become all-in when they exceed the stack
@@ -74,19 +80,29 @@ pub struct Solved {
     pub iters: u32,
 }
 
+/// Hands and weights per player. FOLD_EPS gives every hand outside the range a tiny weight, so its EV is
+/// measured without moving the equilibrium (used to feed the preflop solve).
+fn load_hands(form: &Formation, flop: &[u8]) -> ([Vec<(u8, u8)>; 2], [Vec<f32>; 2]) {
+    let eps: f32 = std::env::var("FOLD_EPS").ok().and_then(|x| x.parse().ok()).unwrap_or(0.0);
+    let (mut hands, mut weights) = ([Vec::new(), Vec::new()], [Vec::new(), Vec::new()]);
+    for (p, r) in form.ranges.iter().enumerate() {
+        let mut all = std::collections::BTreeMap::<(u8, u8), f32>::new();
+        let only: Option<usize> = std::env::var("FOLD_EPS_P").ok().and_then(|x| x.parse().ok());   // extend one player only (memory)
+        if eps > 0.0 && only.map_or(true, |o| o == p) { for a in 0..52u8 { for b in a + 1..52 { all.insert((a, b), eps); } } }
+        for (h, w) in range::parse_range(r) { all.insert(h, w.max(eps)); }
+        for (h, w) in all {
+            if flop.contains(&h.0) || flop.contains(&h.1) { continue; }
+            hands[p].push(h); weights[p].push(w);
+        }
+    }
+    (hands, weights)
+}
+
 fn solve(form: &'static Formation, flop_s: &str, max_iters: u32, target_pct: f32, rake: bool) -> Solved {
     let flop = cards::parse_board(flop_s);
     let cfg = tree_config(form);
     let (rake_pct, rake_cap) = if rake { (0.05, 1.0) } else { (0.0, 0.0) };
-    let mut hands = [Vec::new(), Vec::new()];
-    let mut weights = [Vec::new(), Vec::new()];
-    for (p, r) in form.ranges.iter().enumerate() {
-        for (h, w) in range::parse_range(r) {
-            if flop.contains(&h.0) || flop.contains(&h.1) { continue; }
-            hands[p].push(h);
-            weights[p].push(w);
-        }
-    }
+    let (hands, weights) = load_hands(form, &flop);
     let t0 = Instant::now();
     let mut b = Builder::new(&cfg);
     let mut root = b.build(&flop);
@@ -136,15 +152,7 @@ fn main() {
             let dir = get("--out", "../gpu/spec");
             std::fs::create_dir_all(&dir).unwrap();
             let cfg = tree_config(form);
-            let mut hands: [Vec<(u8, u8)>; 2] = [Vec::new(), Vec::new()];
-            let mut weights: [Vec<f32>; 2] = [Vec::new(), Vec::new()];
-            for (p, r) in form.ranges.iter().enumerate() {
-                for (h, w) in range::parse_range(r) {
-                    if flop.contains(&h.0) || flop.contains(&h.1) { continue; }
-                    hands[p].push(h);
-                    weights[p].push(w);
-                }
-            }
+            let (hands, weights) = load_hands(form, &flop);
             let deck: Vec<u8> = (0..52u8).filter(|c| !flop.contains(c)).collect();
             let mut bin: Vec<u8> = Vec::new();
             for &t in &deck { for &r in &deck { for p in 0..2 { for h in &hands[p] {

@@ -50,24 +50,58 @@ def category(c):
 CATS = [category(c) for c in range(169)]
 
 def load_realization():
-    acc = {}
+    """Per role: a monotone curve  share_of_pot = g(equity vs the opponent's range)  plus a small offset per hand
+    category, both fitted on our solved flops. Making realization a function of equity is what lets a wide,
+    bluff-heavy range play worse after the flop than a tight one, without a flop solve per candidate range."""
+    # pool each class over all solved flops of a matchup first: the curve must relate PREFLOP equity to share of pot,
+    # and the flop-by-flop relation is far more convex (big equity on one flop wins stacks) than its average
+    pool = {}
     for path in glob.glob(os.path.join(HERE, "../solver/calib/*.json")):
         d = json.load(open(path))
         pot_type = "3bp" if d["three_bet"] > 0 else "srp"
         for t in (0, 1):
             role = ("ip" if t == 1 else "oop", "agg" if t == d["opener"] else "call", pot_type)
             for c, (w, ev, eq) in enumerate(d["cells"][t]):
-                for key in ((role, CATS[c]), (role, "*")):
-                    a = acc.setdefault(key, [0.0, 0.0]); a[0] += ev; a[1] += eq * d["pot"]
-    return {k: v[0] / v[1] for k, v in acc.items() if v[1] > 0}
+                a = pool.setdefault((d["formation"], role, c), [0.0, 0.0, 0.0]); a[0] += w; a[1] += ev / d["pot"]; a[2] += eq
+    pts = {}
+    for (form, role, c), (w, sh, eq) in pool.items():
+        if w > 0: pts.setdefault(role, []).append((eq / w, sh / w, w, CATS[c]))
+    model = {}
+    edges = np.linspace(0, 1, 21)
+    for role, p in pts.items():
+        e, sh, w = (np.array([x[k] for x in p]) for k in range(3))
+        xs, ys, ws = [0.0], [0.0], [1e9]                                   # no equity, no share
+        for a, b in zip(edges[:-1], edges[1:]):
+            m = (e >= a) & (e < b)
+            if w[m].sum() > 0: xs.append(float((e[m] * w[m]).sum() / w[m].sum())); ys.append(float((sh[m] * w[m]).sum() / w[m].sum())); ws.append(float(w[m].sum()))
+        ys, ws = list(ys), list(ws)                                         # pool adjacent violators -> monotone
+        k = 0
+        blocks = [[ys[n], ws[n], 1] for n in range(len(ys))]
+        while k < len(blocks) - 1:
+            if blocks[k][0] > blocks[k + 1][0] + 1e-12:
+                a, b = blocks[k], blocks.pop(k + 1); blocks[k] = [(a[0] * a[1] + b[0] * b[1]) / (a[1] + b[1]), a[1] + b[1], a[2] + b[2]]; k = max(k - 1, 0)
+            else: k += 1
+        iso = [v for v, _, n in blocks for _ in range(n)]
+        xs.append(1.0); iso.append(max(iso[-1], 1.0))
+        g = (np.array(xs), np.array(iso))
+        resid = {}
+        for (eq, share, wt, cat) in p:
+            r = resid.setdefault(cat, [0.0, 0.0]); r[0] += wt * (share - np.interp(eq, *g)); r[1] += wt
+        model[role] = (g, {c: v[0] / (v[1] + 8.0) for c, v in resid.items()})   # shrink thin categories towards 0
+    return model
 REAL = load_realization()
 
-def rf(role):
-    """169-vector of realization factors for a role; falls back to the role average, then to 1."""
-    base = REAL.get((role, "*"), 1.0)
-    return np.array([REAL.get((role, CATS[c]), base) for c in range(169)])
-def rf_4bp(role):   # no 4-bet pots solved yet: low SPR pulls realization towards 1
-    return 1 + 0.5 * (rf((role[0], role[1], "3bp")) - 1)
+def share(role, eq):
+    """Expected share of the pot for every class given its equity vs the opponent's range."""
+    if role[2] == "4bp":                                                  # none solved yet: halfway between the 3-bet-pot curve and raw equity
+        return 0.5 * (share((role[0], role[1], "3bp"), eq) + eq)
+    if role not in REAL: return eq
+    g, off = REAL[role]
+    return np.interp(eq, *g) + np.array([off.get(CATS[c], 0.0) for c in range(169)])
+
+# players still to act behind a flat call or a 3-bet: chance each wakes up, times what it costs on average
+SQUEEZE_COST = 0.09 * 2.5 * 0.7
+COLD4_COST = 0.03 * 7.5
 
 # ---------- one raiser-vs-responder subgame ----------
 def rm(regret):
@@ -85,14 +119,18 @@ def subgame(R, S, open_w):
     pR, pS = posted.get(R, 0.0), posted.get(S, 0.0)
     posR, posS = ("oop", "ip") if s_ip else ("ip", "oop")
     # realization vectors [R, S] per flop-going terminal
-    real = {"srp": (rf((posR, "agg", "srp")), rf((posS, "call", "srp"))),
-            "3bp": (rf((posR, "call", "3bp")), rf((posS, "agg", "3bp"))),
-            "4bp": (rf_4bp((posR, "agg")), rf_4bp((posS, "call")))}
+    roles = {"srp": ((posR, "agg", "srp"), (posS, "call", "srp")),
+             "3bp": ((posR, "call", "3bp"), (posS, "agg", "3bp")),
+             "4bp": ((posR, "agg", "4bp"), (posS, "call", "4bp"))}
+    behind = len([x for x in SEATS[iS + 1:] if x != R])                  # seats left to act after S
     reg = {"S0": np.zeros((169, 3)), "R1": np.zeros((169, 3)), "S2": np.zeros((169, 3)), "R3": np.zeros((169, 2))}
     avg = {k: np.zeros_like(v) for k, v in reg.items()}
 
     def flop_val(kind, who, opp_reach, pot, inv):
-        return real[kind][who] * (ME @ opp_reach) * pot - inv * (MN @ opp_reach)
+        mass = MN @ opp_reach
+        eq = (ME @ opp_reach) / np.maximum(mass, 1e-12)
+        risk = behind * (SQUEEZE_COST if kind == "srp" else COLD4_COST if kind == "3bp" else 0.0) if who == 1 else 0.0
+        return (share(roles[kind][who], eq) * pot - inv - risk) * mass
     def fold_val(opp_reach, net): return net * (MN @ opp_reach)
     def show_val(opp_reach, pot, inv): return (ME @ opp_reach) * pot - inv * (MN @ opp_reach)
 
@@ -161,7 +199,7 @@ pct = lambda w: round(100 * float((w * COMBOS).sum()) / 1326, 1)
 
 def main():
     log = lambda s: print(s, flush=True)
-    log("realization factors (role averages): " + ", ".join(f"{'/'.join(k[0])}={v:.2f}" for k, v in sorted(REAL.items()) if k[1] == "*"))
+    log("share of pot at 35/50/65% equity, by role: " + ", ".join(f"{'/'.join(r)}=" + "/".join(f"{np.interp(x, *REAL[r][0]):.2f}" for x in (0.35, 0.5, 0.65)) for r in sorted(REAL)))
     result = {"version": "ranges-v2", "model": __doc__.split("\n\n")[0], "seats": {}}
     for R in SEATS[:-1]:
         openp, games, ev = solve_seat(R, log)

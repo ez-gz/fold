@@ -407,3 +407,14 @@ Do those first (week 1), then six streams run independently.
 - **Flops**: 72, picked by `gpu/pick_flops.py` in proportion to texture frequency (high card x suit pattern x paired/connected/semi/dry), 8 per matchup.
 - **Pipeline**: `gpu/run_batch.sh` on the box, `gpu/collect_batch.sh` on the Mac (Rust best-response check, export, strategy kept in `solver/cache/` so exports can be redone without re-solving), packed as `.foldpack` (docs/FOLDPACK.md).
 - **Dropped**: suit isomorphism. It only helps when two suits are interchangeable on the flop (two-tone, monotone, some paired boards), never on rainbow flops, so the average gain is ~1.3x, not worth the risk now.
+
+### 13.3 Trainer backlog (playtest notes)
+
+- **Prefer hands that play all three streets.** Hands that end on an early fold teach less; try dealing only (or mostly) hands that reach the river, either by filtering in `nextHand` or by biasing `play_hand` in the export. Check it does not bias the lesson: folding early is sometimes the right play and should still appear occasionally.
+- Range check inside Hands mode; a forced share of "facing a check-raise" spots; pot-scaled tie threshold; drop absurd folds from the score baseline; per-street / per-hand-type leak summary.
+
+### 13.4 Preflop solve: status and the design that should work (rev 6)
+
+- `preflop/solve_preflop.py` (two-player subgames over 169 classes, fitted share-of-pot curves) runs, but its ranges are not usable: the curves are only measured on hands inside the ranges we solved with, and the decisions we need are exactly about hands at or beyond those boundaries. Fitted realization cannot extrapolate there (3-bets and cold calls come out far too wide, opens too tight).
+- **Measured-EV design.** Solve flops with every out-of-range hand added at a tiny weight (`FOLD_EPS=0.02`, one player at a time with `FOLD_EPS_P` to fit 8 GB) on a coarse tree (`FOLD_TREE=pre`). A tiny weight does not move the equilibrium (checked: root EV 2.300 vs 2.303), so the solve yields the true flop EV of *every* hand against the current ranges. Average over ~50 frequency-weighted flops per matchup and side, feed those EVs into the preflop subgames in place of fitted realization, update ranges, repeat until stable.
+- **Cost.** ~1-2 GPU-minutes per run; 9 matchups x 2 sides x 50 flops is 15-30 GPU-hours per outer round, 2-3 rounds expected, and opening ranges additionally need the seat pairs we do not train yet.
