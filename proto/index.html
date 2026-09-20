@@ -858,7 +858,19 @@ function nextPuzzle(){
       traps.forEach(i => { const el = grid.querySelector(`[data-i="${i}"]`); if (el) el.querySelector(".n").textContent = "not preflop"; }); }
     done.textContent = "Next puzzle →"; done.onclick = nextPuzzle; window.scrollTo({ top: 0, behavior: "smooth" });
   };
-  sheet.appendChild(done); main.appendChild(sheet); window.scrollTo(0, 0);
+  // copy a compact text description of this puzzle (for asking about it elsewhere)
+  const cp = $(`<button class="next ghost" style="position:static;margin-top:8px;font-size:12px;padding:9px">Copy puzzle</button>`);
+  cp.onclick = async () => {
+    const H = (s._raw ? s._raw.history : s.history).map(h => `${STREETS[h.street][0]}:${h.pos} ${h.label}`).join(", ");
+    const byCell = list => { const m = {}; list.forEach(([c, w]) => { const k = cellName(comboCell(c)); (m[k] = m[k] || []).push(w == null ? c : `${c}${w < 1 ? ":" + Math.round(100 * w) : ""}`); }); return Object.entries(m).map(([k, v]) => `${k}[${v.join(" ")}]`).join(" "); };
+    const txt = [`FOLD puzzle ${f.formation} | flop ${f.flop} | spot ${s.id} | pack ${PACK.tree || ""} ${PACK.ranges || ""}`.trim(),
+      `board ${s.board.join(" ")} | villain ${s.villain} | hero ${s.hero} | pot ${s.pot} | to_call ${s.to_call}`, `line: ${tb ? "3-bet pot; " : ""}${H || "(first to act)"}`,
+      `offered: ${cells.map(cellName).join(" ")}`, `picked (${sel.size}): ${byCell([...sel].map(c => [c, null])) || "-"}`,
+      `truth (weight % of fullest, none = 100): ${byCell(s.vcombos)}`, state.pzDone ? `result: ${sheet.querySelector(".prompt").innerText}` : "not locked in yet"].join("\n");
+    try { await navigator.clipboard.writeText(txt); } catch (e) { const ta = document.createElement("textarea"); ta.value = txt; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); }
+    cp.textContent = "Copied ✓"; setTimeout(() => cp.textContent = "Copy puzzle", 1400);
+  };
+  sheet.appendChild(done); sheet.appendChild(cp); main.appendChild(sheet); window.scrollTo(0, 0);
 }
 function start(){ state.hand = null; renderFilters(); renderStats(); state.mode === "puzzle" ? nextPuzzle() : state.mode === "hands" ? nextHand() : next(); }
 </script>
