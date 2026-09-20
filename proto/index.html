@@ -181,12 +181,11 @@ function concept(f, s){
     return agg ? "Facing a flop lead" : "Facing a c-bet";
   }
   if (s.street === 0) return agg ? "C-bet or check" : cur.length ? "Stab when checked to" : "Lead or check";
-  if (agg){
-    if (iBet(prev)) return s.street === 1 ? "Second barrel" : (iBet(H.filter(h => h.street === 0)) ? "Third barrel" : "River bet after betting turn");
-    return anyBet(prev) ? "After calling a bet as the raiser" : s.street === 1 ? "Delayed c-bet" : "River bet after checks";
-  }
-  if (!anyBet(prev)) return s.street === 1 ? "Turn probe" : "River probe";
-  return cur.length ? "Bet when checked to" : "Lead into the bettor";
+  // who made the last bet or raise on the previous street decides who has the betting lead now
+  const last = [...prev].reverse().find(isBet), lead = last ? last.pos === s.hero : null;
+  if (lead === null) return agg ? (s.street === 1 ? "Delayed c-bet" : "River bet after checks") : (s.street === 1 ? "Turn probe" : "River probe");
+  if (lead) return agg ? (s.street === 1 ? "Second barrel" : iBet(H.filter(h => h.street === 0)) ? "Third barrel" : "River bet after betting turn") : "Keep betting after taking the lead";
+  return cur.length ? "Bet when checked to" : (agg ? "After calling a bet or raise" : "Check or lead after calling");
 }
 const STREET_NAMES = ["Flop", "Turn", "River"];
 function track(f, s, d, gr){
@@ -407,6 +406,7 @@ function answer(i){
   main.appendChild($(`<div class="sheet why"><h3>Why</h3>${explain(f, s, d, i, gr)}</div>`));
   main.appendChild(lens(f, s, d, i, gr));
   { const b = boardSheet(f); if (b) main.appendChild(b); }
+  { const b = patternSheet(f, s, d); if (b) main.appendChild(b); }
   { const v = valueSheet(f, s, d, i, gr); if (v) main.appendChild(v); }
   const nx = $(`<button class="next">Next spot →</button>`); nx.onclick = next; main.appendChild(nx);
   renderStats();
@@ -523,6 +523,7 @@ function handEnd(){
     review.appendChild($(`<div class="sheet why"><h3>${STREETS[sp.street]} · ${sp.actions[r.i].label} · ${r.gr.g}</h3>${explain(f, sp, d, r.i, r.gr)}</div>`));
     review.appendChild(lens(f, sp, d, r.i, r.gr));
     { const b = boardSheet(f); if (b) review.appendChild(b); }
+    { const b = patternSheet(f, sp, d); if (b) review.appendChild(b); }
     const v = valueSheet(f, sp, d, r.i, r.gr); if (v) review.appendChild(v);
   };
   [...sheet.querySelectorAll(".row")].forEach((el, k) => el.onclick = () => show(k));
@@ -539,6 +540,7 @@ function replay(k){
   main.appendChild($(`<div class="sheet why"><h3>Why</h3>${explain(f, s, d, r.i, r.gr)}</div>`));
   main.appendChild(lens(f, s, d, r.i, r.gr));
   { const b = boardSheet(f); if (b) main.appendChild(b); }
+  { const b = patternSheet(f, s, d); if (b) main.appendChild(b); }
   { const v = valueSheet(f, s, d, r.i, r.gr); if (v) main.appendChild(v); }
   const two = $(`<div class="two" style="margin-top:12px"><button class="next ghost" style="margin:0">${k + 1 < h.steps.length ? "Next decision" : "Back to score"}</button><button class="next" style="margin:0;position:static">Next hand →</button></div>`);
   two.children[0].onclick = () => k + 1 < h.steps.length ? replay(k + 1) : handEnd0(); two.children[1].onclick = nextHand; main.appendChild(two); window.scrollTo(0, 0);
@@ -559,6 +561,31 @@ function valueText(f, s, d, chosen, gr){
   const up = delta.filter(x => x[0] > 0.04).sort((x, y) => y[0] - x[0]).slice(0, 2).map(x => `${nm(x[1])} (+${x[0].toFixed(2)}bb)`).join(", ");
   const dn = delta.filter(x => x[0] < -0.04).sort((x, y) => x[0] - y[0]).slice(0, 2).map(x => `${nm(x[1])} (${(-x[0]).toFixed(2)}bb)`).join(", ");
   return `<span class="k">Where the money comes from:</span> ${la} earns most from ${s.villain}'s ${earn || "whole range about evenly"}. Against ${lb}, it does better versus ${up || "nothing in particular"}${dn ? `, and gives back some versus ${dn}` : ""}.`;
+}
+/* How the solver plays this situation in general: hand type by hand type, averaged over every flop in the pack
+   (same pot type). Lets the player compare "the usual pattern" with what this particular board asks for. */
+const PATTERNS = {};
+function pattern(key, tb){
+  const id = key + "|" + tb; if (PATTERNS[id]) return PATTERNS[id];
+  const rows = Array.from({ length: 7 }, () => ({ w: 0, agg: 0, pas: 0, fold: 0 })); let spots = 0; const boards = new Set();
+  PACK.flops.forEach(f => { if (!!f.three_bet !== tb) return; f.spots.forEach(s => { if (concept(f, s) !== key) return; spots++; boards.add(f.flop + f.formation);
+    const kinds = (s._raw ? s.actions : s.actions).map(a => a.kind);
+    s.hclass.forEach((w, c) => { if (!(w > 0)) return; const r = rows[c]; r.w += w; s.hclass_strat[c].forEach((v, a) => { const k = kinds[a]; if (k === "fold") r.fold += w * v; else if (k === "check" || k === "call") r.pas += w * v; else r.agg += w * v; }); }); }); });
+  return PATTERNS[id] = { rows, spots, boards: boards.size };
+}
+function patternSheet(f, s, d){
+  const key = concept(f, s), tb = !!f.three_bet, P = pattern(key, tb); if (P.boards < 3) return null;
+  const facing = s.to_call > 0, aggName = facing ? "raise" : "bet", pasName = facing ? "call" : "check", pc = x => Math.round(100 * x) + "%";
+  const here = s.hclass_strat[d.cls], kinds = s.actions.map(a => a.kind), hereAgg = here.reduce((t, v, a) => t + (kinds[a] !== "fold" && kinds[a] !== "check" && kinds[a] !== "call" ? v : 0), 0), hereFold = here.reduce((t, v, a) => t + (kinds[a] === "fold" ? v : 0), 0);
+  const r = P.rows[d.cls], usualAgg = r.w ? r.agg / r.w : 0, usualFold = r.w ? r.fold / r.w : 0, cn = f.class_names[d.cls].toLowerCase();
+  const diff = hereAgg - usualAgg, fdiff = hereFold - usualFold;
+  let take = `Across ${P.boards} boards, ${cn} hands ${aggName} ${pc(usualAgg)}${facing ? ` and fold ${pc(usualFold)}` : ""} here.`;
+  if (Math.abs(diff) >= 0.15) take += ` On this board it is <b>${pc(hereAgg)}</b>: ${diff > 0 ? "more aggressive" : "more passive"} than usual, so the board is what matters.`;
+  else if (facing && Math.abs(fdiff) >= 0.15) take += ` On this board they fold <b>${pc(hereFold)}</b>: ${fdiff > 0 ? "give up more than usual" : "defend more than usual"}.`;
+  else take += ` This board plays close to the usual pattern (${pc(hereAgg)}).`;
+  const body = P.rows.map((r, c) => { if (!(r.w > 0)) return ""; const a = r.agg / r.w, p = r.pas / r.w, fo = r.fold / r.w;
+    return `<div class="bar" style="${c === d.cls ? "font-weight:700" : ""}"><span style="width:130px">${f.class_names[c]}${c === d.cls ? " ◂" : ""}</span><div class="t" style="display:flex"><i style="width:${100*a}%;background:var(--warn)"></i><i style="width:${100*p}%;background:var(--accent)"></i><i style="width:${100*fo}%;background:var(--bad);opacity:.55"></i></div><b style="width:40px;text-align:right">${pc(a)}</b></div>`; }).join("");
+  return $(`<div class="sheet"><h3>This situation — ${key}</h3><p>${take}</p><details class="more"><summary>All hand types, ${tb ? "3-bet pots" : "single-raised pots"}</summary><div class="bars">${body}</div><div class="legend"><span><i style="background:var(--warn)"></i>${aggName}</span><span><i style="background:var(--accent)"></i>${pasName}</span>${facing ? `<span><i style="background:var(--bad)"></i>fold</span>` : ""}</div></details></div>`);
 }
 /* Flop-level briefing: whose board is it, and how does each range start. One takeaway, then the numbers. */
 function boardSheet(f){
