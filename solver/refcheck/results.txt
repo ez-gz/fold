@@ -1,2 +1,7 @@
 btn_bb_Ks7d2c: expl% ours 0.095 ref 0.094 | EV OOP ours 2.1523 ref 2.1526 | EV IP ours 3.3477 ref 3.3474
    root freq ours [0.999, 0.001] ref [1.0, 0.0] ['Check', 'Bet(28)'] | per-hand strategy diff mean 0.0010 max 0.006 over 526 hands
+sb_bb_Kc5c5d: expl% ours 0.096 ref 0.096 | EV OOP ours 3.2602 ref 3.2602 | EV IP ours 2.7398 ref 2.7398
+   root freq ours [0.624, 0.376] ref [0.62, 0.38] ['Check', 'Bet(30)'] | per-hand strategy diff mean 0.0140 max 0.093 over 483 hands
+btn_sb_3b_Th9h8h: expl% ours 0.100 ref 0.100 | EV OOP ours 12.0031 ref 12.0014 | EV IP ours 10.9969 ref 10.9986
+   root freq ours [0.526, 0.474] ref [0.522, 0.478] ['Check', 'Bet(115)'] | per-hand strategy diff mean 0.0108 max 0.035 over 182 hands
+REF_DONE

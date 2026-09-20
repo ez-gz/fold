@@ -5,7 +5,7 @@ De-risks the pipeline end to end before any iOS work: Rust solver -> drill-spot 
     cd solver
     cargo test --release                      # exhaustive 5- and 7-card evaluator checks
     ./target/release/fold-cli solve btn_bb Ks7d2c   # formations: btn_bb co_bb sb_bb utg_btn; DCFR to <0.3% pot, writes out/<flop>_r0.json (--rake 1 for 5% cap 1bb)
-    ./target/release/fold-cli pack            # merges out/*.json -> proto/pack.js
+    ./target-v1/release/fold-cli pack --dir out_v1 --out ../proto/pack-v1.foldpack   # default pack; serve proto/ over http (fetch needs it)
     open ../proto/index.html                  # works from file://, no server
 
 What is real: full 1326-combo DCFR over flop/turn/river, exact best-response exploitability,

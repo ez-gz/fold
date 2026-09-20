@@ -110,7 +110,6 @@ header .stats{margin-left:auto;font-size:12px;color:var(--dim);font-variant-nume
   <div id="main"></div>
   <div class="foot" id="foot"></div>
 </div>
-<script src="pack.js"></script>
 <script>
 "use strict";
 const R = "AKQJT98765432", SUIT = {s:"♠",h:"♥",d:"♦",c:"♣"}, STREETS = ["Flop","Turn","River"];
@@ -600,7 +599,7 @@ async function loadFoldpack(url){
   return { version: index.version, ranges: index.ranges, tree: index.tree, formations: index.formations, flops };
 }
 (async () => {
-  const want = new URLSearchParams(location.search).get("pack");
+  const want = new URLSearchParams(location.search).get("pack") || "pack-v1.foldpack";
   if (want){ main.innerHTML = `<div class="empty">Loading ${want}…</div>`; try { PACK = await loadFoldpack(want); } catch(e){ main.innerHTML = `<div class="empty">Could not load ${want}: ${e.message}</div>`; return; } }
   if (!PACK || !PACK.flops.length){ main.innerHTML = `<div class="empty">No pack found. Run <code>fold-cli solve</code> then <code>fold-cli pack</code>.</div>`; return; }
   start();
