@@ -225,6 +225,22 @@ function track(f, s, d, gr){
   keys.forEach(k => { const e = book[k] || (book[k] = { n: 0, p: 0, bb: 0, ok: 0 }); e.n++; e.p += Math.min(gr.p, 25); e.bb += gr.loss; if (gr.g === "Best" || gr.g === "Good") e.ok++; });
   store.set("book", book);
 }
+/* direction of the error, so Leaks can say why and not only where */
+function errKind(s, d, i, gr){
+  if (gr.g === "Best" || gr.g === "Good") return null;
+  const K = s.actions.map(a => a.kind), me = K[i], best = K[gr.bestIdx], agg = k => k === "bet" || k === "raise";
+  if (me === "fold") return agg(best) ? "fold when raising is best" : "fold too much";
+  if (best === "fold") return agg(me) ? "raise when folding is best" : "call too much";
+  if (agg(me) && agg(best)) return i > gr.bestIdx ? "size too big" : "size too small";
+  if (agg(me)) return s.to_call > 0 ? "raise when calling is best" : "bet when checking is best";
+  return s.to_call > 0 ? "call when raising is best" : "check when betting is best";
+}
+function trackErr(f, s, d, i, gr){
+  const pat = store.get("patterns", {}), k = f.class_names[d.cls] + "|" + (s.to_call > 0 ? "facing a bet" : "with the option to bet") + "|" + STREET_NAMES[s.street];
+  const e = pat[k] || (pat[k] = { n: 0, err: {} }); e.n++;
+  const w = errKind(s, d, i, gr); if (w){ const x = e.err[w] || (e.err[w] = { n: 0, p: 0 }); x.n++; x.p += Math.min(gr.p, 25); }
+  store.set("patterns", pat);
+}
 function grade(spot, d, i){
   const best = Math.max(...d.ev), loss = Math.max(0, best - d.ev[i]), p = 100*loss/spot.pot;
   let g = p <= 0.3 ? "Best" : p <= 1.5 ? "Good" : p <= 5 ? "Inaccuracy" : p <= 12 ? "Mistake" : "Blunder";
@@ -438,7 +454,7 @@ function renderRangeCheck(){
 
 function answer(i){
   const { f, s, d } = state.cur; if (state.cur.done) return; state.cur.done = true;
-  const gr = grade(s, d, i); track(f, s, d, gr);
+  const gr = grade(s, d, i); track(f, s, d, gr); trackErr(f, s, d, i, gr);
   if (state.hand) return handAnswer(i, gr);
   state.n++; state.loss += gr.p; if (gr.g === "Best" || gr.g === "Good"){ state.best++; state.streak++; } else state.streak = 0;
   if (navigator.vibrate) navigator.vibrate(gr.g === "Best" ? 12 : gr.g === "Good" ? 20 : [30, 40, 30]);
@@ -771,6 +787,18 @@ function focusSheet(){
   Object.keys(counts).sort((x, y) => counts[y] - counts[x]).forEach(c => { const e = b["c:" + c]; add(c, `${counts[c]} drills` + (e ? ` · you: ${e.n} played, ${avgLoss(e).toFixed(1)}% of pot lost on average` : ""), c); });
   const o = overlay("Focus on a situation", body);
 }
+function patternRows(body){
+  const pat = store.get("patterns", {}), agg = {};
+  // merge streets for the headline, keep the street split for the detail line
+  Object.keys(pat).forEach(k => { const [cls, ctx, st] = k.split("|"), a = agg[cls + "|" + ctx] || (agg[cls + "|" + ctx] = { n: 0, err: {} }); a.n += pat[k].n;
+    Object.entries(pat[k].err).forEach(([w, x]) => { const y = a.err[w] || (a.err[w] = { n: 0, p: 0, st: {} }); y.n += x.n; y.p += x.p; y.st[st] = (y.st[st] || 0) + x.n; }); });
+  const rows = []; Object.entries(agg).forEach(([k, a]) => Object.entries(a.err).forEach(([w, x]) => { if (x.n >= 2 && a.n >= 4) rows.push({ k, w, x, n: a.n }); }));
+  rows.sort((p, q) => q.x.p - p.x.p);
+  body.appendChild($(`<h4 style="margin:14px 0 6px;font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em">Your patterns</h4>`));
+  if (!rows.length){ body.appendChild($(`<p style="color:var(--dim);font-size:12px">Not enough repeated mistakes yet. A pattern shows up once the same kind of error happens twice with the same hand type.</p>`)); return; }
+  rows.slice(0, 6).forEach(r => { const [cls, ctx] = r.k.split("|"), st = Object.entries(r.x.st).sort((p, q) => q[1] - p[1]).map(([s, n]) => `${s.toLowerCase()} ${n}`).join(", ");
+    body.appendChild($(`<div style="padding:7px 0;border-bottom:1px solid var(--line,#2a2f3a);font-size:13px"><b>${cls}</b> ${ctx}: you <b style="color:var(--bad)">${r.w}</b><div style="color:var(--dim);font-size:11px;margin-top:2px">${r.x.n} of ${r.n} decisions · ${(r.x.p / r.x.n).toFixed(1)}% of pot lost each time · ${st}</div></div>`)); });
+}
 function leakSheet(){
   const b = store.get("book", {}), body = $(`<div></div>`);
   const group = (title, prefix) => {
@@ -780,9 +808,10 @@ function leakSheet(){
     ks.forEach(k => { const e = b[k]; body.appendChild($(`<div class="bar" style="grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) 78px"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${k.slice(2)}</span><div class="t"><i style="width:${100*avgLoss(e)/max}%;background:${avgLoss(e) > 3 ? "var(--bad)" : avgLoss(e) > 1.2 ? "var(--warn)" : "var(--accent)"}"></i></div><b>${avgLoss(e).toFixed(1)}% · ${e.n}</b></div>`)); });
   };
   if (!Object.keys(b).length) body.appendChild($(`<p style="color:var(--dim)">Play some hands or drills first. Every decision is filed under its situation, street and hand type; this screen shows where your EV goes.</p>`));
+  patternRows(body);
   group("By situation", "c:"); group("By street", "s:"); group("By hand type", "h:"); group("By role", "p:");
   body.appendChild($(`<p style="color:var(--dim);font-size:11px;margin-top:10px">Average EV lost per decision, as % of pot · number of decisions. Bars compare within a group.</p>`));
-  const rs = $(`<button class="next ghost" style="position:static;margin-top:6px">Reset history</button>`); rs.onclick = () => { store.set("book", {}); o.remove(); }; body.appendChild(rs);
+  const rs = $(`<button class="next ghost" style="position:static;margin-top:6px">Reset history</button>`); rs.onclick = () => { store.set("book", {}); store.set("patterns", {}); o.remove(); }; body.appendChild(rs);
   const o = overlay("Where your EV goes", body);
 }
 function renderFilters(){
