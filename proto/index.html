@@ -237,8 +237,30 @@ function errKind(s, d, i, gr){
   if (agg(me)) return s.to_call > 0 ? "raise when calling is best" : "bet when checking is best";
   return s.to_call > 0 ? "call when raising is best" : "check when betting is best";
 }
+/* finer hand type than the pack's 7 classes, from the exact cards: kicker, pair rank, nut vs low flush draw, open-ender vs gutshot */
+function fineType(hand, B){
+  const ri = c => R.indexOf(c[0]), m = madeHand([...hand, ...B].length >= 5 ? [...hand, ...B] : [...hand, ...B, "2x", "3y"]);
+  const bm = B.length >= 5 ? madeHand(B) : 0, bpair = new Set(B.map(c => c[0])).size < B.length;
+  if (m >= 2 && m > bm && !(m === 2 && bpair)) return ["Two pair", "Two pair", "Two pair", "Set or trips", "Straight", "Flush", "Full house or better", "Full house or better"][m];
+  const br = [...new Set(B.map(ri))].sort((a, b) => a - b), pairR = hand[0][0] === hand[1][0] ? ri(hand[0]) : [ri(hand[0]), ri(hand[1])].find(r => br.includes(r));
+  if (m >= 1 && pairR != null && !(m === 1 && bm === 1 && hand[0][0] !== hand[1][0] && !br.includes(pairR))){
+    if (hand[0][0] === hand[1][0]) return pairR < br[0] ? "Overpair" : pairR < br[br.length - 1] ? "Pocket pair below top card" : "Underpair";
+    const kick = ri(hand[0]) === pairR ? ri(hand[1]) : ri(hand[0]);
+    if (pairR === br[0]) return kick <= 3 ? "Top pair, good kicker" : "Top pair, weak kicker";
+    return pairR === br[1] ? "Second pair" : "Low pair";
+  }
+  if (B.length < 5){
+    const su = {}; [...hand, ...B].forEach(c => su[c[1]] = (su[c[1]] || 0) + 1); const fs = Object.keys(su).find(x => su[x] === 4 && hand.some(c => c[1] === x));
+    const ranks = new Set([...hand, ...B].map(c => 12 - ri(c))); if (ranks.has(12)) ranks.add(-1);
+    let outs = 0; for (let r = 0; r <= 12; r++){ if (ranks.has(r)) continue; const t = new Set(ranks); t.add(r); if (r === 12) t.add(-1); let ok = false; for (let lo = -1; lo <= 8; lo++){ let all = true; for (let k = 0; k < 5; k++) if (!t.has(lo + k)) all = false; if (all) ok = true; } if (ok) outs++; }
+    if (fs){ const top = "AKQJT98765432".split("").find(x => !B.includes(x + fs)); const nut = hand.some(c => c[1] === fs && c[0] === top); return outs ? "Flush draw + straight draw" : nut ? "Nut flush draw" : "Low flush draw"; }
+    if (outs >= 2) return "Open-ended straight draw"; if (outs === 1) return "Gutshot";
+  }
+  if (hand.some(c => c[0] === "A")) return "Ace high";
+  return B.length < 5 && Math.max(ri(hand[0]), ri(hand[1])) < br[0] ? "Two overcards" : "No pair, no draw";
+}
 function trackErr(f, s, d, i, gr){
-  const pat = store.get("patterns", {}), k = f.class_names[d.cls] + "|" + (s.to_call > 0 ? "facing a bet" : "with the option to bet") + "|" + STREET_NAMES[s.street];
+  const pat = store.get("patterns", {}), k = fineType(d.hand, s.board) + "|" + (s.to_call > 0 ? "facing a bet" : "with the option to bet") + "|" + STREET_NAMES[s.street];
   const e = pat[k] || (pat[k] = { n: 0, err: {} }); e.n++;
   const w = errKind(s, d, i, gr); if (w){ const x = e.err[w] || (e.err[w] = { n: 0, p: 0 }); x.n++; x.p += Math.min(gr.p, 25); }
   store.set("patterns", pat);
