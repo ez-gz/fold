@@ -24,3 +24,11 @@ flop JSON; `ranges` and `tree` identify the solve inputs, and a pack never mixes
 gzip + JSON was chosen over a bespoke bit layout because it is ~7x smaller than raw JSON already, decodes
 with stock APIs on both platforms (DecompressionStream / Compression + JSONDecoder), and keeps the HTML
 prototype usable as the reference the app is tested against.
+
+## Additions (2026-09-20, pack-v1 re-export, 39 MB)
+
+Per flop: `briefing` {equity, strong, weak, classes, first, after_check}.
+Per drill: `vs` = [fold&ahead, fold&behind, continue&ahead, continue&behind] per action, shares of villain's range ("ahead" = >50% equity vs the exact hero hand).
+Per spot: `vsuit` {suit, with[169], without[169]} when the board has two or more of a suit; `vcombos` [[combo, weight]] when villain has 50 or fewer combos at relative weight >= 0.05 (puzzle mode source); `vdetail` / `hdetail` per-combo weights and hero action mix (cell popup); `resp[a].combo` villain response per listed combo.
+Export also force-picks up to 6 narrow-range spots per flop (10-50 combos over 6+ grid cells, street > 0). Pool in pack-v1: 388 puzzle spots across all 9 formations.
+Trainer-side only (localStorage): `book` (where EV is lost) and `patterns` (direction of each mistake by hand class, context and street).
