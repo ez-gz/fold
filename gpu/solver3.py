@@ -17,7 +17,7 @@ p.add_argument("--iters", type=int, default=300)
 p.add_argument("--target", type=float, default=0.5)
 p.add_argument("--every", type=int, default=25)
 p.add_argument("--device", default="cuda")
-p.add_argument("--chunk", type=int, default=7, help="turn cards per showdown chunk (memory)")
+p.add_argument("--chunk", type=int, default=0, help="turn cards per showdown chunk; 0 = as many as ~1.5 GB of transients allow")
 p.add_argument("--dump", default="")
 p.add_argument("--dtype", default="float32", help="storage dtype for regrets and strategy sums")
 args = p.parse_args()
@@ -48,8 +48,9 @@ def others(t):
 INC = []
 for pl in range(3):
     m = torch.zeros(NH[pl], 52, device=dev)
-    m[torch.arange(NH[pl]), torch.tensor(HANDS[pl][:, 0])] = 1
-    m[torch.arange(NH[pl]), torch.tensor(HANDS[pl][:, 1])] = 1
+    ar = torch.arange(NH[pl], device=dev)
+    m[ar, torch.tensor(HANDS[pl][:, 0], device=dev)] = 1
+    m[ar, torch.tensor(HANDS[pl][:, 1], device=dev)] = 1
     INC.append(m)
 DECK_T = torch.tensor(DECK, device=dev)
 VALID = [1.0 - INC[pl][:, DECK_T].T.contiguous() for pl in range(3)]           # [ND, H]: hand does not hold deck card
@@ -57,8 +58,9 @@ NOTMINE = [1.0 - INC[pl] for pl in range(3)]                                   #
 IDX = []                                                                       # [52, 52] -> hand index in pl's list, NH[pl] = none
 for pl in range(3):
     m = torch.full((52, 52), NH[pl], device=dev, dtype=torch.int64)
-    a, b = torch.tensor(HANDS[pl][:, 0]), torch.tensor(HANDS[pl][:, 1])
-    m[a, b] = torch.arange(NH[pl]); m[b, a] = torch.arange(NH[pl])
+    a, b = torch.tensor(HANDS[pl][:, 0], device=dev), torch.tensor(HANDS[pl][:, 1], device=dev)
+    ar = torch.arange(NH[pl], device=dev)
+    m[a, b] = ar; m[b, a] = ar
     IDX.append(m)
 CARD = [(torch.tensor(HANDS[pl][:, 0], device=dev), torch.tensor(HANDS[pl][:, 1], device=dev)) for pl in range(3)]
 # per (hero t, other o): index in o's list of the combo (c, hero card) for every card c -> [H_t, 52], and the identical combo
@@ -271,6 +273,10 @@ def next_street(board_n, commit, alive):
     return n
 
 
+if args.chunk <= 0:
+    # the showdown transients are ~12 tensors of [chunk, ND, 52, H] floats; launches, not flops, bound the GPU, so use few big chunks
+    args.chunk = max(1, min(ND, int(1.5e9 / (ND * 52 * max(NH) * 4 * 12))))
+print(f"showdown chunk {args.chunk} turn cards", flush=True)
 t0 = time.time()
 ROOT = build(3, [0.0, 0.0, 0.0], [True] * 3, [False] * 3, 0.0, 0, 2)
 for o in range(3):
