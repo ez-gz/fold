@@ -1,5 +1,6 @@
 mod cards;
 mod cfr;
+mod cfr3;
 mod classify;
 mod eval;
 mod export;
@@ -8,6 +9,7 @@ mod preflop;
 mod range;
 mod three;
 mod tree;
+mod tree3;
 
 use cfr::{cfr, exploitability, Ctx, Discount};
 use std::time::Instant;
@@ -285,6 +287,39 @@ fn main() {
                 (eq, cnt)
             }).collect();
             println!("{}", serde_json::json!({ "eq": rows.iter().map(|r| r.0.clone()).collect::<Vec<_>>(), "pairs": rows.iter().map(|r| r.1.clone()).collect::<Vec<_>>() }));
+        }
+        Some("solve3") => {
+            // three-seat CPU solve: solve3 <board> <range0> <range1> <range2> [--pot 8] [--stack 97.5] [--iters N] [--target pct]
+            let board = cards::parse_board(&args[2]);
+            let (pot, stack): (f32, f32) = (get("--pot", "8.0").parse().unwrap(), get("--stack", "97.5").parse().unwrap());
+            let v = |x: &[f32]| x.to_vec();
+            let one = || [v(&[0.66]), v(&[0.66]), v(&[0.66])];
+            let r = || [v(&[0.6]), v(&[0.6]), v(&[0.6])];
+            let cfg = TreeConfig { start_pot: pot, eff_stack: stack, bets: [one(), one()], raises: [r(), r()], max_raises: 1, allin_threshold: 0.67 };
+            let mut hands: [Vec<(u8, u8)>; 3] = [Vec::new(), Vec::new(), Vec::new()];
+            let mut weights: [Vec<f32>; 3] = [Vec::new(), Vec::new(), Vec::new()];
+            for p in 0..3 { for (h, w) in range::parse_range(&args[3 + p]) { if board.contains(&h.0) || board.contains(&h.1) { continue; } hands[p].push(h); weights[p].push(w); } }
+            assert!(hands.iter().all(|h| !h.is_empty()), "every seat needs a non-empty range");
+            let t0 = Instant::now();
+            let mut b = tree3::Builder3::new(&cfg);
+            let mut root = b.build(&board);
+            let nh = [hands[0].len(), hands[1].len(), hands[2].len()];
+            let (nodes, floats) = tree3::size_tree3(&mut root, nh, true);
+            eprintln!("[{}] hands {:?}  action nodes {}  memory {:.2} GB  river boards {}", args[2], nh, nodes, floats as f64 * 4.0 / 1e9, b.boards.len());
+            let ctx = three::Ctx3::new(hands, weights, &b.boards, pot);
+            eprintln!("  built in {:.1}s", t0.elapsed().as_secs_f32());
+            let (max_iters, target): (u32, f32) = (get("--iters", "300").parse().unwrap(), get("--target", "0.5").parse().unwrap());
+            let mut it = 0;
+            while it < max_iters {
+                it += 1;
+                let d = Discount::at(it);
+                for t in 0..3 { let reach: cfr3::Reach = [ctx.weights[0].clone(), ctx.weights[1].clone(), ctx.weights[2].clone()]; cfr3::cfr3(&ctx, &mut root, t, &reach, &d); }
+                if it % 25 == 0 || it == max_iters {
+                    let (g, ev) = cfr3::exploitability3(&ctx, &root);
+                    eprintln!("  iter {it:4}  expl {g:.4} bb = {:.3}% pot   EV {:.3} {:.3} {:.3}   {:.0}s", 100.0 * g / pot, ev[0], ev[1], ev[2], t0.elapsed().as_secs_f32());
+                    if 100.0 * g / pot < target { break; }
+                }
+            }
         }
         Some("measure") => {
             // solve on the CPU (use with FOLD_TREE=pre FOLD_EPS=..) and print per-class EVs; no strategy file needed

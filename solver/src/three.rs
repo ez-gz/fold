@@ -53,6 +53,9 @@ pub fn ident(p: &Acc, q: &Acc) -> f32 {
 
 pub struct Ctx3 {
     pub hands: [Vec<(u8, u8)>; 3],
+    pub weights: [Vec<f32>; 3],
+    /// [player][card] -> hand indices containing that card
+    pub card_hands: [Vec<Vec<u32>>; 3],
     /// per river board, per player: (strength, hand idx) ascending, board-conflicting hands removed
     pub sd: Vec<[Vec<(u32, u16)>; 3]>,
     pub start_pot: f32,
@@ -68,7 +71,9 @@ pub struct Pay {
 }
 
 impl Ctx3 {
-    pub fn new(hands: [Vec<(u8, u8)>; 3], boards: &[Vec<u8>], start_pot: f32) -> Ctx3 {
+    pub fn new(hands: [Vec<(u8, u8)>; 3], weights: [Vec<f32>; 3], boards: &[Vec<u8>], start_pot: f32) -> Ctx3 {
+        let mut card_hands = [vec![Vec::new(); 52], vec![Vec::new(); 52], vec![Vec::new(); 52]];
+        for p in 0..3 { for (i, h) in hands[p].iter().enumerate() { card_hands[p][h.0 as usize].push(i as u32); card_hands[p][h.1 as usize].push(i as u32); } }
         let sd = boards.par_iter().map(|b| {
             let table = |p: usize| {
                 let mut v: Vec<(u32, u16)> = hands[p].iter().enumerate()
@@ -78,7 +83,7 @@ impl Ctx3 {
             };
             [table(0), table(1), table(2)]
         }).collect();
-        Ctx3 { hands, sd, start_pot }
+        Ctx3 { hands, weights, card_hands, sd, start_pot }
     }
 
     fn total(&self, p: usize, reach: &[f32], board: Option<&[u8]>) -> Acc {
@@ -169,7 +174,8 @@ mod tests {
         let hands = [pick(&mut s, 220), pick(&mut s, 200), pick(&mut s, 180)];
         let board = vec![3u8, 17, 30, 44, 8]; // 2s 6d 9h Kc 4s
         let reach = [0, 1, 2].map(|p| hands[p].iter().map(|_| lcg(&mut s)).collect::<Vec<f32>>());
-        (Ctx3::new(hands, &[board.clone()], 10.0), reach, board)
+        let w = [0, 1, 2].map(|p| vec![1.0; hands[p].len()]);
+        (Ctx3::new(hands, w, &[board.clone()], 10.0), reach, board)
     }
     fn strength(b: &[u8], h: (u8, u8)) -> u32 { let mut c = [0u8; 7]; c[..5].copy_from_slice(b); c[5] = h.0; c[6] = h.1; eval(&c) }
     fn close(x: &[f32], y: &[f32]) { for (i, (p, q)) in x.iter().zip(y).enumerate() { assert!((p - q).abs() <= 1e-3 * (1.0 + q.abs()), "hand {i}: {p} vs {q}"); } }
@@ -179,7 +185,8 @@ mod tests {
         let mut all = Vec::new(); for a in 0..52u8 { for b in a + 1..52 { all.push((a, b)); } }
         let hands = [all.clone(), all.clone(), all.clone()];
         let board = vec![3u8, 17, 30, 44, 8];
-        let ctx = Ctx3::new(hands, &[board], 10.0);
+        let w = [0, 1, 2].map(|p| vec![1.0; hands[p].len()]);
+        let ctx = Ctx3::new(hands, w, &[board], 10.0);
         let r: Vec<f32> = (0..1326).map(|i| 0.5 + (i % 7) as f32 * 0.1).collect();
         let pay = Pay { win: 7.0, tie2: 2.0, tie3: 0.5, lose: -3.0 };
         let t0 = std::time::Instant::now();
