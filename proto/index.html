@@ -406,7 +406,7 @@ function renderActions(){
   const box = $(`<div class="actions" id="actions"></div>`);
   s.actions.forEach((a, i) => {
     const b = $(`<button class="act ${kindClass(s, i)}"><div class="fill"></div><span>${a.label}</span><span class="sub"></span></button>`);
-    b.onclick = () => answer(i); box.appendChild(b);
+    b.onclick = () => (state.cur.three ? answer3 : answer)(i); box.appendChild(b);
   });
   main.appendChild(box);
 }
@@ -847,10 +847,11 @@ function leakSheet(){
 }
 function renderFilters(){
   const el = document.getElementById("filters"); el.innerHTML = "";
-  [["Hands","hands"],["Drills","drills"],["Puzzle","puzzle"]].forEach(([n, v]) => { const c = $(`<div class="chip ${state.mode === v ? "on" : ""}">${n}</div>`); c.onclick = () => { state.mode = v; store.set("mode", v); start(); }; el.appendChild(c); });
+  [["Hands","hands"],["Drills","drills"],["Puzzle","puzzle"],["3-way","three"]].forEach(([n, v]) => { const c = $(`<div class="chip ${state.mode === v ? "on" : ""}">${n}</div>`); c.onclick = () => { state.mode = v; store.set("mode", v); start(); }; el.appendChild(c); });
   const lk = $(`<div class="chip">Leaks</div>`); lk.onclick = leakSheet; el.appendChild(lk);
   if (state.mode === "hands" || state.mode === "puzzle") return;
-  [["All",-1],["Flop",0],["Turn",1],["River",2]].forEach(([n, v]) => { const c = $(`<div class="chip ${state.street === v ? "on" : ""}">${n}</div>`); c.onclick = () => { state.street = v; store.set("street", v); state.queue = []; renderFilters(); next(); }; el.appendChild(c); });
+  [["All",-1],["Flop",0],["Turn",1],["River",2]].forEach(([n, v]) => { const c = $(`<div class="chip ${state.street === v ? "on" : ""}">${n}</div>`); c.onclick = () => { state.street = v; store.set("street", v); state.queue = []; renderFilters(); state.mode === "three" ? next3() : next(); }; el.appendChild(c); });
+  if (state.mode === "three") return;
   const fc = $(`<div class="chip ${state.focus ? "on" : ""}">${state.focus ? "Focus: " + (state.focus === "leaks" ? "my leaks" : state.focus) : "Focus"}</div>`); fc.onclick = focusSheet; el.appendChild(fc);
   const rc = $(`<div class="chip ${state.rangeCheck ? "on" : ""}">Range check</div>`); rc.onclick = () => { state.rangeCheck = !state.rangeCheck; store.set("rangeCheck", state.rangeCheck); renderFilters(); renderSpot(); }; el.appendChild(rc);
 }
@@ -1033,7 +1034,70 @@ function nextPuzzle(){
   };
   const prow = $(`<div class="sharerow" style="position:static"></div>`); lock.style.marginTop = "0"; prow.appendChild(shareBtn()); prow.appendChild(lock); sheet.appendChild(prow); sheet.appendChild(cp); main.appendChild(sheet); challengeNote(); window.scrollTo(0, 0);
 }
-function start(){ state.hand = null; renderFilters(); renderStats(); state.mode === "puzzle" ? nextPuzzle() : state.mode === "hands" ? nextHand() : next(); }
+/* ---------- 3-way mode: CO opens, BTN calls, BB calls (solver/three: export3 + pack3.py -> three-v1.json.gz) ---------- */
+// Spots carry every seat's range as a 169-cell grid, the acting seat's mix and the EV of each action per hand. No villain-response layer yet.
+let THREE = null;
+async function loadThree(){
+  if (THREE) return THREE;
+  const r = await fetch("three-v1.json.gz"); if (!r.ok) throw new Error("no three-v1.json.gz");
+  THREE = JSON.parse(await new Response(r.body.pipeThrough(new DecompressionStream("gzip"))).text());
+  THREE.spots.forEach(s => s.drills.forEach(d => { if (typeof d.hand === "string") d.hand = [d.hand.slice(0, 2), d.hand.slice(2)]; }));
+  return THREE;
+}
+function buildQueue3(){
+  const q = [];
+  for (const s of THREE.spots){ if (state.street >= 0 && s.street !== state.street) continue; for (const d of s.drills) if (d.w >= 0.3) q.push({ s, d, three: true }); }
+  for (let i = q.length - 1; i > 0; i--){ const j = Math.floor(Math.random()*(i+1)); [q[i], q[j]] = [q[j], q[i]]; }
+  state.queue = q;
+}
+async function next3(){
+  try { await loadThree(); } catch(e){ main.innerHTML = `<div class="empty">No 3-way pack yet: ${e.message}</div>`; return; }
+  if (!state.queue.length || !state.queue[0].three) buildQueue3();
+  state.cur = state.queue.pop(); state.cur ? render3() : (main.innerHTML = `<div class="empty">No 3-way spots for this filter.</div>`); window.scrollTo(0, 0);
+}
+function render3(){
+  const { s, d } = state.cur, newCard = s.board.length > 3 ? s.board.length - 1 : -1;
+  const pill = (pos, txt, kind) => `<span class="pl ${kind} ${pos === s.seats[s.hero] ? "me" : ""}"><b>${pos}</b>${txt}</span>`;
+  const hk = h => /call/i.test(h.label) ? "call" : /bet|raise|all/i.test(h.label) ? "raise" : /fold/i.test(h.label) ? "folded" : "chk";
+  const rows = [[-1, [pill("CO", "2.5bb", "raise"), pill("BTN", "call", "call"), pill("BB", "call", "call")]]];
+  s.history.forEach(h => { if (rows[rows.length-1][0] !== h.street) rows.push([h.street, []]); rows[rows.length-1][1].push(pill(h.pos, h.label.replace(/^(Bet|Raise to|Call|Check|Fold)\b/, m => m.toLowerCase()), hk(h))); });
+  if (rows[rows.length-1][0] !== s.street) rows.push([s.street, []]);
+  rows[rows.length-1][1].push(`<span class="pl turn me"><b>${s.seats[s.hero]}</b>to act</span>`);
+  const hist = rows.map(([st, ps], k) => `<div class="hrow ${k === rows.length-1 ? "now" : "past"}"><span class="st">${st < 0 ? "Pre" : STREETS[st]}</span><div class="pls">${ps.join('<span class="arr">›</span>')}</div></div>`).join("");
+  const live = s.seats.filter((p, i) => s.alive[i]);
+  main.innerHTML = "";
+  main.appendChild($(`<div class="table">
+    <div class="hist">${hist}</div>
+    <div class="board">${s.board.map((c, i) => cardEl(c, i === newCard ? "new" : "")).join("")}</div>
+    <div class="pot">Pot <b>${bbf(s.pot)}</b>${s.to_call > 0 ? ` · <b>${bbf(s.to_call)}</b> to call` : ""} · ${live.length} players${live.length < 3 ? ` (${live.join(", ")})` : ""}</div>
+    <div class="behind">${bbf(s.stack)} behind</div>
+    <div class="hero"><div class="who">You<b>${s.seats[s.hero]}</b></div>${d.hand.map((c, i) => cardEl(c).replace('class="card', `style="animation-delay:${.08*(i+1)}s" class="card`)).join("")}<div class="who" style="visibility:hidden">You<b>${s.seats[s.hero]}</b></div></div>
+  </div>`));
+  renderActions();
+}
+function answer3(i){
+  const { s, d } = state.cur; if (state.cur.done) return; state.cur.done = true;
+  const gr = grade(s, d, i); trackErr(null, s, d, i, gr);
+  state.n++; state.loss += gr.p; if (gr.g === "Best" || gr.g === "Good"){ state.best++; state.streak++; } else state.streak = 0;
+  if (navigator.vibrate) navigator.vibrate(gr.g === "Best" ? 12 : gr.g === "Good" ? 20 : [30, 40, 30]);
+  markButtons(d, i, gr);
+  main.appendChild($(`<div class="verdict g-${gr.g}"><div class="g">${gr.g}</div><div class="l">${lossText(gr)}</div></div>`));
+  const me = s.seats[s.hero], best = s.actions[gr.bestIdx], mix = s.actions.map((a, k) => d.strat[k] >= 0.05 ? `${a.label.toLowerCase()} ${pct(d.strat[k])}` : null).filter(Boolean).join(", ");
+  const opp = s.seats.map((p, k) => k).filter(k => k !== s.hero && s.alive[k]);
+  const cells = g => { const idx = g.map((v, i) => [v, i]).filter(x => x[0] > 0.02).sort((a, b) => b[0] - a[0]); return idx.length; };
+  const why = $(`<div class="sheet why"><h3>Why</h3><p><span class="k">Solver:</span> ${mix}. ${d.strat[i] >= 0.25 ? "Your pick is part of the mix." : `Best is <b>${best.label.toLowerCase()}</b>.`} <span class="k">Multiway:</span> with ${opp.length} opponent${opp.length > 1 ? "s" : ""} still in, someone connects more often, so bluffs and thin value bets earn less than heads-up and the ranges you face are ${opp.length > 1 ? "two" : "one"} range${opp.length > 1 ? "s" : ""} at once.</p></div>`);
+  main.appendChild(why);
+  const sheet = $(`<div class="sheet"><h3>Ranges here</h3></div>`);
+  opp.forEach(k => {
+    const grid = s.ranges[k], n = cells(grid);
+    sheet.appendChild($(`<p class="prompt"><b>${s.seats[k]}</b>: ${n} chart cells still in play</p>`));
+    sheet.appendChild(gridEl(g => paintSplit(g, grid, [{ color: "var(--call)", grid: grid.map(() => 1) }], cellOf(d.hand))));
+  });
+  main.appendChild(sheet);
+  const nx = $(`<button class="next">Next spot →</button>`); nx.onclick = next3; main.appendChild(nx);
+  renderStats();
+}
+function start(){ state.hand = null; renderFilters(); renderStats(); state.mode === "puzzle" ? nextPuzzle() : state.mode === "hands" ? nextHand() : state.mode === "three" ? next3() : next(); }
 </script>
 </body>
 </html>

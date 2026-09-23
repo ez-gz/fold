@@ -1,0 +1,3 @@
+TT-22,AJs-A2s,K2s+,Q5s+,J7s+,T7s+,96s+,85s+,75s+,64s+,54s,AQo-A8o,KTo+,QTo+,JTo,TT:0.5,AJs:0.5,A5s:0,A4s:0,KJs:0.6,KTs:0.6,QJs:0.7,T9s:0.7,98s:0.7,87s:0.7,76s:0.7,AQo:0.6,KQo:0.75,A7o:0.5,K9o,T9o:0.5,Q4s-Q2s,J6s-J4s:0.5,T6s,95s,A6o-A2o:0.5,Q9o:0.5,J9o:0.5,98o:0.5,K8o:0.4
+22+,A2s+,K5s+,Q8s+,J8s+,T8s+,97s+,86s+,76s,65s,54s,A9o+,KTo+,QTo+,JTo,K4s:0.5,Q7s:0.5,J7s:0.5,A8o:0.5,K9o:0.5
+99-22,AJs-A8s,KTs+,QTs+,JTs,T9s,98s,87s,76s,TT:0.5,AQs:0.5,A5s:0.5,A4s:0.5,KQs:0.6,J9s:0.5,65s:0.5,AQo:0.5,AJo:0.5,KQo:0.6
