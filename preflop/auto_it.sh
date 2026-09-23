@@ -14,7 +14,7 @@ while :; do
     # resume the GPU queue only when the box has been completely idle (no jobs from anyone) for two checks in a row;
     # the main session's jobs always take precedence
     ps="$(cd ../gpu && gpubox ps 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g')"
-    if echo "$ps" | grep -q "(no jobs)"; then idle=$((idle+1)); else idle=0; fi
+    if [ ! -e it/HOLD ] && echo "$ps" | grep -q "(no jobs)"; then idle=$((idle+1)); else idle=0; fi
     if [ "$idle" -ge 5 ]; then idle=0; echo "$(date '+%H:%M') box idle, resuming fold-it-r$k" >> auto_it.log; (cd ../gpu && gpubox run -d -n "fold-it-r$k" -- bash -lc "./run_it.sh batch_it_r$k.txt" </dev/null >> "gpubox_it_r$k.log" 2>&1); fi
     sleep 120
   done
