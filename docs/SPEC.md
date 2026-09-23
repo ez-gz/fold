@@ -450,6 +450,12 @@ What runs instead (`preflop/iterate.py`, ranges in `preflop/it/r<k>/<role>.rng`,
   measured flop EV minus the open), with exact card removal (`preeq.json` pairs). Unmeasured legs (HJ/CO/SB behind
   UTG/CO) use the BTN measurements and v1 ranges as proxies. **Callers**: call when flop EV > cost to call, capped by
   1 - v1 3-bet weight. 3-bet ranges stay v1 this pass.
+- **Round-1 lesson (2026-09-23):** one-sided measurement inflates hands far outside the solved range (the opponent
+  never adapted to them): best responses came out as 80-90% opens. So a range grows at most 6 points per round and a
+  hand enters only once its one-step-stronger chart neighbours (higher kicker / higher top card, same suitedness) are
+  at least half in; shrinking is uncapped (in-range EVs are exact). Convergence is range movement per round, with a
+  still-moving frontier (any cell changed by 0.3+) forcing another round. Round-2 ranges: UTG 20.9%, CO 30.0%,
+  BTN 46.7%, SB 39.8%, BTN call vs CO 10.4%.
 - **Sides:** one-sided only. Two-sided sb_bb fits (7.6 GB) but is 11x slower per flop (smoke 2026-09-22), not worth it.
   BB vs BTN/CO/UTG is frozen at r6, so those formations measure the opener side only.
 - **Schedule:** round 1 = 225 runs (btn_bb/co_bb/utg_bb opener side, sb_bb both, co_btn/utg_btn both; 25 stratified
