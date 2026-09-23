@@ -63,6 +63,8 @@ impl<'a> Export3<'a> {
         let ctx = self.ctx;
         match n {
             Node3::Action(a) => {
+                // flop dumps carry no river strategies: only flop nodes become spots there
+                if a.strat_sum.is_empty() || (self.flopev.is_some() && a.street > 0) { return; }
                 let hp = a.player as usize; let nh = ctx.hands[hp].len();
                 let line_p = mass(ctx, &reach) / self.root_mass;
                 let strat = avg_strategy(a, nh);
