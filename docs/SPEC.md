@@ -433,6 +433,7 @@ Do those first (week 1), then six streams run independently.
 - Warm-start each preflop round from the previous round's strategy. Needs regrets saved as well as the average strategy.
 - Done: the Mac side of the measurement rounds is one-sided (FOLD_EPS_P=0) like the GPU.
 - Not worth it: suit isomorphism (about 1.3x, nothing on rainbow flops); river bucketing (costs accuracy).
+- GPU draws ~140 W of 215 W during solves: launch-bound, not compute-bound. Fixes in order: CUDA graph per traversal, fuse same-depth action nodes into one op, fp16 storage. Locking clocks needs Windows admin and is not honoured under WSL.
 
 ### 13.7 Preflop solve plan (revised 2026-09-22; running as `preflop/auto_it.sh`)
 Audit of the earlier version: its arithmetic did not close. Measured cost is ~70-120 s per one-sided `pre`-tree run
