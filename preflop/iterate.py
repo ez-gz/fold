@@ -17,6 +17,8 @@ usage: iterate.py init                      -> it/r1 from v1 (+ the converged r6
        iterate.py env <k> <form> <side>     -> shell exports for the measurement solve (side 0 | 1 | b)
        iterate.py batch <k> [--stage 1|2|all] -> gpu/batch_it_r<k>.txt   ("<form> <flop> <side>", open roles only)
        iterate.py step <k>                  -> it/r<k+1>/*.rng, it/r<k>/summary.json, prints GAP
+       iterate.py show <k> <role>           -> 13x13 grid (weights in tenths, . = fold) to eyeball against a chart
+       iterate.py rust <k>                  -> the round's ranges as preflop.rs constants (for adoption)
 """
 import json, glob, os, sys, math, re, collections
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
@@ -202,10 +204,22 @@ def cmd_step(k):
         print(f"{r}: solved with {s['prev']:.1f}% -> best response {s['br']:.1f}% -> next {s['next']:.1f}% (v1 {s['v1']:.1f}%, gap {s['gap']:.1f}, dominance violations {s['dominance']})")
     print(f"GAP {max(gaps.values()) if gaps else 0:.1f}  open: {' '.join(open_roles) or 'none'}")
 
+def cmd_show(k, role):
+    w = load(k, role); print(f"{role} r{k}: {pct(w):.1f}%")
+    for r in range(13):
+        print(RANKS[r], " ".join(" ." if w[r * 13 + q] < 0.05 else ("%2d" % min(9, round(10 * w[r * 13 + q])) if w[r * 13 + q] < 0.95 else " X") for q in range(13)))
+
+def cmd_rust(k):
+    for role, const in V1.items():
+        w = load(k, role)
+        print(f'pub const {const}: &str = "{",".join(f"{name(c)}" if w[c] >= 0.95 else f"{name(c)}:{w[c]:.2f}" for c in range(169) if w[c] >= 0.05)}";  // it/r{k} {pct(w):.1f}%')
+
 if __name__ == "__main__":
     a = sys.argv[1:]
     if a[0] == "init": cmd_init()
     elif a[0] == "env": cmd_env(int(a[1]), a[2], a[3])
     elif a[0] == "batch": cmd_batch(int(a[1]), a[a.index("--stage") + 1] if "--stage" in a else "all")
     elif a[0] == "step": cmd_step(int(a[1]))
+    elif a[0] == "show": cmd_show(int(a[1]), a[2])
+    elif a[0] == "rust": cmd_rust(int(a[1]))
     else: print(__doc__)
