@@ -16,7 +16,7 @@ pub struct ActionNode3 {
 
 pub enum Node3 {
     Action(ActionNode3),
-    Chance { cards: Vec<u8>, children: Vec<Node3>, par: bool },
+    Chance { cards: Vec<u8>, children: Vec<Node3>, par: bool, commit: [f32; 3], alive: [bool; 3] },
     /// everyone else folded
     FoldWin { winner: u8, commit: [f32; 3] },
     /// two seats reach showdown, `dead` folded earlier
@@ -47,9 +47,15 @@ struct St {
 impl<'a> Builder3<'a> {
     pub fn new(cfg: &'a TreeConfig) -> Self { Builder3 { cfg, max_raises: [cfg.max_raises; 3], boards: Vec::new(), board_ids: HashMap::new(), root_len: 3 } }
 
-    pub fn build(&mut self, flop: &[u8]) -> Node3 {
-        self.root_len = flop.len();
-        let st = St { board: flop.to_vec(), commit: [0.0; 3], alive: [true; 3], acted: [false; 3], street_start: 0.0, raises: 0 };
+    pub fn build(&mut self, flop: &[u8]) -> Node3 { self.build_from(flop, [0.0; 3], [true; 3]) }
+
+    /// Subgame rooted at the start of a street: `board` has 4 or 5 cards, `commit` / `alive` come from the parent line.
+    pub fn build_from(&mut self, board: &[u8], commit: [f32; 3], alive: [bool; 3]) -> Node3 {
+        self.root_len = board.len();
+        let ss = commit.iter().cloned().fold(0.0, f32::max);
+        let actors = (0..3).filter(|&q| alive[q] && commit[q] < self.cfg.eff_stack - 1e-3).count();
+        let st = St { board: board.to_vec(), commit, alive, acted: [false; 3], street_start: ss, raises: 0 };
+        if actors <= 1 { return self.next_street(&st); }
         self.next_actor(&st, 2)
     }
 
@@ -132,7 +138,7 @@ impl<'a> Builder3<'a> {
             let n = St { board, commit: st.commit, alive: st.alive, acted: [false; 3], street_start: ss, raises: 0 };
             children.push(if actors <= 1 { self.next_street(&n) } else { self.next_actor(&n, 2) });
         }
-        Node3::Chance { cards, children, par: st.board.len() == self.root_len }  // the first chance layer runs in parallel
+        Node3::Chance { cards, children, par: st.board.len() == self.root_len, commit: st.commit, alive: st.alive }  // the first chance layer runs in parallel
     }
 }
 

@@ -5,8 +5,11 @@
   with a folded third player who still removes cards, fold terminals). Verified against brute force; ~1 ms per
   showdown at 1326 x 3 hands. Trick: mass of card-disjoint pairs from two strength bands is
   A1 A2 - sum_c C1[c] C2[c] + sum_h w1(h) w2(h), restricted to hands avoiding hero's two cards.
-- Next: `tree3.rs` (three-seat betting tree, folded seats drop out, one bet size and one raise per street),
-  `cfr3.rs` (vector DCFR over three reach vectors), `measure`/`solve` subcommands, then the GPU port.
+- `tree3.rs` (three-seat tree, per-street raise caps, `build_from` for turn subgames), `cfr3.rs` (vector DCFR,
+  `exploitability3`, `turn_entries`), CLI: `solve3 <board> <r0> <r1> <r2> --raises f,t,r --dump X` (keeps flop+turn
+  strategies), `resolve3 <dump> [--entry N --card Xy --dump Y]` (turn re-solve with full raises), `spec3` for the GPU.
+- `gpu/solver3.py`: batched three-seat DCFR (same structure as solver.py; showdown chunked over turn cards).
+- Pilot: `solver/three/co_btn_bb_Kh7d4d` (Mac CPU, 19 GB, raises 1,1,0).
 
 ## Memory (CO open, BTN call, BB call; 360/200/300 combos; one size; f32 regrets + strategy sums)
 | raises allowed (flop, turn, river) | action nodes | memory |

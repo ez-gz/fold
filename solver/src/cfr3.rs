@@ -69,7 +69,7 @@ fn dead(reach: &Reach, t: usize) -> bool { others(t).iter().any(|&o| reach[o].it
 pub fn cfr3(ctx: &Ctx3, node: &mut Node3, t: usize, reach: &Reach, d: &Discount) -> Vec<f32> {
     if dead(reach, t) { return vec![0.0; ctx.hands[t].len()]; }
     match node {
-        Node3::Chance { cards, children, par } => {
+        Node3::Chance { cards, children, par, .. } => {
             let vals: Vec<Vec<f32>> = if *par {
                 children.par_iter_mut().zip(cards.par_iter()).map(|(ch, &c)| cfr3(ctx, ch, t, &deal(ctx, t, reach, c), d)).collect()
             } else {
@@ -115,7 +115,7 @@ pub fn cfr3(ctx: &Ctx3, node: &mut Node3, t: usize, reach: &Reach, d: &Discount)
 pub fn walk3(ctx: &Ctx3, node: &Node3, t: usize, reach: &Reach, mode: Mode) -> Vec<f32> {
     if dead(reach, t) { return vec![0.0; ctx.hands[t].len()]; }
     match node {
-        Node3::Chance { cards, children, par } => {
+        Node3::Chance { cards, children, par, .. } => {
             let vals: Vec<Vec<f32>> = if *par {
                 children.par_iter().zip(cards.par_iter()).map(|(ch, &c)| walk3(ctx, ch, t, &deal(ctx, t, reach, c), mode)).collect()
             } else {
@@ -158,4 +158,25 @@ pub fn exploitability3(ctx: &Ctx3, root: &Node3) -> (f32, [f32; 3]) {
         gain += v[0] - v[1]; ev[t] = v[1] as f32;
     }
     ((gain / 3.0) as f32, ev)
+}
+
+/// Reach of every seat at each flop-level chance node under the average strategy: (line, commit, alive, reach).
+pub fn turn_entries(ctx: &Ctx3, root: &Node3) -> Vec<(String, [f32; 3], [bool; 3], Reach)> {
+    fn go(ctx: &Ctx3, n: &Node3, reach: Reach, line: &mut Vec<String>, alive: [bool; 3], out: &mut Vec<(String, [f32; 3], [bool; 3], Reach)>) {
+        match n {
+            Node3::Action(a) => {
+                let p = a.player as usize; let nh = ctx.hands[p].len();
+                let s = avg_strategy(a, nh);
+                for (k, ch) in a.children.iter().enumerate() {
+                    let mut r = reach.clone(); for h in 0..nh { r[p][h] = reach[p][h] * s[k * nh + h]; }
+                    line.push(format!("{}:{}", p, k)); go(ctx, ch, r, line, alive, out); line.pop();
+                }
+            }
+            Node3::Chance { commit, alive, .. } => out.push((line.join(" "), *commit, *alive, reach)),
+            _ => {}
+        }
+    }
+    let mut out = Vec::new();
+    go(ctx, root, [ctx.weights[0].clone(), ctx.weights[1].clone(), ctx.weights[2].clone()], &mut Vec::new(), [true; 3], &mut out);
+    out
 }
