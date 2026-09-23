@@ -434,12 +434,27 @@ Do those first (week 1), then six streams run independently.
 - Done: the Mac side of the measurement rounds is one-sided (FOLD_EPS_P=0) like the GPU.
 - Not worth it: suit isomorphism (about 1.3x, nothing on rainbow flops); river bucketing (costs accuracy).
 
-### 13.7 Preflop solve plan (deferred; budget ≤ 8 GPU-hours)
-Measured-EV iteration works (BB defence converged in 5 rounds, gap 1.3) but used the one-size "pre" tree, which flatters the
-out-of-position caller by ~0.07-0.11bb on marginal hands. No public rake-free 6-max ranges exist to copy; raked public charts
-(RangeConverter, Preflop Wizard, 5% rake) are only a sanity anchor: ours should be slightly wider, not 10+ points wider.
-To fit 8 GPU-hours: (1) two sizes per street (33/100 flop, 66 turn, 50/125 river as in tree-v1) but keep max one raise;
-(2) 40 flops per formation, chosen by a stratified sample of texture classes rather than 75 random; (3) fp16 regrets
-(§13.6) and CUDA graphs; (4) solve one-sided (FOLD_EPS_P) per seat, all 9 formations, 3 rounds each with 50% damping
-starting from the round-5 BB ranges; (5) extend the loop to the in-position caller and to the 3-bettor's range.
-Adopt ranges only after (a) gap < 2.0 and (b) BB defence vs CO lands within ~5 points of raked charts + rake adjustment.
+### 13.7 Preflop solve plan (revised 2026-09-22; running as `preflop/auto_it.sh`)
+Audit of the earlier version: its arithmetic did not close. Measured cost is ~70-120 s per one-sided `pre`-tree run
+(r4/r5 logs), so 9 formations x 2 sides x 40 flops x 3 rounds was ~54 GPU-hours before the bigger two-size tree, and the
+fp16/CUDA-graph speed-ups it leaned on were never measured. Pruning hand classes saves nothing: one FOLD_EPS solve
+yields all 169 classes at once, so the cost is formations x sides x flops x rounds only.
+
+What runs instead (`preflop/iterate.py`, ranges in `preflop/it/r<k>/<role>.rng`, one file per role):
+- **Chart anchoring.** Round-1 ranges (v1, chart-shaped; the converged r6 BB defence for BB vs BTN/CO/UTG) are the
+  prior. Hands the prior plays (weight 1) or folds (weight 0) only move when the measured margin contradicts the prior
+  by more than 0.3bb; the rest is the free band and takes a 50/50 damped best response. Locks are re-checked every
+  round from the measurements, so a wrong prior unlocks itself; dominance violations are counted as a sanity gate.
+- **Openers** get EV(open) chained over the seats behind them (P(all fold) x 1.5, 3-bets cost the open, calls pay the
+  measured flop EV minus the open), with exact card removal (`preeq.json` pairs). Unmeasured legs (HJ/CO/SB behind
+  UTG/CO) use the BTN measurements and v1 ranges as proxies. **Callers**: call when flop EV > cost to call, capped by
+  1 - v1 3-bet weight. 3-bet ranges stay v1 this pass.
+- **Sides:** one-sided only. Two-sided sb_bb fits (7.6 GB) but is 11x slower per flop (smoke 2026-09-22), not worth it.
+  BB vs BTN/CO/UTG is frozen at r6, so those formations measure the opener side only.
+- **Schedule:** round 1 = 225 runs (btn_bb/co_bb/utg_bb opener side, sb_bb both, co_btn/utg_btn both; 25 stratified
+  flops each, `gpu/batch_it_r1.txt`), ~5 GPU-hours. Round 2 only for roles whose gap is >= 2 points, max round 3.
+  Everything resumes: `gpu/run_it.sh` skips finished flops, the collector and `auto_it.sh` can be restarted with the
+  running round number, and the auto loop only (re)starts the GPU queue when the box has had no jobs for 10 minutes,
+  so the main session's GPU work always wins. Mac CPU measuring is opt-in (`FOLD_MAC=1`).
+- Adoption criteria unchanged: gap < 2.0 and BB defence vs CO within ~5 points of raked charts + rake adjustment.
+  Not covered: HJ ranges, multiway/squeezes, the two-size tree bias (0.07-0.11bb, could be an offset later), 3-bet pots.

@@ -27,3 +27,5 @@ solver/calib_pre_r*/
 !.env.example
 web/.creds
 web/*.foldpack
+solver/calib_it_r*/
+preflop/*.log
