@@ -92,6 +92,29 @@ impl<'a> Export3<'a> {
         }
     }
 
+    fn responses(&self, n: &Node3, hp: usize, reach: Reach, path_p: f32, seen: [bool; 3], board: &[u8], acc: &mut Vec<Vec<(String, &'static str, f32, [f32; 7])>>, tot: &mut [f32; 3]) {
+        let ctx = self.ctx;
+        if let Node3::Action(b) = n {
+            let q = b.player as usize; if q == hp { return; }
+            let nq = ctx.hands[q].len(); let strat = avg_strategy(b, nq);
+            let rq: f32 = reach[q].iter().sum(); if rq <= 0.0 { return; }
+            let mut seen2 = seen;
+            if !seen[q] { seen2[q] = true; tot[q] += path_p * rq; }
+            for (k, act) in b.actions.iter().enumerate() {
+                let (label, kind, _) = act_label(act);
+                let mut cls = [0f32; 7]; let mut m = 0f32;
+                for h in 0..nq { let w = reach[q][h] * strat[k * nq + h]; m += w; cls[classify(ctx.hands[q][h], board) as usize] += w; }
+                if !seen[q] {
+                    let row = match acc[q].iter_mut().find(|r| r.0 == label) { Some(r) => r, None => { acc[q].push((label.clone(), kind, 0.0, [0.0; 7])); acc[q].last_mut().unwrap() } };
+                    row.2 += path_p * m; for c in 0..7 { row.3[c] += path_p * cls[c]; }
+                }
+                if m <= 1e-9 || matches!(act, Act::Fold) && seen2.iter().enumerate().all(|(p, &s)| s || p == hp || p == q) { continue; }
+                let mut r = reach.clone(); for h in 0..nq { r[q][h] *= strat[k * nq + h]; }
+                self.responses(&b.children[k], hp, r, path_p * m / rq, seen2, board, acc, tot);
+            }
+        }
+    }
+
     fn spot(&self, a: &ActionNode3, reach: &Reach, alive: [bool; 3], hist: &[(u8, String, String)], board: &[u8], line_p: f32, strat: &[f32], flop_vals: Option<&[f32]>, k: usize) -> serde_json::Value {
         let ctx = self.ctx;
         let hp = a.player as usize; let nh = ctx.hands[hp].len(); let na = a.actions.len();
@@ -114,7 +137,24 @@ impl<'a> Export3<'a> {
             serde_json::json!({ "hand": [card_str(hd.0), card_str(hd.1)], "cls": classify(hd, board), "w": r3(reach[hp][h] / mx),
                 "strat": (0..na).map(|x| r3(strat[x * nh + h])).collect::<Vec<_>>(), "ev": (0..na).map(|x| r3(evs[x][h])).collect::<Vec<_>>() })
         }).collect();
+        // each other seat's first decision after every hero action: mix and hand classes, marginal over what
+        // happens before that seat acts (scalar path weights; card removal between seats ignored here)
+        let resp: Vec<serde_json::Value> = (0..na).map(|x| {
+            if matches!(a.actions[x], Act::Fold) { return serde_json::Value::Null; }
+            let mut acc: Vec<Vec<(String, &'static str, f32, [f32; 7])>> = vec![vec![]; 3];
+            let mut tot = [0f32; 3];
+            self.responses(&a.children[x], hp, reach.clone(), 1.0, [false; 3], board, &mut acc, &mut tot);
+            let seats: Vec<serde_json::Value> = (0..3).filter(|&q| q != hp && tot[q] > 0.0).map(|q| {
+                let mut rows = acc[q].clone();
+                rows.sort_by_key(|r| match r.1 { "fold" => 0, "check" => 1, "call" => 2, "bet" => 3, _ => 4 });
+                serde_json::json!({ "pos": self.seats[q], "labels": rows.iter().map(|r| r.0.clone()).collect::<Vec<_>>(), "kinds": rows.iter().map(|r| r.1).collect::<Vec<_>>(),
+                    "freq": rows.iter().map(|r| r3(r.2 / tot[q])).collect::<Vec<_>>(),
+                    "cls": rows.iter().map(|r| { let t: f32 = r.3.iter().sum::<f32>().max(1e-9); r.3.iter().map(|v| r3(v / t)).collect::<Vec<_>>() }).collect::<Vec<_>>() })
+            }).collect();
+            serde_json::Value::Array(seats)
+        }).collect();
         serde_json::json!({
+            "resp": resp,
             "id": format!("{}-{}", self.id, k), "seats": self.seats, "hero": hp, "alive": alive,
             "board": board.iter().map(|&c| card_str(c)).collect::<Vec<_>>(), "street": a.street,
             "pot": r3(pot), "stack": r3(self.stack - max_commit), "to_call": r3(to_call), "line_p": r3(line_p),

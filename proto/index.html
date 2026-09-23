@@ -1086,6 +1086,10 @@ function answer3(i){
   const opp = s.seats.map((p, k) => k).filter(k => k !== s.hero && s.alive[k]);
   const cells = g => { const idx = g.map((v, i) => [v, i]).filter(x => x[0] > 0.02).sort((a, b) => b[0] - a[0]); return idx.length; };
   const why = $(`<div class="sheet why"><h3>Why</h3><p><span class="k">Solver:</span> ${mix}. ${d.strat[i] >= 0.25 ? "Your pick is part of the mix." : `Best is <b>${best.label.toLowerCase()}</b>.`} <span class="k">Multiway:</span> with ${opp.length} opponent${opp.length > 1 ? "s" : ""} still in, someone connects more often, so bluffs and thin value bets earn less than heads-up and the ranges you face are ${opp.length > 1 ? "two" : "one"} range${opp.length > 1 ? "s" : ""} at once.</p></div>`);
+  // what each opponent does next, for the action you took and for the best one
+  const CN = THREE.class_names, top = c => c.map((v, k) => [v, k]).filter(x => x[0] >= 0.15).sort((a, b) => b[0] - a[0]).slice(0, 2).map(x => CN[x[1]].toLowerCase()).join(", ");
+  const respLine = x => { const r = s.resp && s.resp[x]; if (!r || !r.length) return ""; return `<p><span class="k">If you ${s.actions[x].label.toLowerCase()}:</span> ` + r.map(q => `<b>${q.pos}</b> ` + q.labels.map((l, k) => q.freq[k] >= 0.03 ? `${l.toLowerCase().replace(/^bet |^raise to /, m => m)} ${pct(q.freq[k])}${top(q.cls[k]) ? ` (${top(q.cls[k])})` : ""}` : null).filter(Boolean).join(", ")).join("; ") + `.</p>`; };
+  [...new Set([i, gr.bestIdx])].forEach(x => { const h = respLine(x); if (h) why.appendChild($(h)); });
   main.appendChild(why);
   const sheet = $(`<div class="sheet"><h3>Ranges here</h3></div>`);
   opp.forEach(k => {

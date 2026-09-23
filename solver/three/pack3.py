@@ -15,10 +15,11 @@ for fn in files:
         seen.add(key)
         r2 = lambda x: round(x, 2)
         s["ranges"] = [[r2(v) for v in g] for g in s["ranges"]]
+        s["resp"] = [None if r is None else [{"pos": q["pos"], "labels": q["labels"], "kinds": q["kinds"], "freq": [r2(v) for v in q["freq"]], "cls": [[r2(v) for v in c] for c in q["cls"]]} for q in r] for r in s.get("resp", [])]
         s["drills"] = [{"hand": d["hand"][0] + d["hand"][1], "cls": d["cls"], "w": r2(d["w"]), "strat": [r2(v) for v in d["strat"]], "ev": [r2(v) for v in d["ev"]]} for d in s["drills"]]
         spots.append(s)
     print(f"{fn}: {len(j['spots'])} spots -> kept {len(spots)} total")
-pack = {"version": 1, "seats": 3, "formation": "CO opens 2.5bb, BTN calls, BB calls", "spots": spots}
+pack = {"version": 1, "seats": 3, "class_names": ["Two pair+", "Top pair / overpair", "Middle / weak pair", "Strong draw", "Gutshot / overcards", "Ace high", "Air"], "formation": "CO opens 2.5bb, BTN calls, BB calls", "spots": spots}
 raw = json.dumps(pack, separators=(",", ":")).encode()
 with gzip.open(out, "wb") as f: f.write(raw)
 print(f"{len(spots)} spots, {len(raw)/1e6:.1f} MB raw -> {out}")
