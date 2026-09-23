@@ -6,6 +6,7 @@ mod export;
 mod import;
 mod preflop;
 mod range;
+mod three;
 mod tree;
 
 use cfr::{cfr, exploitability, Ctx, Discount};
