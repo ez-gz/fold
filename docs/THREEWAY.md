@@ -10,6 +10,20 @@
   strategies), `resolve3 <dump> [--entry N --card Xy --dump Y]` (turn re-solve with full raises), `spec3` for the GPU.
 - `gpu/solver3.py`: batched three-seat DCFR (same structure as solver.py; showdown chunked over turn cards).
 - Pilot: `solver/three/co_btn_bb_Kh7d4d` (Mac CPU, 19 GB, raises 1,1,0).
+- 2026-09-22: end-to-end pipeline works on Kh7d4d (CO open, BTN call, BB call):
+  1. GPU flop solve, no raises: `cd gpu && gpubox run -n three_r000 -- uv run python solver3.py spec3/co_btn_bb_Kh7d4d_r000 --target 0.3 --dump out3/co_btn_bb_Kh7d4d_r000`
+     -> 0.32% pot in 75 iterations / 16 min, peak 5.7 GB; dumps flop+turn strategies (`.f32`) and flop-node action values (`.flopev.f32`).
+     `gpu/out3/<name>.json` (board, pot, stack, raises, hands, weights) is written by hand from the spec json (see session notes).
+  2. Turn re-solves on the Mac: `fold-cli resolve3 ../gpu/out3/co_btn_bb_Kh7d4d_r000 --gpu` lists entries by reach mass
+     (checked-through 55%, CO bets/BTN folds/BB calls 16%, ...); `--entry N --card Xy --dump three/turn_...` re-solves one
+     turn subgame with raises everywhere (22k nodes, 0.13 GB, ~3 s/iteration alone, 0.45% pot at 75 iterations).
+     `solver/three/run_turns.sh` runs 7 entries x 6 turn cards, 3 at a time.
+  3. `fold-cli export3 <dump> [--gpu --flopev F] --out spots.json` writes spots for every seat at every node reached
+     >= 2% of the time (flop spots need `--flopev`; turn dumps contain the rivers). `solver/three/pack3.py` merges them
+     into `proto/three-v1.json.gz` (flop+turn spots, up to 30 common river spots per subgame).
+  4. Trainer: "3-way" mode chip in `proto/index.html` (`render3`/`answer3`): history with three seats, live-player
+     count, grading from the acting seat's mix and per-action EVs, both opponents' ranges as charts. No response
+     layer (what each opponent does next) yet, no hand mode, no puzzle mode.
 
 ## Memory (CO open, BTN call, BB call; 360/200/300 combos; one size; f32 regrets + strategy sums)
 | raises allowed (flop, turn, river) | action nodes | memory |
