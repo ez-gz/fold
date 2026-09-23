@@ -30,6 +30,7 @@ pub struct Builder3<'a> {
     pub max_raises: [u8; 3],
     pub boards: Vec<Vec<u8>>,
     board_ids: HashMap<u64, usize>,
+    root_len: usize,
 }
 
 #[derive(Clone)]
@@ -44,9 +45,10 @@ struct St {
 }
 
 impl<'a> Builder3<'a> {
-    pub fn new(cfg: &'a TreeConfig) -> Self { Builder3 { cfg, max_raises: [cfg.max_raises; 3], boards: Vec::new(), board_ids: HashMap::new() } }
+    pub fn new(cfg: &'a TreeConfig) -> Self { Builder3 { cfg, max_raises: [cfg.max_raises; 3], boards: Vec::new(), board_ids: HashMap::new(), root_len: 3 } }
 
     pub fn build(&mut self, flop: &[u8]) -> Node3 {
+        self.root_len = flop.len();
         let st = St { board: flop.to_vec(), commit: [0.0; 3], alive: [true; 3], acted: [false; 3], street_start: 0.0, raises: 0 };
         self.next_actor(&st, 2)
     }
@@ -130,7 +132,7 @@ impl<'a> Builder3<'a> {
             let n = St { board, commit: st.commit, alive: st.alive, acted: [false; 3], street_start: ss, raises: 0 };
             children.push(if actors <= 1 { self.next_street(&n) } else { self.next_actor(&n, 2) });
         }
-        Node3::Chance { cards, children, par: st.board.len() == 3 }
+        Node3::Chance { cards, children, par: st.board.len() == self.root_len }  // the first chance layer runs in parallel
     }
 }
 

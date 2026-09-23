@@ -296,12 +296,13 @@ fn main() {
             let one = || [v(&[0.66]), v(&[0.66]), v(&[0.66])];
             let r = || [v(&[0.6]), v(&[0.6]), v(&[0.6])];
             let cfg = TreeConfig { start_pot: pot, eff_stack: stack, bets: [one(), one()], raises: [r(), r()], max_raises: 1, allin_threshold: 0.67 };
+            let caps: Vec<u8> = get("--raises", "1,1,1").split(',').map(|x| x.parse().unwrap()).collect();
             let mut hands: [Vec<(u8, u8)>; 3] = [Vec::new(), Vec::new(), Vec::new()];
             let mut weights: [Vec<f32>; 3] = [Vec::new(), Vec::new(), Vec::new()];
             for p in 0..3 { for (h, w) in range::parse_range(&args[3 + p]) { if board.contains(&h.0) || board.contains(&h.1) { continue; } hands[p].push(h); weights[p].push(w); } }
             assert!(hands.iter().all(|h| !h.is_empty()), "every seat needs a non-empty range");
             let t0 = Instant::now();
-            let mut b = tree3::Builder3::new(&cfg);
+            let mut b = tree3::Builder3::new(&cfg); b.max_raises = [caps[0], caps[1], caps[2]];
             let mut root = b.build(&board);
             let nh = [hands[0].len(), hands[1].len(), hands[2].len()];
             let (nodes, floats) = tree3::size_tree3(&mut root, nh, true);
@@ -319,6 +320,29 @@ fn main() {
                     eprintln!("  iter {it:4}  expl {g:.4} bb = {:.3}% pot   EV {:.3} {:.3} {:.3}   {:.0}s", 100.0 * g / pot, ev[0], ev[1], ev[2], t0.elapsed().as_secs_f32());
                     if 100.0 * g / pot < target { break; }
                 }
+            }
+            let dump = get("--dump", "");
+            if !dump.is_empty() {
+                // average strategy per action node in preorder, f16 [actions x hands], plus a JSON index of the nodes
+                let mut idx = Vec::new(); let mut bytes: Vec<u8> = Vec::new();
+                fn pre(n: &tree3::Node3, ctx: &three::Ctx3, idx: &mut Vec<serde_json::Value>, bytes: &mut Vec<u8>, line: &mut Vec<String>) {
+                    match n {
+                        tree3::Node3::Action(a) => {
+                            let nh = ctx.hands[a.player as usize].len();
+                            if a.street == 2 { return; }   // rivers are re-solved on demand; only flop and turn strategies are kept
+                            let s = cfr3::avg_strategy(a, nh);
+                            idx.push(serde_json::json!({ "line": line.join(" "), "player": a.player, "street": a.street, "actions": a.actions.iter().map(|x| format!("{x:?}")).collect::<Vec<_>>(), "commit": a.commit, "offset": bytes.len() }));
+                            for v in &s { bytes.extend_from_slice(&v.to_le_bytes()); }
+                            for (k, c) in a.children.iter().enumerate() { line.push(format!("{}:{}", a.player, k)); pre(c, ctx, idx, bytes, line); line.pop(); }
+                        }
+                        tree3::Node3::Chance { children, cards, .. } => { for (c, ch) in cards.iter().zip(children) { line.push(format!("c{c}")); pre(ch, ctx, idx, bytes, line); line.pop(); } }
+                        _ => {}
+                    }
+                }
+                pre(&root, &ctx, &mut idx, &mut bytes, &mut Vec::new());
+                std::fs::write(format!("{dump}.f32"), &bytes).unwrap();
+                std::fs::write(format!("{dump}.json"), serde_json::to_vec(&serde_json::json!({ "board": args[2], "pot": pot, "stack": stack, "raises": caps, "hands": ctx.hands.iter().map(|h| h.iter().map(|x| [x.0, x.1]).collect::<Vec<_>>()).collect::<Vec<_>>(), "weights": ctx.weights, "nodes": idx })).unwrap()).unwrap();
+                eprintln!("dumped {} flop+turn nodes -> {dump}.f32/.json", idx.len());
             }
         }
         Some("measure") => {
