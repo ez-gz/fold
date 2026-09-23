@@ -12,6 +12,10 @@ Chart anchoring (the "start from AA and work down" idea in the form that is actu
 (v1, chart-shaped; the converged r6 defence for BB) are the prior. A hand locked in by the prior (weight 1) only moves when its measured margin is worse than -LOCK bb; a hand
 locked out (weight 0) only moves when its margin is better than +LOCK bb. Everything else is the free band and takes a
 50/50 damped best response. Locks are checked against the measurements every round, so a wrong prior unlocks itself.
+One-sided measurement is biased for hands outside the solved range (the opponent never adapted to them; round 1 showed
+best responses of 80-90% opens), so a range may grow by at most GROW points per round: the strongest additions by
+measured margin come in first, and the next round measures them properly. Shrinking is not capped (in-range EVs are
+exact).
 
 usage: iterate.py init                      -> it/r1 from v1 (+ the converged r6 BB defence)
        iterate.py env <k> <form> <side>     -> shell exports for the measurement solve (side 0 | 1 | b)
@@ -23,7 +27,7 @@ usage: iterate.py init                      -> it/r1 from v1 (+ the converged r6
 import json, glob, os, sys, math, re, collections
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
 RANKS = "AKQJT98765432"
-LOCK, DAMP, SCALE, GAP_OK = 0.3, 0.5, 0.1, 2.0
+LOCK, DAMP, SCALE, GAP_OK, GROW = 0.3, 0.5, 0.1, 2.0, 6.0
 
 def name(c):
     r, q = divmod(c, 13)
@@ -133,14 +137,37 @@ def measured(k, form, side):
     return [sum(evs[c]) / len(evs[c]) if c in evs else -99.0 for c in range(169)], max(len(v) for v in evs.values())
 
 sig = lambda x: 1 / (1 + math.exp(-max(-40, min(40, x / SCALE))))
+def parents(c):
+    """the one-step-stronger neighbours in chart order: higher kicker (or the pair) and higher top card, same suitedness"""
+    r, q = divmod(c, 13); hi, lo = min(r, q), max(r, q); out = []
+    if r == q: return [(r - 1) * 14] if r > 0 else []
+    mk = lambda h, l: h * 13 + l if r < q else l * 13 + h
+    out.append(mk(hi, lo - 1) if lo - 1 > hi else hi * 14)
+    if hi > 0: out.append(mk(hi - 1, lo))
+    return out
+
 def anchored(prior, prev, margin):
-    """best response with chart locks and damping; returns (new weights, best-response weights)"""
+    """best response with chart locks, damping, the per-round growth budget and the chart-adjacency rule (a hand may
+    only enter once the neighbours one step up are at least half in: measured EVs of far-out hands are inflated)"""
     br = [sig(m) for m in margin]; new = [0.0] * 169
     for c in range(169):
         if prior[c] >= 0.999 and margin[c] > -LOCK: new[c] = 1.0
         elif prior[c] <= 0.001 and margin[c] < LOCK: new[c] = 0.0
         else: new[c] = (1 - DAMP) * prev[c] + DAMP * br[c]
+        if prev[c] < 0.02 and any(prev[p] < 0.5 for p in parents(c)): new[c] = min(new[c], prev[c])
+    if pct(new) > pct(prev) + GROW:                      # too much growth: keep the additions with the best margins
+        want = new; new = [min(want[c], prev[c]) for c in range(169)]; budget = GROW * 1326 / 100
+        for c in sorted(range(169), key=lambda c: -margin[c]):
+            add = want[c] - prev[c]
+            if add <= 0: continue
+            take = min(add, budget / COMBOS[c]); new[c] = prev[c] + take; budget -= take * COMBOS[c]
+            if budget <= 1e-9: break
     return new, br
+
+def movement(new, prev):
+    """points of range moved this round; a still-moving frontier (any cell changed by 0.3+) counts as GAP_OK so the
+    role is re-measured next round (the adjacency rule only lets one row of hands in per round)"""
+    m = abs(pct(new) - pct(prev)); return max(m, GAP_OK) if max(abs(new[c] - prev[c]) for c in range(169)) >= 0.3 else m
 
 def dominance_violations(w):
     """count of (better hand, worse hand) pairs where the worse one is played more (>0.3): a sanity gate, not enforced"""
@@ -167,7 +194,7 @@ def cmd_step(k):
         margin = [ev[c] - (osize - blinds[p]) for c in range(169)]
         new, br = anchored(prior, prev, margin)
         new = [min(new[c], 1 - three[c]) for c in range(169)]; br = [min(br[c], 1 - three[c]) for c in range(169)]
-        save(k + 1, role, new); gaps[role] = abs(pct(br) - pct(prev))
+        save(k + 1, role, new); gaps[role] = movement(new, prev)
         summary[role] = dict(flops=n, prev=pct(prev), br=pct(br), next=pct(new), v1=pct(v1(V1[role])), gap=gaps[role], dominance=dominance_violations([new[c] + three[c] for c in range(169)]))
     # openers (need every measured chain leg; unmeasured legs fall back to the previous round's estimate = no update)
     for seat in ("UTG", "CO", "BTN", "SB"):
@@ -192,7 +219,7 @@ def cmd_step(k):
                 total += alive * BLINDS
                 margin.append(total)
             new, br = anchored(prior, prev, margin)
-            save(k + 1, role, new); gaps[role] = abs(pct(br) - pct(prev))
+            save(k + 1, role, new); gaps[role] = movement(new, prev)
             summary[role] = dict(prev=pct(prev), br=pct(br), next=pct(new), v1=pct(v1(V1[role])), gap=gaps[role], dominance=dominance_violations(new))
             continue
         save(k + 1, role, prev)
