@@ -20,6 +20,7 @@ p.add_argument("--device", default="cuda")
 p.add_argument("--chunk", type=int, default=0, help="turn cards per showdown chunk; 0 = as many as ~1.5 GB of transients allow")
 p.add_argument("--dump", default="")
 p.add_argument("--dtype", default="float32", help="storage dtype for regrets and strategy sums")
+p.add_argument("--compile", type=int, default=1, help="torch.compile the showdown and pair-mass kernels")
 args = p.parse_args()
 dev = torch.device(args.device)
 STORE = getattr(torch, args.dtype)
@@ -191,6 +192,15 @@ def flat_mass(t, r1, r2, o1, o2):
     i = ((wca1 * wca2 + wcb1 * wcb2) * nm).sum(-1)
     idv = (r1 * rp2[..., IDXSAME[o1, o2]]).sum(-1, keepdim=True)
     return pa * qa - x + (idv - i - wab1 * wab2)
+
+
+if args.compile and dev.type == "cuda":
+    import torch._dynamo
+    torch._dynamo.config.recompile_limit = 256
+    torch._dynamo.config.cache_size_limit = 256
+    pair_mass = torch.compile(pair_mass, dynamic=False)
+    flat_mass = torch.compile(flat_mass, dynamic=False)
+    Tables.bands = torch.compile(Tables.bands, dynamic=False)
 
 
 # ---------------------------------------------------------------- tree (shape per street, not per card)
