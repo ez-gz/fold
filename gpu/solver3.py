@@ -461,6 +461,11 @@ if args.dump:
     with open(args.dump + ".f32", "wb") as f:
         for n in preorder(ROOT, []):
             f.write(normalize(n.ssum.float()).cpu().numpy().tobytes())
+    # header the Rust side (resolve3 / export3) reads next to the .f32
+    R, SU = "23456789TJQKA", "cdhs"
+    with open(args.dump + ".json", "w") as f:
+        json.dump({"board": "".join(R[c // 4] + SU[c % 4] for c in S["flop"]), "pot": S["start_pot"], "stack": S["eff_stack"],
+                   "raises": S["max_raises"], "hands": S["hands"], "weights": S["weights"]}, f)
     print(f"dumped flop+turn strategy -> {args.dump}.f32", flush=True)
     # flop action nodes: counterfactual value of every action for the acting seat under the average strategy
     # (others' reach at the node, hero reach unweighted), preorder, float32 [A, H]; rivers are in memory here only

@@ -5,20 +5,26 @@ Keeps every flop and turn spot; river spots only when the line is common (line_p
 import gzip, json, sys
 out, files = sys.argv[1], sys.argv[2:]
 spots, seen = [], set()
+byflop = {}
 for fn in files:
     j = json.load(open(fn))
-    riv = [s for s in j["spots"] if s["street"] == 2 and s["line_p"] >= 0.03]
-    riv.sort(key=lambda s: -s["line_p"])
-    for s in [x for x in j["spots"] if x["street"] < 2] + riv[:30]:
+    for s in j["spots"]:
         key = (tuple(s["board"]), tuple((h["pos"], h["label"]) for h in s["history"]), s["hero"])
         if key in seen or not s["drills"]: continue
-        seen.add(key)
+        seen.add(key); byflop.setdefault(tuple(s["board"][:3]), []).append(s)
+# per flop: every flop and turn spot, then the commonest river spots, about 100 in all
+CAP, RIVERS = 100, 40
+for flop, ss in sorted(byflop.items()):
+    ss.sort(key=lambda s: (s["street"], -s["line_p"]))
+    keep = [s for s in ss if s["street"] < 2][:CAP - min(RIVERS, sum(s["street"] == 2 for s in ss))]
+    keep += [s for s in ss if s["street"] == 2][:CAP - len(keep)]
+    print(f"{''.join(flop)}: {len(ss)} spots -> {len(keep)} ({sum(s['street']==0 for s in keep)} flop, {sum(s['street']==1 for s in keep)} turn, {sum(s['street']==2 for s in keep)} river)")
+    for s in keep:
         r2 = lambda x: round(x, 2)
         s["ranges"] = [[r2(v) for v in g] for g in s["ranges"]]
         s["resp"] = [None if r is None else [{"pos": q["pos"], "labels": q["labels"], "kinds": q["kinds"], "freq": [r2(v) for v in q["freq"]], "cls": [[r2(v) for v in c] for c in q["cls"]]} for q in r] for r in s.get("resp", [])]
         s["drills"] = [{"hand": d["hand"][0] + d["hand"][1], "cls": d["cls"], "w": r2(d["w"]), "strat": [r2(v) for v in d["strat"]], "ev": [r2(v) for v in d["ev"]]} for d in s["drills"]]
         spots.append(s)
-    print(f"{fn}: {len(j['spots'])} spots -> kept {len(spots)} total")
 pack = {"version": 1, "seats": 3, "class_names": ["Two pair+", "Top pair / overpair", "Middle / weak pair", "Strong draw", "Gutshot / overcards", "Ace high", "Air"], "formation": "CO opens 2.5bb, BTN calls, BB calls", "spots": spots}
 raw = json.dumps(pack, separators=(",", ":")).encode()
 with gzip.open(out, "wb") as f: f.write(raw)
