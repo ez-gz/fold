@@ -403,7 +403,48 @@ fn main() {
                     _ => {}
                 }
             }
-            let mut pos = 0; load(&mut root, nh, &bytes, &mut pos); assert_eq!(pos, bytes.len(), "dump size mismatch");
+            // GPU dumps (solver3.py) store each turn shape-node as [49 cards, A, H] in one block; rebuild the per-card order here
+            fn load_gpu(n: &mut tree3::Node3, nh: [usize; 3], bytes: &[u8], pos: &mut usize) {
+                fn sizes(n: &tree3::Node3, nh: [usize; 3], out: &mut Vec<usize>) {
+                    match n {
+                        tree3::Node3::Action(a) => { if a.street == 2 { return; } out.push(a.actions.len() * nh[a.player as usize]); for c in &a.children { sizes(c, nh, out); } }
+                        tree3::Node3::Chance { children, .. } => { for c in children { sizes(c, nh, out); } }
+                        _ => {}
+                    }
+                }
+                fn fill(n: &mut tree3::Node3, nh: [usize; 3], bytes: &[u8], base: usize, offs: &[usize], nd: usize, d: usize, k: &mut usize) {
+                    match n {
+                        tree3::Node3::Action(a) => {
+                            if a.street == 2 { return; }
+                            let len = a.actions.len() * nh[a.player as usize];
+                            let p = base + 4 * (offs[*k] + d * len); *k += 1;
+                            a.strat_sum = (0..len).map(|i| f32::from_le_bytes(bytes[p + 4 * i..p + 4 * i + 4].try_into().unwrap())).collect();
+                            for c in a.children.iter_mut() { fill(c, nh, bytes, base, offs, nd, d, k); }
+                        }
+                        tree3::Node3::Chance { children, .. } => { for c in children.iter_mut() { fill(c, nh, bytes, base, offs, nd, d, k); } }
+                        _ => {}
+                    }
+                }
+                match n {
+                    tree3::Node3::Action(a) => {
+                        let len = a.actions.len() * nh[a.player as usize];
+                        a.strat_sum = (0..len).map(|i| f32::from_le_bytes(bytes[*pos + 4 * i..*pos + 4 * i + 4].try_into().unwrap())).collect();
+                        *pos += 4 * len;
+                        for c in a.children.iter_mut() { load_gpu(c, nh, bytes, pos); }
+                    }
+                    tree3::Node3::Chance { children, .. } => {
+                        let nd = children.len();
+                        let mut sz = Vec::new(); sizes(&children[0], nh, &mut sz);
+                        let mut offs = Vec::with_capacity(sz.len()); let mut acc = 0; for &s in &sz { offs.push(acc); acc += nd * s; }
+                        for d in 0..nd { let mut k = 0; fill(&mut children[d], nh, bytes, *pos, &offs, nd, d, &mut k); }
+                        *pos += 4 * acc;
+                    }
+                    _ => {}
+                }
+            }
+            let mut pos = 0;
+            if args.iter().any(|a| a == "--gpu") { load_gpu(&mut root, nh, &bytes, &mut pos); } else { load(&mut root, nh, &bytes, &mut pos); }
+            assert_eq!(pos, bytes.len(), "dump size mismatch");
             let ctx = three::Ctx3 { hands: hands.clone(), weights: weights.clone(), card_hands: [vec![], vec![], vec![]], sd: vec![], start_pot: pot };
             let entries = cfr3::turn_entries(&ctx, &root);
             let entry = get("--entry", "");
