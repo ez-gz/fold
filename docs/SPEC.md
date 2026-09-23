@@ -433,3 +433,13 @@ Do those first (week 1), then six streams run independently.
 - Warm-start each preflop round from the previous round's strategy. Needs regrets saved as well as the average strategy.
 - Done: the Mac side of the measurement rounds is one-sided (FOLD_EPS_P=0) like the GPU.
 - Not worth it: suit isomorphism (about 1.3x, nothing on rainbow flops); river bucketing (costs accuracy).
+
+### 13.7 Preflop solve plan (deferred; budget ≤ 8 GPU-hours)
+Measured-EV iteration works (BB defence converged in 5 rounds, gap 1.3) but used the one-size "pre" tree, which flatters the
+out-of-position caller by ~0.07-0.11bb on marginal hands. No public rake-free 6-max ranges exist to copy; raked public charts
+(RangeConverter, Preflop Wizard, 5% rake) are only a sanity anchor: ours should be slightly wider, not 10+ points wider.
+To fit 8 GPU-hours: (1) two sizes per street (33/100 flop, 66 turn, 50/125 river as in tree-v1) but keep max one raise;
+(2) 40 flops per formation, chosen by a stratified sample of texture classes rather than 75 random; (3) fp16 regrets
+(§13.6) and CUDA graphs; (4) solve one-sided (FOLD_EPS_P) per seat, all 9 formations, 3 rounds each with 50% damping
+starting from the round-5 BB ranges; (5) extend the loop to the in-position caller and to the 3-bettor's range.
+Adopt ranges only after (a) gap < 2.0 and (b) BB defence vs CO lands within ~5 points of raked charts + rake adjustment.
