@@ -462,3 +462,25 @@ if args.dump:
         for n in preorder(ROOT, []):
             f.write(normalize(n.ssum.float()).cpu().numpy().tobytes())
     print(f"dumped flop+turn strategy -> {args.dump}.f32", flush=True)
+    # flop action nodes: counterfactual value of every action for the acting seat under the average strategy
+    # (others' reach at the node, hero reach unweighted), preorder, float32 [A, H]; rivers are in memory here only
+    def flop_evs(node, reach, out):
+        if node.kind != "action": return
+        strat = normalize(node.ssum.float()); t = node.player
+        vals = []
+        for a, ch in enumerate(node.children):
+            if node.labels[a] == "fold":
+                o1, o2 = others(t)
+                vals.append(flat_mass(t, reach[o1], reach[o2], o1, o2) * (-node.commit[t]))
+            else:
+                vals.append(walk(ch, t, reach))
+        out.append(torch.stack(vals, dim=-2))
+        for a, ch in enumerate(node.children):
+            r = list(reach); r[t] = reach[t] * strat[..., a, :]
+            flop_evs(ch, r, out)
+    with torch.no_grad():
+        BR = False
+        out = []; flop_evs(ROOT, list(W), out)
+    with open(args.dump + ".flopev.f32", "wb") as f:
+        for v in out: f.write(v.float().cpu().numpy().tobytes())
+    print(f"dumped {len(out)} flop-node action values -> {args.dump}.flopev.f32  {time.time()-t0:.0f}s", flush=True)

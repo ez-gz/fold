@@ -1,6 +1,7 @@
 mod cards;
 mod cfr;
 mod cfr3;
+mod export3;
 mod classify;
 mod eval;
 mod export;
@@ -159,8 +160,95 @@ fn solve(form: &'static Formation, flop_s: &str, max_iters: u32, target_pct: f32
     Solved { ctx, root, cfg, flop, form, expl, iters: it }
 }
 
+/// A three-seat strategy dump (flop tree from solve3/solver3.py, or a turn subgame from resolve3) rebuilt in memory.
+struct Dump3 { j: serde_json::Value, board: Vec<u8>, pot: f32, stack: f32, cfg: TreeConfig, hands: [Vec<(u8, u8)>; 3], weights: [Vec<f32>; 3], root: tree3::Node3, boards: Vec<Vec<u8>> }
+
+fn load_dump3(prefix: &str, gpu: bool) -> Dump3 {
+    let j: serde_json::Value = serde_json::from_slice(&std::fs::read(format!("{prefix}.json")).unwrap()).unwrap();
+    let bytes = std::fs::read(format!("{prefix}.f32")).unwrap();
+    let board = cards::parse_board(j["board"].as_str().unwrap());
+    let (pot, stack) = (j["pot"].as_f64().unwrap() as f32, j["stack"].as_f64().unwrap() as f32);
+    let caps: Vec<u8> = j["raises"].as_array().unwrap().iter().map(|x| x.as_u64().unwrap() as u8).collect();
+    let hands: [Vec<(u8, u8)>; 3] = [0, 1, 2].map(|p| j["hands"][p].as_array().unwrap().iter().map(|h| (h[0].as_u64().unwrap() as u8, h[1].as_u64().unwrap() as u8)).collect());
+    let weights: [Vec<f32>; 3] = [0, 1, 2].map(|p| j["weights"][p].as_array().unwrap().iter().map(|x| x.as_f64().unwrap() as f32).collect());
+    let v = |x: &[f32]| x.to_vec();
+    let one = || [v(&[0.66]), v(&[0.66]), v(&[0.66])];
+    let r = || [v(&[0.6]), v(&[0.6]), v(&[0.6])];
+    let cfg = TreeConfig { start_pot: pot, eff_stack: stack, bets: [one(), one()], raises: [r(), r()], max_raises: 1, allin_threshold: 0.67 };
+    let mut b = tree3::Builder3::new(&cfg); b.max_raises = [caps[0], caps[1], caps[2]];
+    let sub = j.get("sub").cloned();
+    let mut root = match &sub {
+        Some(sb) => {
+            let commit: [f32; 3] = [0, 1, 2].map(|p| sb["commit"][p].as_f64().unwrap() as f32);
+            let alive: [bool; 3] = [0, 1, 2].map(|p| sb["alive"][p].as_bool().unwrap());
+            b.build_from(&board, commit, alive)
+        }
+        None => b.build(&board),
+    };
+    let rivers = sub.is_some();  // subgame dumps carry every street; flop dumps stop at the turn
+    let nh = [hands[0].len(), hands[1].len(), hands[2].len()];
+    // load strategies in dump order (preorder); flop dumps skip river nodes, which get no storage
+    fn load(n: &mut tree3::Node3, nh: [usize; 3], bytes: &[u8], pos: &mut usize, rivers: bool) {
+        match n {
+            tree3::Node3::Action(a) => {
+                if a.street == 2 && !rivers { return; }
+                let len = a.actions.len() * nh[a.player as usize];
+                a.strat_sum = (0..len).map(|i| f32::from_le_bytes(bytes[*pos + 4 * i..*pos + 4 * i + 4].try_into().unwrap())).collect();
+                *pos += 4 * len;
+                for c in a.children.iter_mut() { load(c, nh, bytes, pos, rivers); }
+            }
+            tree3::Node3::Chance { children, .. } => { for c in children.iter_mut() { load(c, nh, bytes, pos, rivers); } }
+            _ => {}
+        }
+    }
+    // GPU dumps (solver3.py) store each turn shape-node as [49 cards, A, H] in one block; rebuild the per-card order here
+    fn load_gpu(n: &mut tree3::Node3, nh: [usize; 3], bytes: &[u8], pos: &mut usize) {
+        fn sizes(n: &tree3::Node3, nh: [usize; 3], out: &mut Vec<usize>) {
+            match n {
+                tree3::Node3::Action(a) => { if a.street == 2 { return; } out.push(a.actions.len() * nh[a.player as usize]); for c in &a.children { sizes(c, nh, out); } }
+                tree3::Node3::Chance { children, .. } => { for c in children { sizes(c, nh, out); } }
+                _ => {}
+            }
+        }
+        fn fill(n: &mut tree3::Node3, nh: [usize; 3], bytes: &[u8], base: usize, offs: &[usize], nd: usize, d: usize, k: &mut usize) {
+            match n {
+                tree3::Node3::Action(a) => {
+                    if a.street == 2 { return; }
+                    let len = a.actions.len() * nh[a.player as usize];
+                    let p = base + 4 * (offs[*k] + d * len); *k += 1;
+                    a.strat_sum = (0..len).map(|i| f32::from_le_bytes(bytes[p + 4 * i..p + 4 * i + 4].try_into().unwrap())).collect();
+                    for c in a.children.iter_mut() { fill(c, nh, bytes, base, offs, nd, d, k); }
+                }
+                tree3::Node3::Chance { children, .. } => { for c in children.iter_mut() { fill(c, nh, bytes, base, offs, nd, d, k); } }
+                _ => {}
+            }
+        }
+        match n {
+            tree3::Node3::Action(a) => {
+                let len = a.actions.len() * nh[a.player as usize];
+                a.strat_sum = (0..len).map(|i| f32::from_le_bytes(bytes[*pos + 4 * i..*pos + 4 * i + 4].try_into().unwrap())).collect();
+                *pos += 4 * len;
+                for c in a.children.iter_mut() { load_gpu(c, nh, bytes, pos); }
+            }
+            tree3::Node3::Chance { children, .. } => {
+                let nd = children.len();
+                let mut sz = Vec::new(); sizes(&children[0], nh, &mut sz);
+                let mut offs = Vec::with_capacity(sz.len()); let mut acc = 0; for &s in &sz { offs.push(acc); acc += nd * s; }
+                for d in 0..nd { let mut k = 0; fill(&mut children[d], nh, bytes, *pos, &offs, nd, d, &mut k); }
+                *pos += 4 * acc;
+            }
+            _ => {}
+        }
+    }
+    let mut pos = 0;
+    if gpu { load_gpu(&mut root, nh, &bytes, &mut pos); } else { load(&mut root, nh, &bytes, &mut pos, rivers); }
+    assert_eq!(pos, bytes.len(), "dump size mismatch");
+    let boards = b.boards.clone();
+    Dump3 { j, board, pot, stack, cfg, hands, weights, root, boards }
+}
+
 /// DCFR loop for a three-seat tree, then an optional strategy dump of nodes with street < `keep_below`.
-fn run3(ctx: &three::Ctx3, root: &mut tree3::Node3, pot: f32, stack: f32, caps: &[u8], board_s: &str, max_iters: u32, target: f32, dump: &str, keep_below: u8) {
+fn run3(ctx: &three::Ctx3, root: &mut tree3::Node3, pot: f32, stack: f32, caps: &[u8], board_s: &str, max_iters: u32, target: f32, dump: &str, keep_below: u8, extra: serde_json::Value) {
     let t0 = Instant::now();
     let mut it = 0;
     while it < max_iters {
@@ -191,7 +279,9 @@ fn run3(ctx: &three::Ctx3, root: &mut tree3::Node3, pot: f32, stack: f32, caps: 
     }
     pre(root, ctx, &mut idx, &mut bytes, &mut Vec::new(), keep_below);
     std::fs::write(format!("{dump}.f32"), &bytes).unwrap();
-    std::fs::write(format!("{dump}.json"), serde_json::to_vec(&serde_json::json!({ "board": board_s, "pot": pot, "stack": stack, "raises": caps, "hands": ctx.hands.iter().map(|h| h.iter().map(|x| [x.0, x.1]).collect::<Vec<_>>()).collect::<Vec<_>>(), "weights": ctx.weights, "nodes": idx })).unwrap()).unwrap();
+    let mut j = serde_json::json!({ "board": board_s, "pot": pot, "stack": stack, "raises": caps, "hands": ctx.hands.iter().map(|h| h.iter().map(|x| [x.0, x.1]).collect::<Vec<_>>()).collect::<Vec<_>>(), "weights": ctx.weights, "nodes": idx });
+    if let Some(m) = extra.as_object() { for (k, v) in m { j[k] = v.clone(); } }
+    std::fs::write(format!("{dump}.json"), serde_json::to_vec(&j).unwrap()).unwrap();
     eprintln!("dumped {} nodes (street < {keep_below}) -> {dump}.f32/.json", idx.len());
 }
 
@@ -371,101 +461,59 @@ fn main() {
             eprintln!("[{}] hands {:?}  action nodes {}  memory {:.2} GB  river boards {}", args[2], nh, nodes, floats as f64 * 4.0 / 1e9, b.boards.len());
             let ctx = three::Ctx3::new(hands, weights, &b.boards, pot);
             eprintln!("  built in {:.1}s", t0.elapsed().as_secs_f32());
-            run3(&ctx, &mut root, pot, stack, &caps, &args[2], get("--iters", "300").parse().unwrap(), get("--target", "0.5").parse().unwrap(), &get("--dump", ""), 2);
+            run3(&ctx, &mut root, pot, stack, &caps, &args[2], get("--iters", "300").parse().unwrap(), get("--target", "0.5").parse().unwrap(), &get("--dump", ""), 2, serde_json::json!({}));
         }
         Some("resolve3") => {
-            // turn re-solve from a flop dump: resolve3 <dump-prefix> [--entry N --card Xy] [--iters] [--target] [--dump out]; no --entry lists entries
-            let j: serde_json::Value = serde_json::from_slice(&std::fs::read(format!("{}.json", args[2])).unwrap()).unwrap();
-            let bytes = std::fs::read(format!("{}.f32", args[2])).unwrap();
-            let board = cards::parse_board(j["board"].as_str().unwrap());
-            let (pot, stack) = (j["pot"].as_f64().unwrap() as f32, j["stack"].as_f64().unwrap() as f32);
-            let caps: Vec<u8> = j["raises"].as_array().unwrap().iter().map(|x| x.as_u64().unwrap() as u8).collect();
-            let hands: [Vec<(u8, u8)>; 3] = [0, 1, 2].map(|p| j["hands"][p].as_array().unwrap().iter().map(|h| (h[0].as_u64().unwrap() as u8, h[1].as_u64().unwrap() as u8)).collect());
-            let weights: [Vec<f32>; 3] = [0, 1, 2].map(|p| j["weights"][p].as_array().unwrap().iter().map(|x| x.as_f64().unwrap() as f32).collect());
-            let v = |x: &[f32]| x.to_vec();
-            let one = || [v(&[0.66]), v(&[0.66]), v(&[0.66])];
-            let r = || [v(&[0.6]), v(&[0.6]), v(&[0.6])];
-            let cfg = TreeConfig { start_pot: pot, eff_stack: stack, bets: [one(), one()], raises: [r(), r()], max_raises: 1, allin_threshold: 0.67 };
-            let mut b = tree3::Builder3::new(&cfg); b.max_raises = [caps[0], caps[1], caps[2]];
-            let mut root = b.build(&board);
+            // turn re-solve from a flop dump: resolve3 <dump-prefix> [--gpu] [--entry N --card Xy] [--iters] [--target] [--dump out]; no --entry lists entries
+            let d = load_dump3(&args[2], args.iter().any(|a| a == "--gpu"));
+            let (hands, board, pot, stack, cfg, root) = (d.hands, d.board, d.pot, d.stack, d.cfg, d.root);
             let nh = [hands[0].len(), hands[1].len(), hands[2].len()];
-            // load flop + turn strategies in dump order (preorder, rivers skipped); river nodes get no storage
-            fn load(n: &mut tree3::Node3, nh: [usize; 3], bytes: &[u8], pos: &mut usize) {
-                match n {
-                    tree3::Node3::Action(a) => {
-                        if a.street == 2 { return; }
-                        let len = a.actions.len() * nh[a.player as usize];
-                        a.strat_sum = (0..len).map(|i| f32::from_le_bytes(bytes[*pos + 4 * i..*pos + 4 * i + 4].try_into().unwrap())).collect();
-                        *pos += 4 * len;
-                        for c in a.children.iter_mut() { load(c, nh, bytes, pos); }
-                    }
-                    tree3::Node3::Chance { children, .. } => { for c in children.iter_mut() { load(c, nh, bytes, pos); } }
-                    _ => {}
-                }
-            }
-            // GPU dumps (solver3.py) store each turn shape-node as [49 cards, A, H] in one block; rebuild the per-card order here
-            fn load_gpu(n: &mut tree3::Node3, nh: [usize; 3], bytes: &[u8], pos: &mut usize) {
-                fn sizes(n: &tree3::Node3, nh: [usize; 3], out: &mut Vec<usize>) {
-                    match n {
-                        tree3::Node3::Action(a) => { if a.street == 2 { return; } out.push(a.actions.len() * nh[a.player as usize]); for c in &a.children { sizes(c, nh, out); } }
-                        tree3::Node3::Chance { children, .. } => { for c in children { sizes(c, nh, out); } }
-                        _ => {}
-                    }
-                }
-                fn fill(n: &mut tree3::Node3, nh: [usize; 3], bytes: &[u8], base: usize, offs: &[usize], nd: usize, d: usize, k: &mut usize) {
-                    match n {
-                        tree3::Node3::Action(a) => {
-                            if a.street == 2 { return; }
-                            let len = a.actions.len() * nh[a.player as usize];
-                            let p = base + 4 * (offs[*k] + d * len); *k += 1;
-                            a.strat_sum = (0..len).map(|i| f32::from_le_bytes(bytes[p + 4 * i..p + 4 * i + 4].try_into().unwrap())).collect();
-                            for c in a.children.iter_mut() { fill(c, nh, bytes, base, offs, nd, d, k); }
-                        }
-                        tree3::Node3::Chance { children, .. } => { for c in children.iter_mut() { fill(c, nh, bytes, base, offs, nd, d, k); } }
-                        _ => {}
-                    }
-                }
-                match n {
-                    tree3::Node3::Action(a) => {
-                        let len = a.actions.len() * nh[a.player as usize];
-                        a.strat_sum = (0..len).map(|i| f32::from_le_bytes(bytes[*pos + 4 * i..*pos + 4 * i + 4].try_into().unwrap())).collect();
-                        *pos += 4 * len;
-                        for c in a.children.iter_mut() { load_gpu(c, nh, bytes, pos); }
-                    }
-                    tree3::Node3::Chance { children, .. } => {
-                        let nd = children.len();
-                        let mut sz = Vec::new(); sizes(&children[0], nh, &mut sz);
-                        let mut offs = Vec::with_capacity(sz.len()); let mut acc = 0; for &s in &sz { offs.push(acc); acc += nd * s; }
-                        for d in 0..nd { let mut k = 0; fill(&mut children[d], nh, bytes, *pos, &offs, nd, d, &mut k); }
-                        *pos += 4 * acc;
-                    }
-                    _ => {}
-                }
-            }
-            let mut pos = 0;
-            if args.iter().any(|a| a == "--gpu") { load_gpu(&mut root, nh, &bytes, &mut pos); } else { load(&mut root, nh, &bytes, &mut pos); }
-            assert_eq!(pos, bytes.len(), "dump size mismatch");
-            let ctx = three::Ctx3 { hands: hands.clone(), weights: weights.clone(), card_hands: [vec![], vec![], vec![]], sd: vec![], start_pot: pot };
+            let ctx = three::Ctx3 { hands: hands.clone(), weights: d.weights.clone(), card_hands: [vec![], vec![], vec![]], sd: vec![], start_pot: pot };
             let entries = cfr3::turn_entries(&ctx, &root);
             let entry = get("--entry", "");
+            let masses: Vec<f32> = entries.iter().map(|e| e.3[0].iter().sum::<f32>() * e.3[1].iter().sum::<f32>() * e.3[2].iter().sum::<f32>()).collect();
+            let tot: f32 = masses.iter().sum();
             if entry.is_empty() {
-                let mut rows: Vec<(usize, f32)> = entries.iter().enumerate().map(|(i, e)| (i, e.3[0].iter().sum::<f32>() * e.3[1].iter().sum::<f32>() * e.3[2].iter().sum::<f32>())).collect();
-                let tot: f32 = rows.iter().map(|x| x.1).sum(); rows.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+                let mut rows: Vec<(usize, f32)> = masses.iter().cloned().enumerate().collect(); rows.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
                 for (i, m) in rows.iter().take(25) { let e = &entries[*i]; println!("{i:3}  {:5.1}%  commit {:?} alive {:?}  line {}", 100.0 * m / tot, e.1, e.2, e.0); }
                 return;
             }
-            let e = &entries[entry.parse::<usize>().unwrap()];
+            let ei = entry.parse::<usize>().unwrap(); let e = &entries[ei];
             let card = cards::parse_board(&get("--card", ""))[0];
             let mut tb = board.clone(); tb.push(card);
             let mut w = e.3.clone();
             for p in 0..3 { for (i, h) in hands[p].iter().enumerate() { if h.0 == card || h.1 == card { w[p][i] = 0.0; } } }
             eprintln!("entry {} line [{}] commit {:?} alive {:?} turn {}", entry, e.0, e.1, e.2, get("--card", ""));
+            // history labels for the export: follow the line tokens "p:k" down the flop tree
+            let mut hist = Vec::new(); let mut cur = &root;
+            for tok in e.0.split_whitespace() {
+                let k: usize = tok.split(':').nth(1).unwrap().parse().unwrap();
+                if let tree3::Node3::Action(a) = cur { hist.push(serde_json::json!([a.street, a.player, format!("{:?}", a.actions[k])])); cur = &a.children[k]; }
+            }
+            let extra = serde_json::json!({ "sub": { "commit": e.1, "alive": e.2, "line": e.0, "card": get("--card", ""), "flop": args[2], "line_p": masses[ei] / tot, "history": hist } });
             let mut b2 = tree3::Builder3::new(&cfg); b2.max_raises = [1, 1, 1];
             let mut sub = b2.build_from(&tb, e.1, e.2);
             let (nodes, floats) = tree3::size_tree3(&mut sub, nh, true);
             eprintln!("  subgame action nodes {nodes}  memory {:.2} GB  river boards {}", floats as f64 * 4.0 / 1e9, b2.boards.len());
             let ctx2 = three::Ctx3::new(hands, w, &b2.boards, pot);
-            run3(&ctx2, &mut sub, pot, stack, &[1, 1, 1], &tb.iter().map(|&c| cards::card_str(c)).collect::<String>(), get("--iters", "300").parse().unwrap(), get("--target", "0.5").parse().unwrap(), &get("--dump", ""), 3);
+            run3(&ctx2, &mut sub, pot, stack, &[1, 1, 1], &tb.iter().map(|&c| cards::card_str(c)).collect::<String>(), get("--iters", "300").parse().unwrap(), get("--target", "0.5").parse().unwrap(), &get("--dump", ""), 3, extra);
+        }
+        Some("export3") => {
+            // drill spots from a three-seat dump: export3 <dump-prefix> [--gpu] [--flopev FILE] [--seats BB,CO,BTN] [--min-p 0.02] [--id X] --out FILE
+            let d = load_dump3(&args[2], args.iter().any(|a| a == "--gpu"));
+            let ctx = three::Ctx3::new(d.hands.clone(), d.weights.clone(), &d.boards, d.pot);
+            let seats: Vec<String> = get("--seats", "BB,CO,BTN").split(',').map(|x| x.to_string()).collect();
+            let flopev = { let f = get("--flopev", ""); if f.is_empty() { None } else { let b = std::fs::read(&f).unwrap(); Some(b.chunks(4).map(|c| f32::from_le_bytes(c.try_into().unwrap())).collect::<Vec<f32>>()) } };
+            let sub = d.j.get("sub").cloned();
+            let alive: [bool; 3] = sub.as_ref().map_or([true; 3], |sb| [0, 1, 2].map(|p| sb["alive"][p].as_bool().unwrap()));
+            let prefix: Vec<(u8, String, String)> = sub.as_ref().map_or(vec![], |sb| sb["history"].as_array().unwrap().iter().map(|h| (h[0].as_u64().unwrap() as u8, seats[h[1].as_u64().unwrap() as usize].clone(), h[2].as_str().unwrap().to_string())).collect());
+            let reach: cfr3::Reach = [ctx.weights[0].clone(), ctx.weights[1].clone(), ctx.weights[2].clone()];
+            let m = ctx.flat_value(0, [1, 2], [&reach[1], &reach[2]], 1.0); let root_mass: f32 = m.iter().zip(&reach[0]).map(|(a, b)| a * b).sum();
+            let scale = sub.as_ref().map_or(1.0, |sb| sb["line_p"].as_f64().unwrap() as f32);
+            let ex = export3::Export3 { ctx: &ctx, seats, board: d.board.clone(), stack: d.stack, prefix, flopev, min_p: get("--min-p", "0.02").parse().unwrap(), id: get("--id", "s"), root_mass: root_mass / scale };
+            let spots = ex.run(&d.root, reach, alive);
+            eprintln!("{} spots", spots.len());
+            std::fs::write(get("--out", "spots3.json"), serde_json::to_vec(&serde_json::json!({ "board": d.j["board"], "seats": ex.seats, "pot": d.pot, "stack": d.stack, "sub": sub, "spots": spots })).unwrap()).unwrap();
         }
         Some("measure") => {
             // solve on the CPU (use with FOLD_TREE=pre FOLD_EPS=..) and print per-class EVs; no strategy file needed
