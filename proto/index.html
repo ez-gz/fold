@@ -133,6 +133,10 @@ header .stats{margin-left:auto;flex:none}header .chips{flex-wrap:wrap;min-width:
 .empty{padding:40px 10px;text-align:center;color:var(--dim)}
 .sharerow{position:sticky;bottom:calc(10px + env(safe-area-inset-bottom));display:grid;grid-template-columns:1fr 4fr;gap:8px;margin-top:12px}.next.share{margin:0;position:static;background:#e8c547;color:#222;font-size:22px}
 .challenge{margin:0 0 10px;padding:10px 12px;border-radius:12px;background:#e8c54722;border:1px solid #e8c54766;color:#f3dc83;font-size:14px}
+.card.pick{cursor:pointer;position:relative}.card.pick::after{content:"⇄";position:absolute;top:2px;right:3px;font-size:10px;line-height:1;color:#222;background:#e8c547;border-radius:4px;padding:1px 3px;font-weight:700}
+.card.pick.alt{outline:2px solid #e8c547;outline-offset:-2px}.card.pick.alt::after{content:"what if"}
+.pickgrid{display:grid;grid-template-columns:repeat(13,1fr);gap:3px}.pickgrid .card{width:auto;height:34px;font-size:13px;border-radius:5px;box-shadow:none;animation:none;cursor:pointer}.pickgrid .card small{font-size:9px}.pickgrid .card.off{opacity:.18;cursor:default}.pickgrid .card.cur{outline:2px solid #e8c547;outline-offset:-2px;opacity:.6;cursor:default}
+.sheet.whatif{border:1px solid #e8c54755}.sheet.whatif h3 small{font-size:12px}
 </style>
 </head>
 <body>
@@ -584,7 +588,7 @@ function handAnswer(i, gr){
 }
 function handEnd(){
   const H = state.hand, { f, h } = H;
-  if (!h._tail){ const last = h.steps[h.steps.length-1], raw = last.spot._raw; const full = relabelHistory(f, raw.history.concat([{ street: last.spot.street, pos: h.hero, label: raw.actions[last.line] }], h.tail)); h._tail = full.slice(raw.history.length); }
+  if (!h._tail){ const last = h.steps[h.steps.length-1], raw = last.spot._raw; const full = relabelHistory(f, raw.history.concat([{ street: last.spot.street, pos: h.hero, label: raw.actions[last.line] }], h.tail)); h._tail = full.slice(raw.history.length); h._full = full; }
   const hs = handScore(H), score = hs.score, lost = H.res.reduce((a, r) => a + r.gr.loss, 0);
   state.cur = null; state.hn++; state.hsum += score; state.shareScore = score.toFixed(1); renderStats();
   const endTxt = h.end === "showdown" ? (h.result === 1 ? "You win at showdown" : h.result === 0.5 ? "Chop" : `${h.villain} wins at showdown`) : h.end === "villain_fold" ? `${h.villain} folds — you take it` : "You fold";
@@ -593,9 +597,10 @@ function handEnd(){
   const lastD = h.steps.length ? h.steps[h.steps.length - 1].spot.drills[0] : null, heroTop = lastD ? lastD.top : null;
   const rk = t => t == null ? "" : `<small class="rk">${t <= 0.5 ? "top " + Math.max(1, Math.round(100 * t)) : "bottom " + Math.max(1, Math.round(100 * (1 - t)))}%</small>`;
   main.appendChild($(`<div class="table"><div class="meta"><span>${endTxt}</span></div>
-    <div class="hist"><div class="hrow past"><div class="pls">${h._tail.map(x => `<span class="pl ${/call/i.test(x.label) ? "call" : /bet|raise|all/i.test(x.label) ? "raise" : "chk"} ${x.pos === h.hero ? "me" : ""}"><b>${x.pos}</b>${x.label.toLowerCase()}</span>`).join('<span class="arr">›</span>')}</div></div></div>
+    <div class="hist">${histHtml(f, h.hero, h._full)}</div>
     <div class="board">${h.board.map(c => cardEl(c)).join("")}</div>
     <div class="hero"><div class="who"><b>${h.hero}</b>${rk(heroTop)}</div>${h.hero_hand.map(c => cardEl(c)).join("")}<div class="who" style="margin-left:6px"><b>${h.villain}</b>${rk(h.villain_top)}</div>${h.villain_hand ? h.villain_hand.map(c => cardEl(c)).join("") : ""}</div></div>`));
+  riverPick(H, main.querySelector(".table .board"));
   let luck = "";
   if (h.net != null){
     const s0 = h.steps[0], exp = s0.spot.drills[0].ev[s0.line] - (f.eff_stack - s0.spot.stack), sg = v => (v >= 0 ? "+" : "") + v.toFixed(1) + "bb";
@@ -619,6 +624,61 @@ function handEnd(){
   [...sheet.querySelectorAll(".row")].forEach((el, k) => el.onclick = () => show(k));
   try { show(H.res.reduce((b, r, k) => r.gr.loss > H.res[b].gr.loss + 1e-6 ? k : b, 0)); } catch (e) { console.error(e); }
   const nx = $(`<button class="next" style="margin:0;position:static">Next hand →</button>`); nx.onclick = nextHand; const row = $(`<div class="sharerow"></div>`); row.appendChild(shareBtn()); row.appendChild(nx); main.appendChild(row);
+}
+/* the table's action history grouped by street (the preflop row from the formation) */
+function histHtml(f, hero, history){
+  const F = formInfo(f), tb = F.three_bet || f.three_bet || 0;
+  const pill = (pos, txt, kind) => `<span class="pl ${kind} ${pos === hero ? "me" : ""}"><b>${pos}</b>${txt}</span>`;
+  const hk = h => h.kind || (/call/i.test(h.label) ? "call" : /bet|raise|all/i.test(h.label) ? "raise" : /fold/i.test(h.label) ? "folded" : "chk");
+  const rows = [[-1, tb ? [pill(F.caller, bbf(F.open_size), "raise"), pill(F.opener, "3-bet " + bbf(tb), "raise"), pill(F.caller, "call", "call")] : [pill(F.opener, bbf(F.open_size), "raise"), pill(F.caller, "call", "call")]]];
+  history.forEach(h => { if (rows[rows.length-1][0] !== h.street) rows.push([h.street, []]); rows[rows.length-1][1].push(pill(h.pos, h.label.replace(/^(Bet|Raise to|Call|Check|Fold)\b/, m => m.toLowerCase()), hk(h))); });
+  return rows.map(([st, ps]) => `<div class="hrow past"><span class="st">${st < 0 ? "Pre" : STREETS[st]}</span><div class="pls">${ps.join('<span class="arr">›</span>')}</div></div>`).join("");
+}
+
+/* "what if a different river came": the pack carries, per turn line, the first river decision on every card */
+function riverPick(H, board){
+  const { f, h } = H, sw = h.rivers && f.rivers && f.rivers[h.rivers.sweep];
+  if (!sw || h.board.length !== 5 || !board) return;
+  const last = board.lastElementChild; last.classList.add("pick"); last.title = "Try a different river";
+  const hidden = new Set([...h.hero_hand, ...(h.villain_hand || [])]);
+  const show = card => {
+    const rc = sw.cards.find(c => c.card === card); if (!rc) return;
+    last.outerHTML = cardEl(card, "pick alt"); const nl = board.lastElementChild; nl.onclick = open; nl.title = "Try another river";
+    let box = main.querySelector("#whatif"); if (!box){ box = $(`<div id="whatif"></div>`); main.querySelector(".table").after(box); }
+    box.innerHTML = "";
+    const ev = (h.rivers.ev.find(e => e[0] === card) || [])[1], hero = rc.actor === h.hero, bi = k => rc.actions.filter(x => x.kind === rc.actions[k].kind).indexOf(rc.actions[k]);
+    const best = ev ? ev.indexOf(Math.max(...ev)) : -1, sg = v => (v >= 0 ? "+" : "") + v.toFixed(1);   // EV shown against the best action
+    const sheet = $(`<div class="sheet whatif"><h3>If the river were ${card[0] === "T" ? "10" : card[0]}${SUITCH[card[1]]} <small style="color:var(--dim);font-weight:400">· ${rc.actor} acts first · pot ${bbf(rc.pot)}</small></h3>
+      <div class="seg" id="tabs"></div><div class="kpis" id="kpis"></div><div id="g"></div><div class="legend" id="leg"></div>
+      <div class="chips" style="margin-top:8px"><div class="chip" id="back">Actual river</div><div class="chip" id="again">Another card</div></div></div>`);
+    const g = gridEl(); sheet.querySelector("#g").appendChild(g);
+    const tabs = [{ l: `${hero ? "Your" : rc.actor + "'s"} play`, k: "play" }, { l: `${h.villain}'s range`, k: "vr" }, { l: "Your range", k: "hr" }];
+    const paint = t => {
+      [...sheet.querySelectorAll("#tabs div")].forEach((el, k) => el.classList.toggle("on", tabs[k] === t));
+      const kp = sheet.querySelector("#kpis"), leg = sheet.querySelector("#leg");
+      if (t.k === "play"){
+        paintSplit(g, hero ? rc.hr : rc.vr, rc.actions.map((a, k) => ({ color: kindColor(a.kind, bi(k)), grid: rc.strat[k] })), hero ? cellOf(h.hero_hand) : -1);
+        kp.innerHTML = rc.actions.map((a, k) => `<div class="kpi"><b ${ev && k === best ? 'style="color:var(--accent)"' : ""}>${ev ? (k === best ? "best" : sg(ev[k] - ev[best]) + "bb") : pct(rc.freq[k])}</b><span>${a.label}</span></div>`).join("");
+        leg.innerHTML = rc.actions.map((a, k) => `<span><i style="background:${kindColor(a.kind, bi(k))}"></i>${a.label}${ev ? "" : " " + pct(rc.freq[k])}</span>`).join("") + (hero ? `<span>□ your hand</span>` : "");
+      } else {
+        const me = t.k === "hr" ? cellOf(h.hero_hand) : -1;
+        paintSplit(g, t.k === "vr" ? rc.vr : rc.hr, [{ color: "var(--call)", grid: Array(169).fill(1) }], me);
+        kp.innerHTML = ""; leg.innerHTML = `<span><i style="background:var(--call)"></i>${t.k === "vr" ? h.villain + "'s" : "your"} range on this river (taller = more combos)</span>`;
+      }
+    };
+    tabs.forEach(t => { const el = $(`<div>${t.l}</div>`); el.onclick = () => paint(t); sheet.querySelector("#tabs").appendChild(el); });
+    paint(tabs[0]); box.appendChild(sheet);
+    sheet.querySelector("#again").onclick = open;
+    sheet.querySelector("#back").onclick = () => { board.lastElementChild.outerHTML = cardEl(h.board[4], "pick"); const nl = board.lastElementChild; nl.onclick = open; nl.title = "Try a different river"; box.remove(); };
+    if (state.mode === "hands" && !sessionStorage.getItem("fold.whatif")) sessionStorage.setItem("fold.whatif", "1");
+  };
+  const open = () => {
+    const body = $(`<div><div style="color:var(--dim);font-size:13px;margin-bottom:10px">Same action to the turn, different river. The score does not change.</div><div class="pickgrid"></div></div>`);
+    const grid = body.querySelector(".pickgrid"), have = new Set(sw.cards.map(c => c.card));
+    for (const su of "shdc") for (const r of "AKQJT98765432"){ const c = r + su, ok = have.has(c) && !hidden.has(c) && c !== h.board[4]; const el = $(cardEl(c, "mini" + (ok ? "" : " off") + (c === h.board[4] ? " cur" : ""))); if (ok) el.onclick = () => { document.querySelector(".overlay")?.remove(); show(c); }; grid.appendChild(el); }
+    overlay("Pick a river card", body);
+  };
+  last.onclick = open;
 }
 function replay(k){
   const H = state.hand, { f, h } = H, s = h.steps[k].spot, d = s.drills[0], r = H.res[k];

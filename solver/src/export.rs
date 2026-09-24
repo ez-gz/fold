@@ -52,13 +52,27 @@ struct SuitSplit { suit: char, with: Vec<f32>, without: Vec<f32> }
 #[derive(Serialize)]
 struct Step { spot: Spot, line: usize }
 
+/// One river card of a sweep: the first river decision on that card. `vr`/`hr` are villain's and hero's ranges
+/// (hero = the played hand's hero), `strat` is the acting player's strategy grid per action, `freq` its range mix.
 #[derive(Serialize)]
-struct Hand { hero: &'static str, villain: &'static str, hero_hand: [String; 2], villain_hand: [String; 2], steps: Vec<Step>, tail: Vec<Hist>, board: Vec<String>, end: &'static str, result: f32, villain_top: f32, net: f32 }
+struct RiverCard { card: String, actor: &'static str, actions: Vec<ActOut>, vr: Vec<f32>, hr: Vec<f32>, strat: Vec<Vec<f32>>, freq: Vec<f32>, pot: f32, to_call: f32 }
+
+/// "What if a different river came": every river card for one turn line, shared by the played hands on that line.
+#[derive(Serialize)]
+struct Sweep { history: Vec<Hist>, board: Vec<String>, hero: &'static str, cards: Vec<RiverCard> }
+
+/// Per played hand: which sweep, and hero's exact-hand EV per action on every river card where hero acts first.
+#[derive(Serialize)]
+struct HandRivers { sweep: usize, ev: Vec<(String, Vec<f32>)> }
+
+#[derive(Serialize)]
+struct Hand { hero: &'static str, villain: &'static str, hero_hand: [String; 2], villain_hand: [String; 2], steps: Vec<Step>, tail: Vec<Hist>, board: Vec<String>, end: &'static str, result: f32, villain_top: f32, net: f32,
+    #[serde(skip_serializing_if = "Option::is_none")] rivers: Option<HandRivers> }
 
 /// One fully played line: both players hold real hands, villain samples the solver strategy,
 /// hero's scripted action is the solver's most frequent one. The trainer grades each hero step
 /// against the full per-action EVs and then continues down this line.
-fn play_hand(s: &Solved, idx: usize, rng: &mut Rng) -> Option<Hand> {
+fn play_hand(s: &Solved, idx: usize, rng: &mut Rng, sweeps: &mut Vec<Sweep>, keys: &mut std::collections::HashMap<String, usize>) -> Option<Hand> {
     let ctx = &s.ctx;
     let hp = (rng.f() < 0.5) as usize;
     let vp = 1 - hp;
@@ -74,6 +88,7 @@ fn play_hand(s: &Solved, idx: usize, rng: &mut Rng) -> Option<Hand> {
     let mut hist: Vec<Hist> = Vec::new();
     let mut steps: Vec<Step> = Vec::new();
     let mut v_before = reach.clone();
+    let mut rivers: Option<HandRivers> = None;
     let end;
     let fin: [f32; 2];
     loop {
@@ -99,6 +114,25 @@ fn play_hand(s: &Solved, idx: usize, rng: &mut Rng) -> Option<Hand> {
                 node = &a.children[pickd];
             }
             Node::Chance { cards, children, .. } => {
+                if board.len() == 4 {
+                    // the river sweep for this turn line (shared) and hero's exact-hand EVs on every card
+                    let key = hist.iter().map(|x| format!("{}{}:{}", x.street, x.pos, x.label)).collect::<Vec<_>>().join("|");
+                    let si = match keys.get(&key) { Some(&i) => i, None => {
+                        sweeps.push(river_sweep(s, cards, children, &board, &reach, &hist, hp)); keys.insert(key, sweeps.len() - 1); sweeps.len() - 1 } };
+                    let mut ev = Vec::new();
+                    for (i, c) in cards.iter().enumerate() {
+                        if [hh.0, hh.1].contains(c) { continue; }
+                        if let Node::Action(a) = &children[i] {
+                            if a.player as usize != hp { continue; }
+                            let mut vr = reach[vp].clone();
+                            for &k in &ctx.card_hands[vp][*c as usize] { vr[k as usize] = 0.0; }
+                            let vm = ctx.valid_mass(hp, &vr);
+                            if vm[h] <= 1e-6 { continue; }
+                            ev.push((card_str(*c), a.children.iter().map(|ch| r3(walk(ctx, ch, hp, &vr, Mode::Average)[h] / vm[h] + a.commit[hp])).collect()));
+                        }
+                    }
+                    rivers = Some(HandRivers { sweep: si, ev });
+                }
                 let w: Vec<f32> = cards.iter().map(|c| if [hh.0, hh.1, vh.0, vh.1].contains(c) { 0.0 } else { 1.0 }).collect();
                 let i = *rng.pick(&w, 1).first()?;
                 for p in 0..2 { for &k in &ctx.card_hands[p][cards[i] as usize] { reach[p][k as usize] = 0.0; } }
@@ -124,7 +158,35 @@ fn play_hand(s: &Solved, idx: usize, rng: &mut Rng) -> Option<Hand> {
         tail: hist[last.min(hist.len())..].to_vec(), steps, board: board.iter().map(|c| card_str(*c)).collect(), end, result, villain_top,
         // bb won or lost from the flop on, the preflop pot counted as dead money
         net: r3(result * (s.cfg.start_pot + fin[vp] + fin[hp]) - fin[hp]),
+        rivers,
     })
+}
+
+/// First river decision for every river card, given the ranges reaching the turn-to-river chance node.
+fn river_sweep(s: &Solved, cards: &[u8], children: &[Node], board: &[u8], reach: &[Vec<f32>; 2], hist: &[Hist], hp: usize) -> Sweep {
+    let ctx = &s.ctx; let vp = 1 - hp;
+    let mut out = Vec::new();
+    for (i, c) in cards.iter().enumerate() {
+        let a = match &children[i] { Node::Action(a) => a, _ => continue };
+        let mut r = [reach[0].clone(), reach[1].clone()];
+        for p in 0..2 { for &k in &ctx.card_hands[p][*c as usize] { r[p][k as usize] = 0.0; } }
+        let full: Vec<u8> = board.iter().cloned().chain(std::iter::once(*c)).collect();
+        let mut av = vec![0f32; 169];
+        for r1 in 0..52u8 { for r2 in r1 + 1..52 { if !full.contains(&r1) && !full.contains(&r2) { av[grid_cell((r1, r2))] += 1.0; } } }
+        let ap = a.player as usize; let n = ctx.hands[ap].len(); let na = a.actions.len();
+        let strat = avg_strategy(a, n);
+        let cell = { let mut g = vec![0f32; 169]; for (k, h) in ctx.hands[ap].iter().enumerate() { g[grid_cell(*h)] += r[ap][k]; } g };
+        let total: f32 = r[ap].iter().sum::<f32>().max(1e-9);
+        out.push(RiverCard {
+            card: card_str(*c), actor: s.form.pos[ap],
+            actions: a.actions.iter().map(|x| { let (label, kind, amt) = act_label(x); ActOut { label, kind, amt: r3(amt) } }).collect(),
+            vr: grid(&ctx.hands[vp], &r[vp], &av), hr: grid(&ctx.hands[hp], &r[hp], &av),
+            strat: (0..na).map(|x| { let w: Vec<f32> = (0..n).map(|k| r[ap][k] * strat[x * n + k]).collect(); grid(&ctx.hands[ap], &w, &cell) }).collect(),
+            freq: (0..na).map(|x| r3((0..n).map(|k| r[ap][k] * strat[x * n + k]).sum::<f32>() / total)).collect(),
+            pot: r3(s.cfg.start_pot + a.commit[0] + a.commit[1]), to_call: r3(a.commit[1 - ap] - a.commit[ap]),
+        });
+    }
+    Sweep { history: hist.to_vec(), board: board.iter().map(|c| card_str(*c)).collect(), hero: s.form.pos[hp], cards: out }
 }
 
 /// Share of player `p`'s range (weights `wp`) that has more equity than hand `h` against `wo`.
@@ -168,6 +230,8 @@ pub fn equity_all(s: &Solved, board: &[u8], p: usize, wp: &[f32], wo: &[f32]) ->
 struct FlopFile {
     flop: String, formation: &'static str, pos: [&'static str; 2], opener: &'static str, caller: &'static str, open_size: f32, three_bet: f32, hands: Vec<Hand>, rake: &'static str, exploitability_pct_pot: f32, iterations: u32,
     start_pot: f32, eff_stack: f32, tree: String, ranges: &'static str, class_names: Vec<&'static str>, spots: Vec<Spot>, briefing: Briefing,
+    /// river sweeps referenced by `hands[..].rivers.sweep` (the web build moves these to a lazily loaded sidecar)
+    rivers: Vec<Sweep>,
 }
 
 /// Flop-level summary shown before the first decision: whose board this is and how each range starts.
@@ -547,15 +611,16 @@ pub fn export(s: &Solved, rake: bool, seed: u64, out: &str) {
     chosen.sort_unstable();
     eprintln!("  exporting {} of {} candidate nodes", chosen.len(), cands.len());
     let spots: Vec<Spot> = chosen.iter().enumerate().filter_map(|(i, &ci)| build_spot(s, &cands[ci], i, &mut rng, None)).collect();
-    let hands: Vec<Hand> = (0..40).filter_map(|i| play_hand(s, i, &mut rng)).collect();
-    eprintln!("  {} played hands", hands.len());
+    let (mut sweeps, mut keys) = (Vec::new(), std::collections::HashMap::new());
+    let hands: Vec<Hand> = (0..40).filter_map(|i| play_hand(s, i, &mut rng, &mut sweeps, &mut keys)).collect();
+    eprintln!("  {} played hands, {} river sweeps", hands.len(), sweeps.len());
     let file = FlopFile {
         flop: s.flop.iter().map(|c| card_str(*c)).collect(),
         formation: s.form.name, pos: s.form.pos, opener: s.form.pos[s.form.opener], caller: s.form.pos[1 - s.form.opener], open_size: s.form.open_size, three_bet: s.form.three_bet, hands, rake: if rake { "5% cap 1bb" } else { "0%" },
         exploitability_pct_pot: r3(100.0 * s.expl / s.cfg.start_pot), iterations: s.iters,
         start_pot: s.cfg.start_pot, eff_stack: s.cfg.eff_stack,
         tree: format!("bets {:?} raises {:?} max_raises {}", s.cfg.bets, s.cfg.raises, s.cfg.max_raises),
-        ranges: "PLACEHOLDER hand-written approximations of 100bb charts", class_names: CLASS_NAMES.to_vec(), spots, briefing: briefing(s),
+        ranges: "PLACEHOLDER hand-written approximations of 100bb charts", class_names: CLASS_NAMES.to_vec(), spots, briefing: briefing(s), rivers: sweeps,
     };
     std::fs::create_dir_all(std::path::Path::new(out).parent().unwrap()).unwrap();
     std::fs::write(out, serde_json::to_string(&file).unwrap()).unwrap();

@@ -32,3 +32,15 @@ Per drill: `vs` = [fold&ahead, fold&behind, continue&ahead, continue&behind] per
 Per spot: `vsuit` {suit, with[169], without[169]} when the board has two or more of a suit; `vcombos` [[combo, weight]] when villain has 50 or fewer combos at relative weight >= 0.05 (puzzle mode source); `vdetail` / `hdetail` per-combo weights and hero action mix (cell popup); `resp[a].combo` villain response per listed combo.
 Export also force-picks up to 6 narrow-range spots per flop (10-50 combos over 6+ grid cells, street > 0). Pool in pack-v1: 388 puzzle spots across all 9 formations.
 Trainer-side only (localStorage): `book` (where EV is lost) and `patterns` (direction of each mistake by hand class, context and street).
+
+## Additions (2026-09-23, pack-v1r re-export: river what-if)
+
+Per flop: `rivers` = list of river sweeps, one per turn line that reaches the river in a played hand:
+`{ history, board[4], hero, cards[] }`. Each `cards[i]` = `{ card, actor, actions, vr, hr, strat[a][169], freq[a], pot, to_call }`
+for the first river decision on that card (cards already on the board are absent; the trainer also hides hero's and
+villain's hole cards). `vr`/`hr` are the range grids entering the river, `strat` the actor's strategy per action,
+`freq` the range-weighted action frequencies.
+Per hand: `rivers` = `{ sweep, ev: [[card, [ev per action]]] }` when hero acts first on the river (`sweep` indexes
+`flop.rivers`); hero's exact-hand EV per action on each alternative river, in bb from the hand's start.
+Trainer: after the decision score, the river card carries a ⇄ badge; tapping it opens a picker and swaps the river,
+showing the actor's play / ranges on that card. The score never changes. ~50 KB gz per flop.
