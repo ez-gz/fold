@@ -15,3 +15,21 @@ What made it fast: per-card strength-sorted groups for card removal (not an [R,H
 short dim replaced by a triangular matmul (torch.cumsum is ~50x slower there); int32 flat index_select;
 torch.compile for the elementwise regret/strategy/payoff kernels. It is GPU-bound now (gathers ~22%,
 matmul ~15%); next levers are suit isomorphism and 16-bit storage, which help both solvers.
+
+## Robustness notes (2026-09-23, after WSL died mid-batch)
+
+WSL exited on its own around 16:04 during the round-2 preflop batch (PC stayed on, Ubuntu was not running; SSH reset
+by peer). 142/225 flops were already collected on the Mac, so nothing was lost, but the queue sat idle for 2.5 hours.
+Things that would help, none done yet unless marked:
+
+- done: `preflop/auto_it.sh` tells "box unreachable" apart from "box idle" and logs it once instead of relaunching
+  into a dead SSH every 10 minutes.
+- Alert the user when the box has been unreachable for 15+ minutes (push notification from the loop), since only a
+  human can restart WSL.
+- VRAM headroom: round-2 one-sided solves peaked at 7.9/8 GB (wider ranges). Solves that close to the limit are the
+  first suspect for instability. Options: split the widest formations' runouts into two passes, or fp16 storage.
+- The box's working copy lives under `/tmp/work/gpu` (gpubox default). On WSL `/tmp` survives a restart but not a
+  cleanup; a persistent work dir would be safer for multi-hour batches.
+- WSL keep-alive on the Windows side (a scheduled task that runs `wsl -d Ubuntu -- true` every few minutes, or
+  `wsl --shutdown` avoidance) so an idle WSL VM is not torn down by Windows.
+- Every stage is already resumable (`run_it.sh` skips finished flops, the collector re-pulls); keep it that way.
