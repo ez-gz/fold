@@ -556,9 +556,13 @@ async function handStep(first){
   else { table.querySelectorAll(".hero .card").forEach(c => c.style.animation = "none"); if (H.potHTML) potEl.innerHTML = H.potHTML; }
   let skip = false; table.onclick = () => skip = true;
   if (first){
-    const seats = [...table.querySelectorAll(".seat")];
-    const final = seats.map(el => el.className); seats.forEach(el => { el.className = "seat"; el.querySelector("small").style.visibility = "hidden"; });
-    for (let k = 0; k < seats.length; k++){ seats[k].classList.add("act-now"); if (!skip) await sleep(340); seats[k].className = final[k]; seats[k].querySelector("small").style.visibility = ""; if (!skip) await sleep(final[k].includes("folded") ? 120 : 520); }
+    // preflop in action order: seats act in turn; in a 3-bet pot the opener's "call" is a second visit
+    const seats = [...table.querySelectorAll(".seat")], seatOf = p => seats.find(el => el.dataset.p === p);
+    const F = formInfo(H.f), tb = F.three_bet || H.f.three_bet || 0, firstR = tb ? F.caller : F.opener, second = tb ? F.opener : F.caller;
+    const steps = SEATS.map(p => p === firstR ? [p, bbf(F.open_size), "raise"] : p === second ? [p, tb ? "3-bet " + bbf(tb) : "call", tb ? "raise" : "call"] : [p, "fold", "folded"]);
+    if (tb) steps.push([firstR, bbf(F.open_size) + " › call", "call"]);
+    seats.forEach(el => { el.className = "seat"; el.querySelector("small").textContent = ""; });
+    for (const [p, txt, cls] of steps){ const el = seatOf(p); if (!el) continue; el.classList.add("act-now"); if (!skip) await sleep(340); el.className = "seat " + cls; el.querySelector("small").textContent = txt; if (!skip) await sleep(cls === "folded" ? 120 : 520); }
     if (state.hand !== H) return; table.querySelector(".seats").classList.add("done");
   }
   for (let k = seen; k < items.length; k++){
@@ -1006,6 +1010,26 @@ function puzzleWhy(s, W, inPre, CO){
   out.push(`<span style="color:var(--dim)">Which exact bluff combos get picked is partly arbitrary: the solver spreads bluffs over many near-equal hands, which is why weights under 30% are not required.</span>`);
   return `<div class="pzwhy">${out.map(x => `<p>${x}</p>`).join("")}</div>`;
 }
+// replay the action: preflop pills, then each street's cards and actions, one at a time (tap the table to skip)
+async function animateTable(table, dt = 200){
+  const cards = [...table.querySelectorAll(".board .card")], items = [], rows = [];
+  [...table.querySelectorAll(".hrow")].forEach(row => {
+    const st = STREETS.findIndex(n => n.toLowerCase() === row.querySelector(".st").textContent.toLowerCase()), start = items.length;
+    if (st === 0) cards.slice(0, 3).forEach(c => items.push([c, "deal"])); else if (st > 0) cards.slice(st + 2, st + 3).forEach(c => items.push([c, "deal"]));
+    [...row.querySelectorAll(".pl")].forEach(pl => items.push([pl, "pop"]));
+    rows.push([row, start]);
+  });
+  const shown = new Set(items.map(x => x[0])); cards.forEach((c, k) => { if (!shown.has(c)) items.push([c, "deal"]); });
+  items.forEach(([el]) => el.style.visibility = "hidden"); rows.forEach(([row]) => row.style.visibility = "hidden");
+  let skip = false; table.onclick = () => skip = true;
+  for (let k = 0; k < items.length; k++){
+    if (!table.isConnected) return;
+    const [el, anim] = items[k]; rows.forEach(([row, start]) => { if (start <= k) row.style.visibility = ""; });
+    el.style.visibility = ""; el.style.animation = "none"; void el.offsetWidth; el.style.animation = `${anim} .25s`;
+    if (!skip) await sleep(anim === "deal" ? dt * 0.7 : dt * 1.6);
+  }
+  table.onclick = null;
+}
 function nextPuzzle(){
   const pool = state.ppool || (state.ppool = puzzlePool());
   if (!pool.length && PACK.loading){ state.ppool = null; main.innerHTML = `<div class="empty">Loading puzzles…</div>`; setTimeout(() => { if (state.mode === "puzzle") nextPuzzle(); }, 400); return; }   // split pack still streaming in
@@ -1022,6 +1046,7 @@ function nextPuzzle(){
   (s._raw ? s._raw.history : s.history).forEach(h => { if (rows[rows.length-1][0] !== h.street) rows.push([h.street, []]); rows[rows.length-1][1].push(pill(h.pos, String(h.label).toLowerCase(), hk(h))); });
   main.innerHTML = "";
   main.appendChild($(`<div class="table"><div class="hist">${rows.map(([st, ps]) => `<div class="hrow past"><span class="st">${st < 0 ? "Pre" : STREETS[st]}</span><div class="pls">${ps.join("")}</div></div>`).join("")}</div><div class="board">${s.board.map(c => cardEl(c)).join("")}</div></div>`));
+  animateTable(main.querySelector(".table"));
   const sheet = $(`<div class="sheet pz"><p class="prompt"><b>${s.villain}</b> gets here with about <b>${need}</b> exact combos. Find them. Dim squares were never in ${s.villain}'s preflop range.</p>
     <div class="pzcount"><b id="pzn">0</b> / ${need} picked</div><div class="chips" id="pzp" style="margin-bottom:9px"></div><div id="pzgrid"></div><div id="pzfocus"></div>
     <div class="pztray" id="pztray"></div></div>`);
@@ -1054,17 +1079,30 @@ function nextPuzzle(){
     focus = i; draw(); };
   // one-tap groups; they only touch hands villain can have preflop
   const rc = i => [Math.floor(i/13), i%13], br = [...new Set(s.board.map(c => R.indexOf(c[0])))].sort((x, y) => x - y), top = br[0];
+  // exact-holding checks against the board: straights, flushes and full houses depend on the suits and pairs in the combo
+  const bcards = s.board, rIdx = r => R.indexOf(r);
+  const isStraight = c => { const rs = new Set([c[0], c[2], ...bcards.map(x => x[0])].map(rIdx)); if (rs.has(0)) rs.add(13);
+    const hole = [rIdx(c[0]), rIdx(c[2])].flatMap(x => x === 0 ? [0, 13] : [x]);
+    for (let lo = 0; lo <= 9; lo++) if ([0, 1, 2, 3, 4].every(k => rs.has(lo + k)) && hole.some(h => h >= lo && h <= lo + 4)) return true; return false; };
+  const isFlush = c => { const n = {}; [c.slice(0, 2), c.slice(2, 4), ...bcards].forEach(x => n[x[1]] = (n[x[1]] || 0) + 1); return [c[1], c[3]].some(su => n[su] >= 5); };
+  const isFull = c => { const n = {}; [c[0], c[2], ...bcards.map(x => x[0])].forEach(r => n[r] = (n[r] || 0) + 1); const v = Object.values(n).sort((x, y) => y - x);
+    return (v[0] >= 4 || (v[0] >= 3 && v[1] >= 2)) && [c[0], c[2]].some(r => n[r] >= 2); };
+  const brs = bcards.map(x => x[0]), made = c => c[0] === c[2] || brs.includes(c[0]) || brs.includes(c[2]) || isStraight(c) || isFlush(c);
   const presets = {
     "Sets": i => { const [r, c] = rc(i); return r === c && br.includes(r); }, "Two pair": i => { const [r, c] = rc(i); return r !== c && br.includes(r) && br.includes(c); },
+    "Full houses": [null, isFull], "Straights": [null, c => isStraight(c) && !isFlush(c)], "Flushes": [null, isFlush],
     [`${R[top]}x top pair`]: i => { const [r, c] = rc(i); return r !== c && (r === top || c === top); }, "Overpairs": i => { const [r, c] = rc(i); return r === c && r < top; },
     "Pairs": i => { const [r, c] = rc(i); return r === c; }, "Broadway": i => { const [r, c] = rc(i); return r !== c && r <= 4 && c <= 4; },
     "Suited aces": i => { const [r, c] = rc(i); return r === 0 && c > 0; }, "Suited connectors": i => { const [r, c] = rc(i); return r < c && c - r === 1; },
     "Suited gappers": i => { const [r, c] = rc(i); return r < c && (c - r === 2 || c - r === 3); }, "Offsuit": i => { const [r, c] = rc(i); return r > c; },
   };
   const pz = sheet.querySelector("#pzp");
-  Object.entries(presets).forEach(([name, fn]) => { const cells = [...Array(169).keys()].filter(i => fn(i) && inPre(i) && CO[i].length); if (!cells.length) return;
-    const chip = $(`<div class="chip">${name}</div>`); chip.onclick = () => { if (done) return; const all = cells.every(i => CO[i].every(c => sel.has(c))); cells.forEach(i => CO[i].forEach(c => all ? sel.delete(c) : sel.add(c))); focus = -1; draw(); }; pz.appendChild(chip); });
-  if (hasFs){ const chip = $(`<div class="chip" style="border-color:var(--accent)">Keep ${SUITCH[fs]} only</div>`); chip.onclick = () => { if (done) return; [...sel].forEach(c => { if (!holds(c)) sel.delete(c); }); draw(); }; pz.appendChild(chip); }
+  Object.entries(presets).forEach(([name, fn]) => {
+    const byCombo = Array.isArray(fn), combos = [...Array(169).keys()].filter(i => inPre(i) && CO[i].length && (byCombo || fn(i))).flatMap(i => byCombo ? CO[i].filter(fn[1]) : CO[i]);
+    if (!combos.length) return;   // e.g. no flushes on a rainbow board, no full houses on an unpaired one
+    const chip = $(`<div class="chip">${name}</div>`); chip.onclick = () => { if (done) return; const all = combos.every(c => sel.has(c)); combos.forEach(c => all ? sel.delete(c) : sel.add(c)); focus = -1; draw(); }; pz.appendChild(chip); });
+  // the suit filter only trims hands that have nothing else going: pairs, sets, straights and flushes stay whatever their suits
+  if (hasFs){ const chip = $(`<div class="chip" style="border-color:var(--accent)" title="Drops unpaired, unconnected hands without a ${SUITCH[fs]}">Keep ${SUITCH[fs]} only</div>`); chip.onclick = () => { if (done) return; [...sel].forEach(c => { if (!holds(c) && !made(c)) sel.delete(c); }); draw(); }; pz.appendChild(chip); }
   { const chip = $(`<div class="chip">Clear</div>`); chip.onclick = () => { if (done) return; sel.clear(); focus = -1; draw(); }; pz.appendChild(chip); }
   draw();
   const lock = $(`<button class="next" style="position:static;margin-top:10px">Lock in</button>`);
