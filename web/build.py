@@ -53,10 +53,11 @@ rep("</body>", """<script src="extras.js"></script>
 </body>""")
 (DIST / "index.html").write_text(html)
 
+shutil.copy(ROOT / "proto" / "arena.js", DIST / "arena.js")
 for f in (WEB / "static").iterdir():
     if f.name != "sw.js": shutil.copy(f, DIST / f.name)
 # cache name changes whenever the app or the pack changes, so clients pick up new builds
-ver = hashlib.sha1(html.encode() + buf[:12 + n] + b"".join(f.read_bytes() for f in sorted((WEB / "static").iterdir()))).hexdigest()[:10]
+ver = hashlib.sha1(html.encode() + (ROOT / "proto" / "arena.js").read_bytes() + buf[:12 + n] + b"".join(f.read_bytes() for f in sorted((WEB / "static").iterdir()))).hexdigest()[:10]
 (DIST / "sw.js").write_text((WEB / "static" / "sw.js").read_text().replace("__VERSION__", ver))
 size = sum(f.stat().st_size for f in DIST.rglob("*") if f.is_file())
 print(f"web/dist: {len(index['flops'])} flops, {size/1e6:.1f} MB, version {ver}")

@@ -138,6 +138,7 @@ header .stats{margin-left:auto;flex:none}header .chips{flex-wrap:wrap;min-width:
 .pickgrid{display:grid;grid-template-columns:repeat(13,1fr);gap:3px}.pickgrid .card{width:auto;height:34px;font-size:13px;border-radius:5px;box-shadow:none;animation:none;cursor:pointer}.pickgrid .card small{font-size:9px}.pickgrid .card.off{opacity:.18;cursor:default}.pickgrid .card.cur{outline:2px solid #e8c547;outline-offset:-2px;opacity:.6;cursor:default}
 .sheet.whatif{border:1px solid #e8c54755}.sheet.whatif h3 small{font-size:12px}
 .gridwrap{margin-top:8px}.gridwrap .gridtog{display:inline-block;margin-bottom:6px;font-size:11px}
+.seats.arena .seat{padding:3px 0 2px;font-size:10px}.seats.arena .seat small{font-size:9px}.seats.arena .seat.folded{opacity:.3}
 </style>
 </head>
 <body>
@@ -887,6 +888,7 @@ function lens(f, s, d, chosen, gr){
 /* ---------- chrome ---------- */
 function renderStats(){ // one running score out of 10 for the current mode
   const el = document.getElementById("stats"), pz = store.get("puzzle", { n: 0, sum: 0 });
+  if (state.mode === "arena"){ el.innerHTML = AR.n ? `<span class="sbadge" title="session result">${(AR.net >= 0 ? "+" : "") + AR.net.toFixed(1)}</span>` : ""; return; }
   const v = state.mode === "hands" ? (state.hn ? state.hsum / state.hn : null) : state.mode === "puzzle" ? (pz.n ? 10 * pz.sum / pz.n : null) : (state.n ? 10 * state.best / state.n : null);
   el.innerHTML = v == null ? "" : `<span class="sbadge" title="${state.mode === "hands" ? "average hand score" : state.mode === "puzzle" ? "average puzzle score" : "share of good answers"}, out of 10">${v.toFixed(1)}</span>`; }
 const avgLoss = e => e.p / e.n;
@@ -970,9 +972,9 @@ function leakSheet(){
 }
 function renderFilters(){
   const el = document.getElementById("filters"); el.innerHTML = "";
-  [["Hands","hands"],["Drills","drills"],["Puzzle","puzzle"],["3-way","three"]].forEach(([n, v]) => { const c = $(`<div class="chip ${state.mode === v ? "on" : ""}">${n}</div>`); c.onclick = () => { state.mode = v; store.set("mode", v); start(); }; el.appendChild(c); });
+  [["Hands","hands"],["Drills","drills"],["Puzzle","puzzle"],["Arena","arena"],["3-way","three"]].forEach(([n, v]) => { const c = $(`<div class="chip ${state.mode === v ? "on" : ""}">${n}</div>`); c.onclick = () => { state.mode = v; store.set("mode", v); start(); }; el.appendChild(c); });
   const lk = $(`<div class="chip">Leaks</div>`); lk.onclick = leakSheet; el.appendChild(lk);
-  if (state.mode === "three") return;
+  if (state.mode === "three" || state.mode === "arena") return;
   const fc = $(`<div class="chip ${state.focus ? "on" : ""}">${state.focus ? "Focus: " + focusLabel() : "Focus"}</div>`); fc.onclick = focusSheet; el.appendChild(fc);
   if (state.mode === "hands" || state.mode === "puzzle") return;
   [["All",-1],["Flop",0],["Turn",1],["River",2]].forEach(([n, v]) => { const c = $(`<div class="chip ${state.street === v ? "on" : ""}">${n}</div>`); c.onclick = () => { state.street = v; store.set("street", v); state.queue = []; renderFilters(); next(); }; el.appendChild(c); });
@@ -1258,7 +1260,8 @@ function answer3(i){
   const nx = $(`<button class="next">Next spot →</button>`); nx.onclick = next3; main.appendChild(nx);
   renderStats();
 }
-function start(){ state.hand = null; renderFilters(); renderStats(); state.mode === "puzzle" ? nextPuzzle() : state.mode === "hands" ? nextHand() : state.mode === "three" ? next3() : next(); }
+function start(){ state.hand = null; state.cur = null; if (state.mode !== "arena" && typeof arenaStop === "function") arenaStop(); renderFilters(); renderStats(); state.mode === "puzzle" ? nextPuzzle() : state.mode === "hands" ? nextHand() : state.mode === "arena" ? arenaStart() : state.mode === "three" ? next3() : next(); }
 </script>
+<script src="arena.js"></script>
 </body>
 </html>

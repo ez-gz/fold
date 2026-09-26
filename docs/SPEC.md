@@ -477,7 +477,19 @@ appended to `fold.log` (capped 3000) so future views (replay worst decisions, tr
 re-derivation. Hands shows the Drills *why* after each decision with the range lens folded underneath; the lens
 leads with hand-type bars and hides the 13×13 chart on phones.
 
-**Arena (proposed, not started).** A 6-max table against five bots, tracked for leaks like everything else.
+**Arena (v0 shipped 2026-09-26, `proto/arena.js`).** A 6-max table against five bots, tracked for leaks like everything
+else. What v0 does: 100bb top-up every hand, hero seat rotates; when the preflop line is one the pack solved, 85% of flops come from that formation's solved flops. Preflop every
+seat plays the v1 charts (open / 3-bet / call per position; hand-written tight ranges for 4-bets and jams; HJ = average
+of UTG and CO; seats without a chart borrow the nearest one scaled down). Postflop, heads-up on a pack flop with the
+pack's preflop line, bots sample the solved strategy at every node the pack exported (spots, played-hand steps, river
+sweeps: ~130 nodes per flop plus 48-card river sweeps) and fall back to a hand-strength policy elsewhere; multiway is
+policy only. Hero decisions are graded by chart/strategy frequency (fine ≥ 25%, rare 5–25%, off the chart < 5%, filed
+with 0 / 1 / 4 % of pot) or by exact EV when the node carries a drill for hero's hand, and filed into the same book,
+patterns and log (`mode: "arena"`, `graded: "freq"`). The table says "solved flop" or "unsolved board · bots on
+policy" so the player knows which is which. Not yet: archetype bots, side pots (unneeded with equal stacks), a
+per-hand why panel, off-tree size mapping (a hero bet size that is not in the pack ends the solved line).
+
+*Original design notes:*
 - *What we can back today*: preflop from v1 charts (`solver/src/preflop.rs`, later `preflop/it/`), heads-up
   postflop from the 72-flop pack (BTN/CO/UTG/SB vs BB, CO vs BTN, 3-bet pots), 3-way from the pilot pack.
   Any flop not in the pack has no solve, so postflop must be *policy*, not lookup: the §6 GTO bot with
