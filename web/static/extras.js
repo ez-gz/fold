@@ -55,6 +55,8 @@
       sb._providers.forEach(p => { const x = $h(`<button class="xbtn wide ${p}">Continue with ${p[0].toUpperCase() + p.slice(1)}</button>`); x.onclick = () => signIn(p); b.appendChild(x); }); }
     else { const r = $h(`<div class="xrow" style="border:0"><div>${user.email || "Signed in"}<small>Progress syncs automatically</small></div><button class="xbtn">Sign out</button></div>`);
       r.querySelector("button").onclick = async () => { await push(); await sb.auth.signOut(); o.remove(); }; b.appendChild(r); }
+    const beg = window.state && state.beginner, lv = $h(`<div class="xrow"><div>Level: <b>${beg ? "Beginner" : "Advanced"}</b><small>${beg ? "Two questions per decision, one answer, plain words. Switch for sizes, frequencies and ranges." : "Sizes, frequencies, ranges and the full why. Switch for the distilled version."}</small></div><button class="xbtn">${beg ? "Go advanced" : "Go beginner"}</button></div>`);
+    lv.querySelector("button").onclick = () => { o.remove(); if (typeof setBeginner === "function") setBeginner(!beg); }; b.appendChild(lv);
     const inv = $h(`<div class="xrow"><div>Invite a friend<small>Send them the app, or share any hand with the yellow button</small></div><button class="xbtn pri">Invite</button></div>`);
     inv.querySelector("button").onclick = async () => { const url = location.origin + location.pathname, text = "Solver-backed poker trainer I've been using. Free, works on your phone."; try { navigator.share ? await navigator.share({ title: "Fold", text, url }) : await navigator.clipboard.writeText(text + " " + url); } catch (e) {} }; b.appendChild(inv);
     if (!matchMedia("(display-mode: standalone)").matches && !navigator.standalone) b.appendChild($h(`<div class="xrow"><div>Add to your home screen<small>${/iPhone|iPad/.test(navigator.userAgent) ? "Tap the Share icon in Safari, then “Add to Home Screen”" : "Open the browser menu, then “Install app” or “Add to Home screen”"}. Opens full screen and works offline.</small></div></div>`));
@@ -73,7 +75,7 @@
     const b = $h(`<div class="intro"><p>Every answer is graded against a solver. After each one you see <b>why</b>, built around what your opponent can hold.</p>
       <div class="m"><b>Hands</b><p>Play a full hand street by street, then review it.</p></div>
       <div class="m"><b>Drills</b><p>Single decisions, fast. Filter by street or focus on your leaks.</p></div>
-      <div class="m"><b>Puzzle</b><p>Your opponent's range is narrow. Name the exact hands they can have.</p></div>
+      ${window.state && state.beginner ? `<div class="m"><b>Beginner mode is on</b><p>Two questions per decision: what do they have, and what do I do about it. Switch to advanced any time from this sheet.</p></div>` : `<div class="m"><b>Puzzle</b><p>Your opponent's range is narrow. Name the exact hands they can have.</p></div>`}
       <div class="m"><b>Leaks</b><p>Where you lose the most, tracked as you play.</p></div>
       <button class="xbtn pri wide">Start</button><p style="text-align:center;font-size:12px;margin-top:10px">Free. No account needed. <a href="privacy.html" style="color:var(--dim)">Privacy &amp; Terms</a></p></div>`);
     const o = sheet("Welcome to Fold", b); b.querySelector("button").onclick = () => o.remove();
