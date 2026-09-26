@@ -478,7 +478,7 @@ re-derivation. Hands shows the Drills *why* after each decision with the range l
 leads with hand-type bars and hides the 13×13 chart on phones.
 
 **Arena (v0 shipped 2026-09-26, `proto/arena.js`).** A 6-max table against five bots, tracked for leaks like everything
-else. What v0 does: bots top up to 100bb every hand, hero carries their stack across hands (persisted; folding ends the hand at once, busting offers a 100bb buy-back and the session keeps counting net, hands and buy-ins), hero seat rotates; side pots settle by contribution level; when the preflop line is one the pack solved, 85% of flops come from that formation's solved flops. Preflop every
+else. What v0 does: bots top up to 100bb every hand, hero carries their stack across hands (persisted; folding ends the hand at once, busting offers a 100bb buy-back and the session keeps counting net, hands and buy-ins), hero seat rotates; side pots settle by contribution level; the hero is dealt playable hands about 70% of the time (each playable cell scaled by one factor, so the mix inside a range and the solves stay valid; bots are dealt straight); when the preflop line is one the pack solved, 85% of flops come from that formation's solved flops. Preflop every
 seat plays the v1 charts (open / 3-bet / call per position; hand-written tight ranges for 4-bets and jams; HJ = average
 of UTG and CO; seats without a chart borrow the nearest one scaled down). Postflop, heads-up on a pack flop with the
 pack's preflop line, bots sample the solved strategy at every node the pack exported (spots, played-hand steps, river

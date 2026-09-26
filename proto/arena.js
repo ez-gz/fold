@@ -132,10 +132,31 @@ function arenaDeal(){
   if (AR.stack < 1){ arenaBusted(); return; }
   AR.seatOf = (AR.seatOf + 1) % 6; const hero = SEATS[AR.seatOf];
   SEATS.forEach(p => AR.stacks[p] = 100); AR.stacks[hero] = AR.stack;   // bots top up every hand; you carry your stack
-  const deck = shuffled(), cards = {}; SEATS.forEach(p => cards[p] = [deck.pop(), deck.pop()]);
+  const deck = shuffled(), cards = {}; cards[hero] = arenaHeroCards(hero, deck); SEATS.forEach(p => { if (p !== hero) cards[p] = [deck.pop(), deck.pop()]; });
   const H = { hero, cards, deck, board: [], street: -1, pot: 0, commit: {}, paid: {}, maxCommit: 0, start: AR.stack, alive: [...SEATS], allin: [], raises: [], callers: [], aggressor: null, post: [], f: null, log: [], done: false, res: [] };
   SEATS.forEach(p => { H.commit[p] = 0; H.paid[p] = 0; }); H.commit.SB = Math.min(0.5, AR.stacks.SB); H.commit.BB = Math.min(1, AR.stacks.BB); AR.stacks.SB -= H.commit.SB; AR.stacks.BB -= H.commit.BB; H.maxCommit = 1; ["SB", "BB"].forEach(p => { if (AR.stacks[p] <= 0.001) H.allin.push(p); });
   AR.hand = H; arenaRender(); arenaRun();
+}
+// the juice: you are dealt playable hands more often than the deck would (target: fold about AR_PLAY of hands, not ~65%).
+// Inside a position's range the mix is untouched (every playable cell is scaled by the same factor), so the charts and
+// the solves stay valid for the hands you play; only trash comes up less often. The bots are dealt straight.
+const AR_PLAY = 0.7;
+function arenaPlayW(seat, cell){
+  const w = name => rangeGrid(name)[cell];
+  if (seat === "BB") return Math.min(1, w("BB_CALL_VS_BTN") + w("BB_3BET_VS_BTN"));
+  if (seat === "HJ") return (w("UTG_OPEN") + w("CO_OPEN")) / 2;
+  return w(seat + "_OPEN");
+}
+function arenaHeroCards(seat, deck){
+  const cells = new Map();
+  for (let i = 0; i < deck.length; i++) for (let j = i + 1; j < deck.length; j++){ const c = cellOf([deck[i], deck[j]]); if (!cells.has(c)) cells.set(c, []); cells.get(c).push([i, j]); }
+  let n = 0, play = 0; cells.forEach((cs, c) => { n += cs.length; play += cs.length * arenaPlayW(seat, c); });
+  const P = play / n, A = Math.min(12, AR_PLAY * (1 - P) / ((1 - AR_PLAY) * P));
+  const items = [...cells].map(([c, cs]) => ({ cs, w: cs.length * (A * arenaPlayW(seat, c) + 1 - arenaPlayW(seat, c)) }));
+  let r = Math.random() * items.reduce((t, x) => t + x.w, 0), pick = items[items.length - 1];
+  for (const it of items){ r -= it.w; if (r <= 0){ pick = it; break; } }
+  const [i, j] = pick.cs[Math.floor(Math.random() * pick.cs.length)], hand = [deck[i], deck[j]];
+  deck.splice(j, 1); deck.splice(i, 1); return hand;
 }
 const arDelay = () => AR.fast ? 0 : 380 + Math.random() * 320;
 async function bettingRound(H, order){
