@@ -488,6 +488,19 @@ with 0 / 1 / 4 % of pot) or by exact EV when the node carries a drill for hero's
 patterns and log (`mode: "arena"`, `graded: "freq"`). The table says "solved flop" or "unsolved board · bots on
 policy" so the player knows which is which. Not yet: archetype bots, per-hand why on the end sheet, off-tree bet-size mapping (a hero size the tree lacks drops the hand to policy), HJ formations.
 
+**13.9 Beginner mode (shipped 2026-09-26, default on).** A switch (`fold.beginner`, You sheet: Beginner / Advanced), not a
+tab. Same spots, drills and hands, same grading and the same book; what changes is what a decision looks like.
+Two questions: *What do they have?* (villain's range collapsed to four buckets from the class breakdown, one stacked bar,
+shares in words) and *What do I do?* (one answer, the solver's best action kind, one templated sentence of why keyed on
+best kind, hero's coarse hand type, equity and the fold rate of villain's response). Buttons are one per action kind
+(Fold / Check / Call / Bet / Raise; a bet or raise stands for the size the solver uses most at that node). Verdict is
+Fine / Mistake / Big mistake (over 5% of pot, with the bb lost). Everything full mode shows sits behind "Show more"
+(the full why and the range lens). Puzzle, Focus, the street filter and Range check are hidden. A five-rung curriculum
+(`RUNGS`) picks the spots: checked to you as the raiser (top pair / air / flush draw only), facing a c-bet in the big
+blind, the turn, facing a raise, everything; ten Fine answers unlock the next rung, a mistake takes one back, and the
+rung chip opens a sheet to jump around. Hands mode keeps to single raised pots whose decisions fit the rung. Arena is
+untouched.
+
 *Original design notes:*
 - *What we can back today*: preflop from v1 charts (`solver/src/preflop.rs`, later `preflop/it/`), heads-up
   postflop from the 72-flop pack (BTN/CO/UTG/SB vs BB, CO vs BTN, 3-bet pots), 3-way from the pilot pack.
