@@ -137,6 +137,7 @@ header .stats{margin-left:auto;flex:none}header .chips{flex-wrap:wrap;min-width:
 .card.pick.alt{outline:2px solid #e8c547;outline-offset:-2px}.card.pick.alt::after{content:"what if"}
 .pickgrid{display:grid;grid-template-columns:repeat(13,1fr);gap:3px}.pickgrid .card{width:auto;height:34px;font-size:13px;border-radius:5px;box-shadow:none;animation:none;cursor:pointer}.pickgrid .card small{font-size:9px}.pickgrid .card.off{opacity:.18;cursor:default}.pickgrid .card.cur{outline:2px solid #e8c547;outline-offset:-2px;opacity:.6;cursor:default}
 .sheet.whatif{border:1px solid #e8c54755}.sheet.whatif h3 small{font-size:12px}
+.gridwrap{margin-top:8px}.gridwrap .gridtog{display:inline-block;margin-bottom:6px;font-size:11px}
 </style>
 </head>
 <body>
@@ -199,7 +200,7 @@ function formInfo(f){
 /* ---------- queue ---------- */
 function buildQueue(){
   const q = [];
-  for (const f of PACK.flops) for (const s of f.spots) { if (state.street >= 0 && s.street !== state.street) continue; if (state.focus && !focusSet().has(concept(f, s))) continue; for (const d of s.drills) q.push({ f, s, d }); }
+  for (const f of PACK.flops) for (const s of f.spots) { if (state.street >= 0 && s.street !== state.street) continue; for (const d of s.drills) if (focusMatch(f, s, d)) q.push({ f, s, d }); }
   for (let i = q.length - 1; i > 0; i--){ const j = Math.floor(Math.random()*(i+1)); [q[i], q[j]] = [q[j], q[i]]; }
   state.queue = q;
 }
@@ -262,6 +263,20 @@ function fineType(hand, B){
   }
   if (hand.some(c => c[0] === "A")) return "Ace high";
   return B.length < 5 && Math.max(ri(hand[0]), ri(hand[1])) < br[0] ? "Two overcards" : "No pair, no draw";
+}
+/* coarser hand groups for pattern detection: fine types are too sparse to repeat often */
+const COARSE = { "Top pair, good kicker": "Top pair", "Top pair, weak kicker": "Top pair", "Second pair": "Weak pair", "Low pair": "Weak pair", "Pocket pair below top card": "Weak pair", "Underpair": "Weak pair",
+  "Overpair": "Overpair", "Two pair": "Two pair+", "Set or trips": "Two pair+", "Straight": "Two pair+", "Flush": "Two pair+", "Full house or better": "Two pair+",
+  "Nut flush draw": "Flush draw", "Low flush draw": "Flush draw", "Flush draw + straight draw": "Flush draw", "Open-ended straight draw": "Straight draw", "Gutshot": "Straight draw",
+  "Ace high": "Air", "Two overcards": "Air", "No pair, no draw": "Air" };
+const coarseType = ft => COARSE[ft] || ft;
+/* every graded decision, newest last (capped): lets Leaks find patterns at any grain and replay the costly ones */
+function logDecision(f, s, d, i, gr){
+  const log = store.get("log", []), F = formInfo(f);
+  log.push({ t: Date.now(), k: f._k, sid: s.id, hand: d.hand.join(""), c: concept(f, s), st: s.street, cls: f.class_names[d.cls], ft: fineType(d.hand, s.board), ctx: s.to_call > 0 ? "facing a bet" : "with the option to bet",
+    err: errKind(s, d, i, gr), p: Math.min(gr.p, 25), bb: gr.loss, role: s.hero === F.opener ? "aggressor" : "caller", mode: state.hand ? "hands" : "drills", hi: state.hand ? f.hands.indexOf(state.hand.h) : -1 });
+  if (log.length > 3000) log.splice(0, log.length - 3000);
+  store.set("log", log);
 }
 function trackErr(f, s, d, i, gr){
   const pat = store.get("patterns", {}), k = fineType(d.hand, s.board) + "|" + (s.to_call > 0 ? "facing a bet" : "with the option to bet") + "|" + STREET_NAMES[s.street];
@@ -482,7 +497,7 @@ function renderRangeCheck(){
 
 function answer(i){
   const { f, s, d } = state.cur; if (state.cur.done) return; state.cur.done = true;
-  const gr = grade(s, d, i); track(f, s, d, gr); trackErr(f, s, d, i, gr);
+  const gr = grade(s, d, i); track(f, s, d, gr); trackErr(f, s, d, i, gr); logDecision(f, s, d, i, gr);
   if (state.hand) return handAnswer(i, gr);
   state.n++; state.loss += gr.p; if (gr.g === "Best" || gr.g === "Good"){ state.best++; state.streak++; } else state.streak = 0;
   if (navigator.vibrate) navigator.vibrate(gr.g === "Best" ? 12 : gr.g === "Good" ? 20 : [30, 40, 30]);
@@ -517,8 +532,10 @@ function handScore(H){
   return { score: max > 0 ? 10 * got / max : 10, got, max };
 }
 function nextHand(){
-  const pool = []; PACK.flops.forEach(f => (f.hands || []).forEach(h => pool.push({ f, h })));
+  let pool = []; PACK.flops.forEach(f => (f.hands || []).forEach(h => pool.push({ f, h })));
   if (!pool.length){ main.innerHTML = `<div class="empty">This pack has no played hands yet — switch to Drills.</div>`; return; }
+  // a focus keeps only hands where at least one of your decisions is the kind you are working on
+  if (state.focus){ const fp = pool.filter(x => x.h.steps.some(st => focusMatch(x.f, st.spot, st.spot.drills[0]))); if (fp.length) pool = fp; }
   // mostly hands that play all three streets (more decisions, more to learn); early folds still show up sometimes
   const river = pool.filter(x => x.h.board.length === 5 && x.h.steps.length > 1), deep = pool.filter(x => x.h.steps.length > 1), r = Math.random();
   let from = river.length && r < 0.8 ? river : deep.length && r < 0.95 ? deep : pool;
@@ -585,10 +602,13 @@ function handAnswer(i, gr){
   let note = ok ? "" : `Solver prefers <b>${s.actions[gr.bestIdx].label}</b>. `;
   if (i !== step.line) note += `The hand continues down the solver's line: <b>${s.actions[step.line].label}</b>.`;
   main.appendChild($(`<div class="verdict g-${gr.g}"><div class="g">${gr.g} <small style="font-size:13px;font-weight:600;opacity:.8">${capText(d, i)}</small></div><div class="l">${lossText(gr)}</div></div>`));
-  if (note) main.appendChild($(`<div class="sheet why" style="padding:10px 14px"><p>${note}</p></div>`));
+  // the same why as Drills, then the range lens folded away so the hand keeps its pace
+  main.appendChild($(`<div class="sheet why"><h3>Why</h3>${note ? `<p>${note}</p>` : ""}${explain(H.f, s, d, i, gr)}</div>`));
+  const det = $(`<details class="sheet more" style="padding:10px 14px"><summary style="margin:0;font-size:13px;color:var(--text,#fff)">Range lens — ${s.villain}: ranges, responses, your plan</summary></details>`); const L = lens(H.f, s, d, i, gr); L.style.cssText = "padding:8px 0 0;background:none;border:0"; det.appendChild(L); main.appendChild(det);
   const go = () => { if (state.hand !== H || H.k !== k0) return; H.k++; H.k < H.h.steps.length ? handStep(false) : handEnd(); window.scrollTo(0, 0); }, k0 = H.k;
   const nx = $(`<button class="next">${H.k + 1 < H.h.steps.length ? "Continue →" : "See result →"}</button>`); nx.onclick = go; main.appendChild(nx);
-  if (ok && i === step.line) setTimeout(go, 1750);
+  // only the obvious ones move on by themselves; anything mixed or wrong waits so the why can be read
+  if (ok && i === step.line && d.strat[i] >= 0.85) setTimeout(go, 2600);
 }
 function handEnd(){
   const H = state.hand, { f, h } = H;
@@ -819,8 +839,11 @@ function cellPopup(f, s, d, cell, tab){
   overlay(`${cellName(cell)} — ${mine ? "your plan" : r ? who + "'s answer" : who + "'s range"}`, body);
 }
 function lens(f, s, d, chosen, gr){
-  const sheet = $(`<div class="sheet"><h3>Range lens — ${s.villain}</h3><div class="seg" id="tabs"></div><div class="kpis" id="kpis"></div><div id="g"></div><div class="legend" id="leg"></div><div class="bars" id="bars"></div></div>`);
+  const sheet = $(`<div class="sheet"><h3>Range lens — ${s.villain}</h3><div class="seg" id="tabs"></div><div class="kpis" id="kpis"></div><div class="bars" id="bars" style="margin-top:0"></div><div class="legend" id="leg"></div><div class="gridwrap"><div class="chip gridtog"></div><div id="g"></div></div></div>`);
   const g = gridEl(); sheet.querySelector("#g").appendChild(g);
+  // hand-type bars carry the story; the 13x13 chart is there for whoever wants the exact cells (off by default on phones)
+  const tog = sheet.querySelector(".gridtog"), gw = sheet.querySelector("#g"), setGrid = on => { gw.style.display = on ? "" : "none"; tog.textContent = on ? "Hide 13×13 chart" : "Show 13×13 chart"; tog.classList.toggle("on", on); };
+  setGrid(store.get("lensGrid", window.innerWidth >= 700)); tog.onclick = () => { const on = gw.style.display === "none"; store.set("lensGrid", on); setGrid(on); };
   const tabs = [{ label: "Before", a: -1 }].concat(s.actions.map((a, i) => ({ label: a.label.replace("Raise to","Raise"), a: i })).filter(t => s.resp[t.a])).concat([{ label: "My plan", a: -2 }]);
   let curTab = null;
   const show = t => {
@@ -868,7 +891,21 @@ function renderStats(){ // one running score out of 10 for the current mode
   el.innerHTML = v == null ? "" : `<span class="sbadge" title="${state.mode === "hands" ? "average hand score" : state.mode === "puzzle" ? "average puzzle score" : "share of good answers"}, out of 10">${v.toFixed(1)}</span>`; }
 const avgLoss = e => e.p / e.n;
 function worstConcepts(n){ const b = store.get("book", {}); return Object.keys(b).filter(k => k.startsWith("c:") && b[k].n >= 4).sort((x, y) => avgLoss(b[y]) - avgLoss(b[x])).slice(0, n).map(k => k.slice(2)); }
-function focusSet(){ return new Set(state.focus === "leaks" ? worstConcepts(3) : [state.focus]); }
+function worstTypes(n){ const b = store.get("book", {}), ks = Object.keys(b).filter(k => k.startsWith("h:") && b[k].n >= 4); if (!ks.length) return [];
+  const all = ks.reduce((a, k) => a + b[k].p, 0) / ks.reduce((a, k) => a + b[k].n, 0); return ks.filter(k => avgLoss(b[k]) > all).sort((x, y) => avgLoss(b[y]) - avgLoss(b[x])).slice(0, n).map(k => k.slice(2)); }
+/* what to train: the costliest situations and hand types, from the book */
+function leakPlan(){ const c = worstConcepts(3), h = worstTypes(2); return c.length || h.length ? { label: "my leaks", concepts: c, types: h } : null; }
+/* a focus is null (everything), a concept name, "leaks" (auto plan) or { label, concepts[], types[], streets[] } */
+function focusObj(){ const f = state.focus; if (!f) return null; if (f === "leaks") return leakPlan(); if (typeof f === "string") return { label: f, concepts: [f], types: [] }; return f; }
+function focusLabel(){ const o = focusObj(); return o ? o.label : ""; }
+// a spot (and hero hand, when there is one) belongs to the focus if it is one of its situations, or hero holds one of its hand types
+function focusMatch(f, s, d){ const o = focusObj(); if (!o) return true;
+  if (o.streets && o.streets.length && !o.streets.includes(s.street)) return false;
+  if (!d && !(o.concepts || []).length) return true;   // no hero hand to judge (puzzles): hand-type focus falls back to street only
+  const c = (o.concepts || []).includes(concept(f, s)), h = d && (o.types || []).includes(f.class_names[d.cls]);
+  return (o.concepts || []).length && (o.types || []).length ? (c || h) : (o.concepts || []).length ? c : h; }
+function goMode(){ state.queue = []; state.ppool = null; renderFilters(); state.mode === "hands" ? nextHand() : state.mode === "puzzle" ? nextPuzzle() : next(); }
+function trainFocus(focus, mode){ state.focus = focus; if (mode){ state.mode = mode; store.set("mode", mode); } document.querySelectorAll(".overlay").forEach(o => o.remove()); state.hand = null; goMode(); window.scrollTo(0, 0); }
 function overlay(title, body){
   const o = $(`<div class="overlay"><div class="sheet"><h3>${title}<span class="x">Close</span></h3></div></div>`); o.firstChild.appendChild(body);
   o.onclick = e => { if (e.target === o || e.target.classList.contains("x")) o.remove(); }; document.body.appendChild(o); return o;
@@ -876,9 +913,9 @@ function overlay(title, body){
 function focusSheet(){
   const counts = {}; PACK.flops.forEach(f => f.spots.forEach(s => { const c = concept(f, s); counts[c] = (counts[c] || 0) + s.drills.length; }));
   const body = $(`<div class="rows"></div>`), b = store.get("book", {});
-  const add = (label, sub, val) => { const r = $(`<div class="row ${state.focus === val || (!state.focus && !val) ? "on" : ""}"><span></span><span style="text-align:left">${label}<small>${sub}</small></span><span></span></div>`); r.onclick = () => { state.focus = val; state.queue = []; o.remove(); renderFilters(); next(); }; body.appendChild(r); };
+  const add = (label, sub, val) => { const r = $(`<div class="row ${state.focus === val || (!state.focus && !val) ? "on" : ""}"><span></span><span style="text-align:left">${label}<small>${sub}</small></span><span></span></div>`); r.onclick = () => { o.remove(); trainFocus(val); }; body.appendChild(r); };
   add("Everything", "all situations, shuffled", null);
-  if (worstConcepts(1).length) add("My leaks", "your three costliest situations: " + worstConcepts(3).join(", "), "leaks");
+  const plan = leakPlan(); if (plan) add("My leaks", [plan.concepts.length ? "situations: " + plan.concepts.join(", ") : "", plan.types.length ? "hand types: " + plan.types.join(", ") : ""].filter(Boolean).join(" · "), "leaks");
   Object.keys(counts).sort((x, y) => counts[y] - counts[x]).forEach(c => { const e = b["c:" + c]; add(c, `${counts[c]} drills` + (e ? ` · you: ${e.n} played, ${avgLoss(e).toFixed(1)}% of pot lost on average` : ""), c); });
   const o = overlay("Focus on a situation", body);
 }
@@ -887,12 +924,28 @@ function patternRows(body){
   // merge streets for the headline, keep the street split for the detail line
   Object.keys(pat).forEach(k => { const [cls, ctx, st] = k.split("|"), a = agg[cls + "|" + ctx] || (agg[cls + "|" + ctx] = { n: 0, err: {} }); a.n += pat[k].n;
     Object.entries(pat[k].err).forEach(([w, x]) => { const y = a.err[w] || (a.err[w] = { n: 0, p: 0, st: {} }); y.n += x.n; y.p += x.p; y.st[st] = (y.st[st] || 0) + x.n; }); });
-  const rows = []; Object.entries(agg).forEach(([k, a]) => Object.entries(a.err).forEach(([w, x]) => { if (x.n >= 2 && a.n >= 4) rows.push({ k, w, x, n: a.n }); }));
+  // three grains: exact hand type + context, coarse group + context, coarse group alone. Finest that repeats wins.
+  const merge = (into, key, a) => { const t = into[key] || (into[key] = { n: 0, err: {} }); t.n += a.n; Object.entries(a.err).forEach(([w, x]) => { const y = t.err[w] || (t.err[w] = { n: 0, p: 0, st: {} }); y.n += x.n; y.p += x.p; Object.entries(x.st).forEach(([s, n]) => y.st[s] = (y.st[s] || 0) + n); }); };
+  const mid = {}, top = {}; Object.entries(agg).forEach(([k, a]) => { const [cls, ctx] = k.split("|"); merge(mid, coarseType(cls) + "|" + ctx, a); merge(top, coarseType(cls) + "|", a); });
+  const rows = [], seen = new Set();
+  [[agg, 2, 4], [mid, 2, 4], [top, 3, 6]].forEach(([g, minErr, minN]) => Object.entries(g).forEach(([k, a]) => Object.entries(a.err).forEach(([w, x]) => {
+    const id = coarseType(k.split("|")[0]) + "|" + w; if (x.n >= minErr && a.n >= minN && !seen.has(id)){ seen.add(id); rows.push({ k, w, x, n: a.n }); } })));
   rows.sort((p, q) => q.x.p - p.x.p);
   body.appendChild($(`<h4 style="margin:14px 0 6px;font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em">Your patterns</h4>`));
-  if (!rows.length){ body.appendChild($(`<p style="color:var(--dim);font-size:12px">Not enough repeated mistakes yet. A pattern shows up once the same kind of error happens twice with the same hand type.</p>`)); return; }
+  if (!rows.length){ const tot = Object.values(pat).reduce((a, e) => a + e.n, 0); body.appendChild($(`<p style="color:var(--dim);font-size:12px">No repeated mistake yet (${tot} decisions filed). A pattern needs the same kind of error twice with the same kind of hand.</p>`)); return; }
+  const TYPE_OF = { "Top pair": ["Top pair / overpair"], "Overpair": ["Top pair / overpair"], "Weak pair": ["Middle / weak pair"], "Two pair+": ["Two pair+"], "Flush draw": ["Strong draw"], "Straight draw": ["Strong draw", "Gutshot / overcards"], "Air": ["Ace high", "Air", "Gutshot / overcards"] };
   rows.slice(0, 6).forEach(r => { const [cls, ctx] = r.k.split("|"), st = Object.entries(r.x.st).sort((p, q) => q[1] - p[1]).map(([s, n]) => `${s.toLowerCase()} ${n}`).join(", ");
-    body.appendChild($(`<div style="padding:7px 0;border-bottom:1px solid var(--line,#2a2f3a);font-size:13px"><b>${cls}</b> ${ctx}: you <b style="color:var(--bad)">${r.w}</b><div style="color:var(--dim);font-size:11px;margin-top:2px">${r.x.n} of ${r.n} decisions · ${(r.x.p / r.x.n).toFixed(1)}% of pot lost each time · ${st}</div></div>`)); });
+    const row = $(`<div style="padding:7px 0;border-bottom:1px solid var(--line,#2a2f3a);font-size:13px;display:flex;gap:8px;align-items:center"><div style="flex:1"><b>${cls}</b>${ctx ? " " + ctx : ""}: you <b style="color:var(--bad)">${r.w}</b><div style="color:var(--dim);font-size:11px;margin-top:2px">${r.x.n} of ${r.n} decisions · ${(r.x.p / r.x.n).toFixed(1)}% of pot lost each time · ${st}</div></div><div class="chip" style="flex:none">Train</div></div>`);
+    const streets = Object.keys(r.x.st).map(s => STREET_NAMES.indexOf(s)).filter(x => x >= 0);
+    row.querySelector(".chip").onclick = () => trainPick({ label: `${cls.toLowerCase()} ${ctx}`.trim(), concepts: [], types: TYPE_OF[coarseType(cls)] || [], streets });
+    body.appendChild(row); });
+}
+// choose where to train a focus: full hands, single drills or range puzzles
+function trainPick(focus){
+  const body = $(`<div class="rows"></div>`);
+  [["Hands", "hands", "play whole hands that contain this decision"], ["Drills", "drills", "one decision at a time, full explanation"], ["Puzzle", "puzzle", "rebuild villain's range in these spots"]].forEach(([n, m, sub]) => {
+    const r = $(`<div class="row"><span></span><span style="text-align:left">${n}<small>${sub}</small></span><span></span></div>`); r.onclick = () => trainFocus(focus, m); body.appendChild(r); });
+  overlay(`Train: ${focus.label}`, body);
 }
 function leakSheet(){
   const b = store.get("book", {}), body = $(`<div></div>`);
@@ -900,9 +953,16 @@ function leakSheet(){
     const ks = Object.keys(b).filter(k => k.startsWith(prefix)).sort((x, y) => avgLoss(b[y]) - avgLoss(b[x])); if (!ks.length) return;
     const max = Math.max(...ks.map(k => avgLoss(b[k])), 0.5);
     body.appendChild($(`<h4 style="margin:14px 0 6px;font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em">${title}</h4>`));
-    ks.forEach(k => { const e = b[k]; body.appendChild($(`<div class="bar" style="grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) 78px"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${k.slice(2)}</span><div class="t"><i style="width:${100*avgLoss(e)/max}%;background:${avgLoss(e) > 3 ? "var(--bad)" : avgLoss(e) > 1.2 ? "var(--warn)" : "var(--accent)"}"></i></div><b>${avgLoss(e).toFixed(1)}% · ${e.n}</b></div>`)); });
+    ks.forEach(k => { const e = b[k], row = $(`<div class="bar" style="grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) 78px;cursor:pointer"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${k.slice(2)}</span><div class="t"><i style="width:${100*avgLoss(e)/max}%;background:${avgLoss(e) > 3 ? "var(--bad)" : avgLoss(e) > 1.2 ? "var(--warn)" : "var(--accent)"}"></i></div><b>${avgLoss(e).toFixed(1)}% · ${e.n}</b></div>`);
+      const name = k.slice(2), focus = prefix === "c:" ? { label: name, concepts: [name], types: [] } : prefix === "h:" ? { label: name.toLowerCase() + " hands", concepts: [], types: [name] } : prefix === "s:" ? { label: "the " + name.toLowerCase(), concepts: [], types: [], streets: [STREET_NAMES.indexOf(name)] } : null;
+      if (focus) row.onclick = () => trainPick(focus); body.appendChild(row); });
+    if (prefix === "c:") body.appendChild($(`<p style="color:var(--dim);font-size:11px;margin:4px 0 0">Tap a row to train it.</p>`));
   };
   if (!Object.keys(b).length) body.appendChild($(`<p style="color:var(--dim)">Play some hands or drills first. Every decision is filed under its situation, street and hand type; this screen shows where your EV goes.</p>`));
+  const plan = leakPlan();
+  if (plan){ const n = Object.keys(b).filter(k => k.startsWith("s:")).reduce((a, k) => a + b[k].n, 0);
+    const hd = $(`<div class="sheet" style="margin:0 0 6px;padding:12px 14px;border:1px solid var(--accent)"><h3 style="margin:0 0 4px">Train my leaks</h3><p style="margin:0 0 8px;font-size:12px;color:var(--dim)">${n} decisions filed. Costliest: ${[...plan.concepts, ...plan.types.map(t => t.toLowerCase() + " hands")].join(", ")}.</p><div class="chips"><div class="chip on">Hands</div><div class="chip">Drills</div><div class="chip">Puzzle</div></div></div>`);
+    [...hd.querySelectorAll(".chip")].forEach((c, k) => c.onclick = () => trainFocus("leaks", ["hands", "drills", "puzzle"][k])); body.appendChild(hd); }
   patternRows(body);
   group("By situation", "c:"); group("By street", "s:"); group("By hand type", "h:"); group("By role", "p:");
   body.appendChild($(`<p style="color:var(--dim);font-size:11px;margin-top:10px">Average EV lost per decision, as % of pot · number of decisions. Bars compare within a group.</p>`));
@@ -913,10 +973,10 @@ function renderFilters(){
   const el = document.getElementById("filters"); el.innerHTML = "";
   [["Hands","hands"],["Drills","drills"],["Puzzle","puzzle"],["3-way","three"]].forEach(([n, v]) => { const c = $(`<div class="chip ${state.mode === v ? "on" : ""}">${n}</div>`); c.onclick = () => { state.mode = v; store.set("mode", v); start(); }; el.appendChild(c); });
   const lk = $(`<div class="chip">Leaks</div>`); lk.onclick = leakSheet; el.appendChild(lk);
-  if (state.mode === "hands" || state.mode === "puzzle") return;
-  [["All",-1],["Flop",0],["Turn",1],["River",2]].forEach(([n, v]) => { const c = $(`<div class="chip ${state.street === v ? "on" : ""}">${n}</div>`); c.onclick = () => { state.street = v; store.set("street", v); state.queue = []; renderFilters(); state.mode === "three" ? next3() : next(); }; el.appendChild(c); });
   if (state.mode === "three") return;
-  const fc = $(`<div class="chip ${state.focus ? "on" : ""}">${state.focus ? "Focus: " + (state.focus === "leaks" ? "my leaks" : state.focus) : "Focus"}</div>`); fc.onclick = focusSheet; el.appendChild(fc);
+  const fc = $(`<div class="chip ${state.focus ? "on" : ""}">${state.focus ? "Focus: " + focusLabel() : "Focus"}</div>`); fc.onclick = focusSheet; el.appendChild(fc);
+  if (state.mode === "hands" || state.mode === "puzzle") return;
+  [["All",-1],["Flop",0],["Turn",1],["River",2]].forEach(([n, v]) => { const c = $(`<div class="chip ${state.street === v ? "on" : ""}">${n}</div>`); c.onclick = () => { state.street = v; store.set("street", v); state.queue = []; renderFilters(); next(); }; el.appendChild(c); });
   const rc = $(`<div class="chip ${state.rangeCheck ? "on" : ""}">Range check</div>`); rc.onclick = () => { state.rangeCheck = !state.rangeCheck; store.set("rangeCheck", state.rangeCheck); renderFilters(); renderSpot(); }; el.appendChild(rc);
 }
 document.addEventListener("keydown", e => { if (!state.cur) return; if (e.key === " " || e.key === "Enter"){ const b = document.querySelector("button.next:not(.ghost)"); if (b){ e.preventDefault(); b.click(); } } else if (/^[1-4]$/.test(e.key)){ const b = document.querySelectorAll(".act")[+e.key-1]; if (b) b.click(); } });
@@ -967,7 +1027,7 @@ function shareBtn(){
     try { if (navigator.share) await navigator.share({ title: "Fold", text, url }); else { await navigator.clipboard.writeText(text + " " + url); b.textContent = "✓"; setTimeout(() => b.textContent = "↗", 1200); } } catch (e) {} };
   return b;
 }
-function puzzlePool(){ const out = []; PACK.flops.forEach(f => f.spots.forEach(s => { if (s.vcombos && s.vcombos.filter(c => c[1] >= 0.3).length >= 6) out.push({ f, s }); })); return out; }
+function puzzlePool(){ const out = []; PACK.flops.forEach(f => f.spots.forEach(s => { if (s.vcombos && s.vcombos.filter(c => c[1] >= 0.3).length >= 6 && focusMatch(f, s, null)) out.push({ f, s }); })); if (!out.length && state.focus) { state.focus = null; renderFilters(); return puzzlePool(); } return out; }
 function comboCell(c){ return cellOf([c.slice(0, 2), c.slice(2, 4)]); }
 function allCombos(cell, board){
   const r = Math.floor(cell / 13), c = cell % 13, S = "shdc", out = [], hi = R[Math.min(r, c)], lo = R[Math.max(r, c)];
