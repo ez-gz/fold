@@ -83,6 +83,7 @@ header .stats{margin-left:auto;flex:none}header .chips{flex-wrap:wrap;min-width:
 .act>*:not(.fill){position:relative}
 .act.done{cursor:default;opacity:.55}.act.done.best{opacity:1;box-shadow:0 0 0 2px var(--accent)}.act.done.picked{opacity:1}
 .act.done.picked::after{content:"YOU";position:absolute;right:8px;top:4px;font-size:9px;letter-spacing:.1em;opacity:.8}
+.act.done.picked[data-tag]::after,.act.done[data-tag]::after{content:attr(data-tag);position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;font-weight:700;letter-spacing:.04em;opacity:.95;background:#0008;padding:3px 8px;border-radius:8px}.act.done.picked[data-tag=""]::after,.act.done[data-tag=""]::after{content:none}.act.done.beg-wrong{box-shadow:0 0 0 2px var(--bad)}
 .k-fold{background:var(--fold)}.k-check,.k-call{background:var(--call)}.k-bet0,.k-raise0{background:var(--bet1)}.k-bet1,.k-raise1{background:var(--bet2)}
 .verdict{margin-top:12px;border-radius:16px;padding:12px 14px;display:flex;align-items:center;gap:12px;animation:pop .3s cubic-bezier(.2,.9,.3,1.4)}
 @keyframes pop{from{transform:scale(.9);opacity:0}}
@@ -139,7 +140,7 @@ header .stats{margin-left:auto;flex:none}header .chips{flex-wrap:wrap;min-width:
 .sheet.whatif{border:1px solid #e8c54755}.sheet.whatif h3 small{font-size:12px}
 .gridwrap{margin-top:8px}.gridwrap .gridtog{display:inline-block;margin-bottom:6px;font-size:11px}
 .chip.rung{display:flex;align-items:center;gap:3px;padding-left:9px}.chip.rung i{display:inline-block;width:7px;height:7px;border-radius:50%;background:#2a3540}.chip.rung i.done{background:var(--accent)}.chip.rung i.now{background:#fff}.chip.rung span{margin-left:4px}
-.why.beg h3{margin:0 0 6px}.why.beg h3+h3,.why.beg p+h3{margin-top:14px}.why.beg details.more{margin-top:12px}.why.beg .legend{display:flex;flex-wrap:wrap;gap:8px 12px;font-size:11px;color:var(--dim)}.why.beg .legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+.why.beg h3{margin:0 0 6px}.why.beg h3+h3,.why.beg p+h3{margin-top:14px}.why.beg details.more{margin-top:12px}.why.beg .tip{margin-top:10px;padding:10px 12px;border-radius:12px;background:#15202b;border:1px solid #24313f;font-size:13px;line-height:1.45}.why.beg .tip b{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--warn);margin-bottom:3px}.why.beg .legend{display:flex;flex-wrap:wrap;gap:8px 12px;font-size:11px;color:var(--dim)}.why.beg .legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:4px;vertical-align:-1px}
 .seats.arena .seat{padding:3px 0 2px;font-size:10px;position:relative}.seats.arena .seat .bet{position:absolute;right:-6px;bottom:-7px;font-style:normal;font-size:8.5px;font-weight:700;line-height:18px;min-width:18px;height:18px;padding:0 3px;border-radius:9px;background:var(--warn);color:#160d02;box-shadow:0 0 0 2px var(--bg);letter-spacing:0}.seats.arena .seat small{font-size:9px}.seats.arena .seat.folded{opacity:.3}
 </style>
 </head>
@@ -529,7 +530,9 @@ const lossText = gr => gr.loss < 0.005 ? "no EV lost" : `−${gr.loss.toFixed(2)
 function markButtons(d, i, gr){
   if (state.beginner && state.cur && !state.cur.three){   // one button per kind: the best kind lights up, no numbers
     const s = state.cur.s, bestKind = s.actions[gr.bestIdx].kind;
-    [...document.querySelectorAll(".act")].forEach(b => { const k = +b.dataset.i; b.classList.add("done"); if (s.actions[k].kind === bestKind) b.classList.add("best"); if (k === i) b.classList.add("picked"); });
+    const kv = kindView(s, d), second = kv[1] && kv[1].strat >= 0.25 ? kv[1].kind : null;
+    [...document.querySelectorAll(".act")].forEach(b => { const k = +b.dataset.i, kind = s.actions[k].kind, best = kind === bestKind; b.classList.add("done"); if (best) b.classList.add("best"); if (k === i) b.classList.add("picked");
+      b.dataset.tag = best ? (k === i ? "✓ You · solver's pick" : "Solver's pick") : kind === second ? (k === i ? "You · also fine" : "also fine") : k === i ? "✗ You" : ""; if (k === i && !best && kind !== second) b.classList.add("beg-wrong"); });
     return;
   }
   [...document.querySelectorAll(".act")].forEach((b, k) => {
@@ -929,7 +932,7 @@ const RUNGS = [
 const RUNG_GOAL = 10;
 const srp3 = f => !!(formInfo(f).three_bet || f.three_bet);
 function rungState(){ const r = store.get("rung", { i: 0, ok: 0 }); r.i = Math.min(r.i, RUNGS.length - 1); return r; }
-function rungMatch(f, s, d){ const r = RUNGS[rungState().i]; if (!r.test(f, s)) return false; return !r.types || !d || r.types.includes(coarseType(fineType(d.hand, s.board))); }
+function rungMatch(f, s, d){ const r = RUNGS[rungState().i], ri = rungState().i; if (!r.test(f, s)) return false; if (r.types && d && !r.types.includes(coarseType(fineType(d.hand, s.board)))) return false; return !d || ri >= 2 || clearSpot(s, d) || Math.random() < 0.3; }
 // a Fine answer moves you up the rung, a mistake takes one back; ten Fine answers unlock the next rung
 function rungProgress(gr){
   const r = rungState(); if (r.i >= RUNGS.length - 1) return null;
@@ -948,6 +951,13 @@ function rungSheet(){
     row.onclick = () => { store.set("rung", { i: k, ok: 0 }); document.querySelectorAll(".overlay").forEach(o => o.remove()); state.queue = []; state.hand = null; renderFilters(); goMode(); }; body.appendChild(row); });
   overlay("Your path", body);
 }
+// the options by kind of action: the size the solver uses most stands for each kind, with the kind's total frequency and best EV
+function kindView(s, d){
+  const by = {}; s.actions.forEach((a, i) => { const k = a.kind; if (!by[k]) by[k] = { kind: k, i, strat: 0, ev: d.ev[i] }; by[k].strat += d.strat[i]; if (d.strat[i] > d.strat[by[k].i]) by[k].i = i; if (d.ev[i] > by[k].ev) by[k].ev = d.ev[i]; });
+  return Object.values(by).sort((a, b) => b.ev - a.ev);
+}
+// a clear spot: the best kind of action beats the next kind by a real margin, or the solver almost always takes it
+const clearSpot = (s, d) => { const kv = kindView(s, d); return kv.length < 2 || kv[0].strat >= 0.8 || 100 * (kv[0].ev - kv[1].ev) / s.pot >= 1.5; };
 const KIND_WORD = { fold: "Fold", check: "Check", call: "Call", bet: "Bet", raise: "Raise" };
 // one button per kind of action; a bet or raise stands for the size the solver uses most here
 function beginnerOptions(s, d){
@@ -970,7 +980,40 @@ function beginnerWhy(f, s, d, chosen, gr){
   else why = draw ? `Not there yet, but the price is right: you need ${pct(need)} and have ${pct(eq)}.` : `You beat enough of ${V}'s hands for the price: you need ${pct(need)} and have ${pct(eq)}.`;
   const ok = gr.g === "Best" || gr.g === "Good", pk = KIND_WORD[A[chosen].kind];
   const wrong = A[chosen].kind !== k ? `<p>${ok ? `<b>${pk}</b> is fine too, but the stronger play is` : `<b>${pk}</b> ${gr.p > 5 ? "gives up a lot" : "gives up a little"}. The play is`} ` : "<p>";
-  return `<h3>What do they have?</h3>${have}<h3>What do I do?</h3>${wrong}<b>${KIND_WORD[k]}.</b> ${why}</p>`;
+  return `<h3>What do they have?</h3>${have}<h3>What do I do?</h3>${wrong}<b>${KIND_WORD[k]}.</b> ${why}</p>${beginnerCompare(f, s, d, chosen, gr)}`;
+}
+// what happens after each option, side by side: this comparison is the crux of why one play beats another
+function beginnerCompare(f, s, d, chosen, gr){
+  const V = s.villain, A = s.actions, kv = kindView(s, d); if (kv.length < 2) return "";
+  const worseShare = cls => { const t = cls.reduce((a, b) => a + b, 0) || 1e-9; return cls.reduce((a, v, c) => a + (c > d.cls ? v : 0), 0) / t; };
+  const line = kind => {
+    const i = kv.find(x => x.kind === kind).i, x = respInfo(f, s, d, i), w = KIND_WORD[kind].toLowerCase();
+    if (kind === "check"){
+      if (x && x.r.kinds.includes("bet")){ const bx = x.r.kinds.indexOf("bet"), ws = worseShare(x.r.cls[bx]);
+        return `If you check, ${V} bets <b>${pct(x.raise)}</b> of the time${x.raise >= 0.1 ? `, ${ws >= 0.6 ? "mostly with worse hands (bluffs)" : ws <= 0.3 ? "mostly with hands that beat you" : "with a mix of bluffs and better hands"}` : ""}, and you keep your ${pct(d.eq)} equity for free.`; }
+      return s.street === 2 ? `If you check, it goes to showdown and you win <b>${pct(d.eq)}</b> of the time.` : `If you check, you see the next card for free with <b>${pct(d.eq)}</b> equity.`;
+    }
+    if (kind === "bet" || kind === "raise"){
+      if (!x) return `If you ${w}, ${V} has to pay to continue.`;
+      const bf = x.foldCls ? worseShare(x.foldCls) : 0.5;
+      return `If you ${w}, ${V} folds <b>${pct(x.fold)}</b>${x.fold >= 0.05 ? ` (${bf >= 0.7 ? "mostly hands you already beat" : bf <= 0.4 ? "including hands that beat you" : "some worse, some better"})` : ""}${x.raise >= 0.1 ? `, ${x.r.kinds.includes("bet") ? "bets" : "raises"} ${pct(x.raise)}` : ""}, and what continues beats you <b>${pct(1 - x.eq)}</b> of the time.`;
+    }
+    if (kind === "call") return `If you call, you pay ${bbf(s.to_call)} and win <b>${pct(d.eq)}</b> of the time; you need ${pct(s.to_call / (s.pot + s.to_call))} to break even.`;
+    return `If you fold, the ${bbf(s.pot)} pot is gone; continuing would win <b>${pct(d.eq)}</b> of the time.`;
+  };
+  const best = kv[0], alt = kv.find(x => x.kind === A[chosen].kind && x !== best) || kv[1], mixed = alt.strat >= 0.25;
+  const close = mixed ? `<p><b>The solver does both:</b> ${KIND_WORD[best.kind]} ${pct(best.strat)}, ${KIND_WORD[alt.kind]} ${pct(alt.strat)}. Either is fine here.</p>` : `<p>That is why <b>${KIND_WORD[best.kind]}</b> beats ${KIND_WORD[alt.kind].toLowerCase()} here.</p>`;
+  return `<h3>Compare</h3><p>${line(best.kind)}</p><p>${line(alt.kind)}</p>${close}${mixed ? beginnerTip(s, d, best.kind, alt.kind) : ""}`;
+}
+// when it is close, the opponent decides: a small callout on how to lean against a real player
+function beginnerTip(s, d, a, b){
+  const pair = [a, b].sort().join("/"), strong = d.eq >= 0.6;
+  const t = pair === "bet/check" ? (strong ? "Against someone who bluffs a lot, check and let them hang themselves. Against someone who calls too much, bet." : "Against someone who folds too much, bet. Against someone who never folds, check and give up cheaply.")
+    : pair === "call/fold" ? "Against someone who bluffs too much, call. Against someone who only bets when strong, fold."
+    : pair === "call/raise" ? "Against someone who folds to raises, raise. Against someone who never folds, just call and let them keep betting worse hands."
+    : pair === "fold/raise" ? "Against someone who folds to raises, raise. Against someone who never folds, fold."
+    : pair === "check/raise" || pair === "bet/raise" ? "Against a cautious player, take the bigger line. Against someone who never folds, keep it smaller." : "";
+  return t ? `<div class="tip"><b>When it is close</b>${t}</div>` : "";
 }
 // the beginner answer panel: two questions, then everything full mode shows behind "Show more"
 function beginnerPanel(f, s, d, chosen, gr){

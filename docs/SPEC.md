@@ -494,7 +494,7 @@ Two questions: *What do they have?* (villain's range collapsed to four buckets f
 shares in words) and *What do I do?* (one answer, the solver's best action kind, one templated sentence of why keyed on
 best kind, hero's coarse hand type, equity and the fold rate of villain's response). Buttons are one per action kind
 (Fold / Check / Call / Bet / Raise; a bet or raise stands for the size the solver uses most at that node). Verdict is
-Fine / Mistake / Big mistake (over 5% of pot, with the bb lost). Everything full mode shows sits behind "Show more"
+Fine / Mistake / Big mistake (over 5% of pot, with the bb lost). After the answer, buttons carry tags at once (Solver's pick / ✓ You / also fine / ✗ You, wrong pick outlined red). A Compare section says what happens after each of the two options (villain's bet or fold rate and whether that is mostly worse or better hands, equity kept, the price of a call) and closes with "that is why X beats Y" or, when the solver mixes (second kind ≥ 25%), "the solver does both" plus a When-it-is-close callout keyed on the opponent (bluffs a lot / calls too much / folds too much). The first two rungs prefer clear spots (best kind ≥ 80% or ≥ 1.5% pot ahead) with a 30% share of mixed ones. Everything full mode shows sits behind "Show more"
 (the full why and the range lens). Puzzle, Focus, the street filter and Range check are hidden. A five-rung curriculum
 (`RUNGS`) picks the spots: checked to you as the raiser (top pair / air / flush draw only), facing a c-bet in the big
 blind, the turn, facing a raise, everything; ten Fine answers unlock the next rung, a mistake takes one back, and the
