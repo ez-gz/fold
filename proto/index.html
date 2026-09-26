@@ -968,7 +968,7 @@ const beginnerGrade = gr => gr.g === "Best" || gr.g === "Good" ? { g: "Fine", cl
 const shareWord = v => v >= 0.6 ? "mostly" : v >= 0.4 ? "about half" : v >= 0.2 ? "some" : v >= 0.07 ? "a few" : "almost no";
 function beginnerWhy(f, s, d, chosen, gr){
   const g = groupSummary(s.vclass), V = s.villain, A = s.actions, best = A[gr.bestIdx], ct = coarseType(fineType(d.hand, s.board)), eq = d.eq;
-  const buckets = [["Strong", g.strong, "var(--bet1)", "strong"], ["A pair", g.mid, "var(--warn)", "a pair"], ["A draw", g.draws, "var(--call)", "a draw"], ["Nothing", g.air, "#3a4654", "nothing"]];
+  const buckets = [["Strong", g.strong, "var(--bad)", "strong"], ["A pair", g.mid, "var(--warn)", "a pair"], ["A draw", g.draws, "var(--call)", "a draw"], ["Nothing", g.air, "#3a4654", "nothing"]];
   const parts = buckets.filter(b => b[1] >= 0.07).sort((a, b) => b[1] - a[1]).map(b => `${shareWord(b[1])} are ${b[3]}`), list = parts.length > 1 ? parts.slice(0, -1).join(", ") + " and " + parts[parts.length - 1] : parts[0] || "a bit of everything";
   const eqWord = eq >= 0.6 ? "most" : eq >= 0.4 ? "about half" : eq >= 0.2 ? "some" : eq >= 0.07 ? "a little" : "almost none";
   const have = `<div class="bar" style="grid-template-columns:minmax(0,1fr) auto;margin:6px 0 4px"><div class="t" style="height:12px">${buckets.map(b => `<i style="width:${100 * b[1]}%;background:${b[2]}"></i>`).join("")}</div></div><div class="legend" style="margin-bottom:8px">${buckets.map(b => `<span><i style="background:${b[2]}"></i>${b[0]}</span>`).join("")}</div><p>Of ${V}'s hands, ${list}. You have <b>${fineType(d.hand, s.board).toLowerCase()}</b>, which beats ${eqWord} of that.</p>`;
