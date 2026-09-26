@@ -123,10 +123,11 @@ function policyAct(H, seat){
 }
 
 /* ---------- table engine ---------- */
-function arenaStart(){ AR.hand = null; arenaDeal(); }
-function arenaStop(){ AR.hand = null; }
+function arenaStart(){ arenaDeal(); }
+function arenaStop(){ const H = AR.hand; AR.hand = null; if (H && H.resolve){ const r = H.resolve; H.resolve = null; r({ kind: "fold", label: "Fold", amt: 0 }); } }   // unblock a run waiting on the hero so AR.busy clears
 function shuffled(){ const d = []; for (const r of R) for (const s of "shdc") d.push(r + s); for (let i = d.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [d[i], d[j]] = [d[j], d[i]]; } return d; }
 function arenaDeal(){
+  arenaStop();   // unwind any hand still running (a run parked on the hero's click would hold AR.busy forever)
   SEATS.forEach(p => AR.stacks[p] = 100);   // top-up every hand: equal stacks, so no side pots
   AR.seatOf = (AR.seatOf + 1) % 6; const hero = SEATS[AR.seatOf];
   const deck = shuffled(), cards = {}; SEATS.forEach(p => cards[p] = [deck.pop(), deck.pop()]);
@@ -262,7 +263,7 @@ function arenaHeroAct(o, opts, grade, box){
   [...box.querySelectorAll(".act")].forEach((b, k) => { b.disabled = true; if (opts[k].freq != null){ b.querySelector(".sub").textContent = pct(opts[k].freq); b.querySelector(".fill").style.width = (100 * opts[k].freq) + "%"; } if (opts[k] === o) b.style.outline = "2px solid #fff"; });
   if (verdict){ H.res.push(verdict); box.insertAdjacentHTML("afterend", `<div class="toast" style="color:${verdict.g === "Best" || verdict.g === "Good" ? "var(--accent)" : verdict.g === "Mistake" ? "var(--bad)" : "var(--warn)"}">${verdict.text}</div>`); }
   const res = H.resolve; H.resolve = null;
-  setTimeout(() => { if (AR.hand !== H) return; arenaApply(H.hero, a); res(a); }, verdict ? 1000 : 150);
+  setTimeout(() => { if (AR.hand === H) arenaApply(H.hero, a); res(a); }, verdict ? 1000 : 150);   // always resolve, so an abandoned hand's run can exit and free AR.busy
 }
 // frequency grading when the pack has the node but not the exact hand (or the chart preflop): filed with a flat loss estimate
 function arenaGradeFreq(o, opts, conceptName, streetName, s){
@@ -317,7 +318,7 @@ function arenaRender(acting){
   const hist = rows.map(([st, ps]) => `<div class="hrow ${st === H.street && !H.done ? "now" : "past"}"><span class="st">${st < 0 ? "Pre" : STREETS[st]}</span><div class="pls">${ps.join('<span class="arr">›</span>')}</div></div>`).join("");
   const potAll = H.pot + Object.values(H.commit).reduce((a, b) => a + b, 0), toCall = Math.max(0, H.maxCommit - H.commit[H.hero]);
   const seat = p => { const last = [...H.log].reverse().find(h => h.pos === p && h.street === H.street), dead = !H.alive.includes(p), cls = dead ? "folded" : last && (last.kind === "raise" || last.kind === "bet") ? "raise" : last && last.kind === "call" ? "call" : "";
-    return `<div class="seat ${cls} ${acting === p ? "act-now" : ""}" data-p="${p}">${p === H.hero ? "<em>YOU</em>" : ""}${p}<small>${bbf(AR.stacks[p])}${H.commit[p] && !H.done ? " · " + bbf(H.commit[p]) : ""}</small></div>`; };
+    return `<div class="seat ${cls} ${acting === p ? "act-now" : ""}" data-p="${p}">${p === H.hero ? "<em>YOU</em>" : ""}${p}<small>${bbf(AR.stacks[p])}</small>${H.commit[p] && !H.done ? `<i class="bet">${bbf(H.commit[p]).replace("bb", "")}</i>` : ""}</div>`; };
   const villains = H.done && H.showdown ? H.alive.filter(p => p !== H.hero) : [];
   const el = $(`<div class="table">
     <div class="meta"><span>${H.done ? H.note : H.f ? "solved flop" : H.street >= 0 ? "unsolved board · bots on policy" : "6-max · 100bb"}</span><span>${H.done ? (H.net >= 0 ? "+" : "") + bbf(H.net) : ""}</span></div>
