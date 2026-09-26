@@ -313,7 +313,7 @@ function explain(f, spot, d, chosen, gr){
   const V = spot.villain, A = spot.actions, out = [], g = groupSummary(spot.vclass), best = gr.bestIdx;
   const rank = d.top == null ? "" : ` — ${d.top <= 0.5 ? "top " + Math.max(1, Math.round(100*d.top)) : "bottom " + Math.max(1, Math.round(100*(1-d.top)))}% of your range`;
   if (gr.g !== "Best" && gr.g !== "Good") out.push(`<b>${A[chosen].label}</b> gives up ${gr.loss.toFixed(2)}bb vs <b>${A[best].label}</b>.`);
-  else if (d.strat.filter(v => v > 0.15).length > 1) out.push(`Mixed spot — the solver's options are near-equal in EV.`);
+  else if (d.strat.filter(v => v > 0.15).length > 1) out.push(`Mixed spot: the options are near-equal in EV.`);
   out.push(`<span class="k">${V}:</span> ${pct(g.strong)} top pair+, ${pct(g.mid)} weak pairs, ${pct(g.draws)} draws, ${pct(g.air)} air. <span class="k">You:</span> ${f.class_names[d.cls].toLowerCase()}, <b>${pct(d.eq)}</b> equity${rank}.`);
   const line = i => {
     const a = A[i], x = respInfo(f, spot, d, i);
@@ -436,7 +436,7 @@ function renderRangeCheck(){
   const F = formInfo(state.cur.f), pre = F.pre ? F.pre[F.pos.indexOf(s.villain)] : null;
   const loadPre = () => { base.clear(); added.clear(); removed.clear(); if (pre) pre.forEach((w, i) => { if (w >= 0.3) base.add(i); }); };
   const recompute = () => { sel.clear(); base.forEach(i => sel.add(i)); added.forEach(i => sel.add(i)); removed.forEach(i => sel.delete(i)); };
-  const sheet = $(`<div class="sheet"><p class="prompt">${pre ? `This is <b>${s.villain}</b>'s preflop range (${s.villain === F.opener ? "raised " + bbf(F.open_size) : "called " + F.opener + "'s raise"}). Narrow it to what they still have after the action so far.` : `Before you act: paint the hands <b>${s.villain}</b> can have here.`}</p><div class="chips" id="presets" style="margin-bottom:9px"></div></div>`);
+  const sheet = $(`<div class="sheet"><p class="prompt">${pre ? `<b>${s.villain}</b>'s preflop range. Narrow it to what they still have now.` : `Paint the hands <b>${s.villain}</b> can have here.`}</p><div class="chips" id="presets" style="margin-bottom:9px"></div></div>`);
   // board-aware one-tap groups (chart cells are rank-only, so suits/draws stay manual)
   const rc = i => [Math.floor(i/13), i%13], br = [...new Set(s.board.map(c => R.indexOf(c[0])))].sort((x, y) => x - y), top = br[0];
   const presets = {};
@@ -600,7 +600,7 @@ function handAnswer(i, gr){
   if (navigator.vibrate) navigator.vibrate(gr.g === "Best" ? 12 : [30, 40, 30]);
   const ok = gr.g === "Best" || gr.g === "Good";
   let note = ok ? "" : `Solver prefers <b>${s.actions[gr.bestIdx].label}</b>. `;
-  if (i !== step.line) note += `The hand continues down the solver's line: <b>${s.actions[step.line].label}</b>.`;
+  if (i !== step.line) note += `Continues on the solver's line: <b>${s.actions[step.line].label}</b>.`;
   main.appendChild($(`<div class="verdict g-${gr.g}"><div class="g">${gr.g} <small style="font-size:13px;font-weight:600;opacity:.8">${capText(d, i)}</small></div><div class="l">${lossText(gr)}</div></div>`));
   // the same why as Drills, then the range lens folded away so the hand keeps its pace
   main.appendChild($(`<div class="sheet why"><h3>Why</h3>${note ? `<p>${note}</p>` : ""}${explain(H.f, s, d, i, gr)}</div>`));
@@ -629,9 +629,9 @@ function handEnd(){
   if (h.net != null){
     const s0 = h.steps[0], exp = s0.spot.drills[0].ev[s0.line] - (f.eff_stack - s0.spot.stack), sg = v => (v >= 0 ? "+" : "") + v.toFixed(1) + "bb";
     const off = H.res.some((r, k) => r.i !== h.steps[k].line);
-    luck = `<div class="two" style="margin-top:12px;text-align:center"><div class="kpi"><b style="color:${h.net >= 0 ? "var(--accent)" : "var(--bad)"}">${sg(h.net)}</b><span>actual result</span></div><div class="kpi"><b>${sg(exp)}</b><span>expected from the flop</span></div></div><div style="color:var(--dim);font-size:11px;margin-top:6px">${h.net - exp >= 0 ? "Ran " + (h.net - exp).toFixed(1) + "bb above" : "Ran " + (exp - h.net).toFixed(1) + "bb below"} expectation${off ? " · the hand continued on the solver's line, not yours" : ""}</div>`;
+    luck = `<div class="two" style="margin-top:12px;text-align:center"><div class="kpi"><b style="color:${h.net >= 0 ? "var(--accent)" : "var(--bad)"}">${sg(h.net)}</b><span>actual result</span></div><div class="kpi"><b>${sg(exp)}</b><span>expected from the flop</span></div></div><div style="color:var(--dim);font-size:11px;margin-top:6px">${h.net - exp >= 0 ? "Ran " + (h.net - exp).toFixed(1) + "bb above" : "Ran " + (exp - h.net).toFixed(1) + "bb below"} expectation${off ? " · played out on the solver's line" : ""}</div>`;
   }
-  const sheet = $(`<div class="sheet score"><h3>Decision score</h3><div class="big">${score.toFixed(1)}<small> / 10</small></div><div style="color:var(--dim);font-size:12px;margin-top:6px">${lost < 0.005 ? "No EV given up" : `${lost.toFixed(2)}bb of EV given up`} · you captured ${hs.got.toFixed(2)} of the ${hs.max.toFixed(2)}bb between the worst and best lines</div>${luck}<div class="rows"></div></div>`);
+  const sheet = $(`<div class="sheet score"><h3>Decision score</h3><div class="big">${score.toFixed(1)}<small> / 10</small></div><div style="color:var(--dim);font-size:12px;margin-top:6px">${lost < 0.005 ? "No EV given up" : `${lost.toFixed(2)}bb given up`} · ${hs.got.toFixed(2)} of ${hs.max.toFixed(2)}bb captured</div>${luck}<div class="rows"></div></div>`);
   H.res.forEach((r, k) => { const sp = h.steps[k].spot; const row = $(`<div class="row"><span style="color:var(--dim)">${STREETS[sp.street]}</span><span style="text-align:left">${sp.actions[r.i].label}<small>${r.gr.g}${r.gr.bestIdx !== r.i ? ` · solver: ${sp.actions[r.gr.bestIdx].label}` : ""}</small></span><span class="pts">${r.cap}</span></div>`); row.onclick = () => replay(k); sheet.querySelector(".rows").appendChild(row); });
   main.appendChild(sheet);
   const review = $(`<div id="review"></div>`); main.appendChild(review);
@@ -687,7 +687,7 @@ function riverPick(H, board){
       } else {
         const me = t.k === "hr" ? cellOf(h.hero_hand) : -1;
         paintSplit(g, t.k === "vr" ? rc.vr : rc.hr, [{ color: "var(--call)", grid: Array(169).fill(1) }], me);
-        kp.innerHTML = ""; leg.innerHTML = `<span><i style="background:var(--call)"></i>${t.k === "vr" ? h.villain + "'s" : "your"} range on this river (taller = more combos)</span>`;
+        kp.innerHTML = ""; leg.innerHTML = `<span><i style="background:var(--call)"></i>${t.k === "vr" ? h.villain + "'s" : "your"} range on this river · taller = more combos</span>`;
       }
     };
     tabs.forEach(t => { const el = $(`<div>${t.l}</div>`); el.onclick = () => paint(t); sheet.querySelector("#tabs").appendChild(el); });
@@ -697,7 +697,7 @@ function riverPick(H, board){
     if (state.mode === "hands" && !sessionStorage.getItem("fold.whatif")) sessionStorage.setItem("fold.whatif", "1");
   };
   const open = () => {
-    const body = $(`<div><div style="color:var(--dim);font-size:13px;margin-bottom:10px">Same action to the turn, different river. The score does not change.</div><div class="pickgrid"></div></div>`);
+    const body = $(`<div><div style="color:var(--dim);font-size:13px;margin-bottom:10px">Same line to the turn. The score does not change.</div><div class="pickgrid"></div></div>`);
     const grid = body.querySelector(".pickgrid"), have = new Set(sw.cards.map(c => c.card));
     for (const su of "shdc") for (const r of "AKQJT98765432"){ const c = r + su, ok = have.has(c) && !hidden.has(c) && c !== h.board[4]; const el = $(cardEl(c, "mini" + (ok ? "" : " off") + (c === h.board[4] ? " cur" : ""))); if (ok) el.onclick = () => { document.querySelector(".overlay")?.remove(); show(c); }; grid.appendChild(el); }
     overlay("Pick a river card", body);
@@ -815,7 +815,7 @@ function suitNote(s){
 }
 function cellPopup(f, s, d, cell, tab){
   if (cell < 0) return;
-  if (!s.vdetail){ overlay(cellName(cell), $(`<div style="color:var(--dim);font-size:14px">The suit-by-suit breakdown for this board isn't in the pack yet. It is being added board by board.</div>`)); return; }
+  if (!s.vdetail){ overlay(cellName(cell), $(`<div style="color:var(--dim);font-size:14px">No suit breakdown for this board yet.</div>`)); return; }
   const mine = tab === -2, list = mine ? s.hdetail : s.vdetail, who = mine ? s.hero : s.villain, r = tab >= 0 ? s.resp[tab] : null;
   const norm = c => { const a = c.slice(0, 2), b = c.slice(2, 4); return R.indexOf(a[0]) < R.indexOf(b[0]) || (a[0] === b[0] && "shdc".indexOf(a[1]) < "shdc".indexOf(b[1])) ? a + b : b + a; };
   const idx = {}; list.forEach((x, k) => idx[norm(x[0])] = k);
@@ -834,7 +834,7 @@ function cellPopup(f, s, d, cell, tab){
     return `<div class="sq ${mine && c === me ? "me" : ""}"><i style="background:linear-gradient(90deg,${stops.join(",")});top:${100 - Math.max(8, w)}%"></i>${lab}<small>${topA}</small></div>`; };
   const su = suited ? [...S].map(a => tile(a, a)).join("") : [...S].map(a => [...S].map(b => tile(a, b)).join("")).join("");
   const inN = allCombos(cell, s.board).filter(c => idx[c] != null).length, tot = allCombos(cell, s.board).length;
-  const body = $(`<div><p style="color:var(--dim);font-size:12px;margin:0 0 10px">${inN} of ${tot} possible combos are in ${who}'s range here${r ? `, facing ${s.actions[tab].label.toLowerCase()}` : ""}. Height = how often that exact combo gets here; colours = what it does${suited ? "" : pairC ? "" : ` (rows: suit of the ${hi}, columns: suit of the ${lo})`}.</p>
+  const body = $(`<div><p style="color:var(--dim);font-size:12px;margin:0 0 10px">${inN} of ${tot} combos in ${who}'s range${r ? `, facing ${s.actions[tab].label.toLowerCase()}` : ""} · height = weight, colour = action</p>
     <div class="sqg ${suited ? "two" : ""}">${su}</div>${acts.length ? `<div class="legend" style="margin-top:10px">${acts.map(a => `<span><i style="background:${a.color}"></i>${a.label}</span>`).join("")}</div>` : ""}</div>`);
   overlay(`${cellName(cell)} — ${mine ? "your plan" : r ? who + "'s answer" : who + "'s range"}`, body);
 }
@@ -855,7 +855,7 @@ function lens(f, s, d, chosen, gr){
       const sv = sheet._suit || 0, src = !s.vsuit || !sv ? s.vr : (sv === 1 ? s.vsuit.with : s.vsuit.without).map(x => Math.max(0, x));
       paintSplit(g, src, [{ color: "var(--call)", grid: Array(169).fill(1) }], -1);
       kp.innerHTML = `<div class="kpi"><b>${pct(d.eq)}</b><span>your equity</span></div><div class="kpi"><b>${pct(s.vclass[0]+s.vclass[1])}</b><span>top pair+</span></div><div class="kpi"><b>${pct(s.vclass[5]+s.vclass[6])}</b><span>ace-high / air</span></div>`;
-      leg.innerHTML = `<span><i style="background:var(--call)"></i>in range (taller = more of the hand's combos still here)</span>`;
+      leg.innerHTML = `<span><i style="background:var(--call)"></i>in range · taller = more combos</span>`;
       if (s.vsuit){ const ch = SUITCH[s.vsuit.suit], row = $(`<div class="chips" style="margin:6px 0 0">${["All suits", "With a " + ch, "No " + ch].map((n, k) => `<div class="chip ${k === (sheet._suit || 0) ? "on" : ""}">${n}</div>`).join("")}</div>`);
         [...row.children].forEach((el, k) => el.onclick = () => { sheet._suit = k; show(t); }); leg.appendChild(row); }
       bars.innerHTML = f.class_names.map((n, c) => barRow(n, [{ v: s.vclass[c], c: "var(--call)" }], pct(s.vclass[c]))).join("");
@@ -932,7 +932,7 @@ function patternRows(body){
     const id = coarseType(k.split("|")[0]) + "|" + w; if (x.n >= minErr && a.n >= minN && !seen.has(id)){ seen.add(id); rows.push({ k, w, x, n: a.n }); } })));
   rows.sort((p, q) => q.x.p - p.x.p);
   body.appendChild($(`<h4 style="margin:14px 0 6px;font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em">Your patterns</h4>`));
-  if (!rows.length){ const tot = Object.values(pat).reduce((a, e) => a + e.n, 0); body.appendChild($(`<p style="color:var(--dim);font-size:12px">No repeated mistake yet (${tot} decisions filed). A pattern needs the same kind of error twice with the same kind of hand.</p>`)); return; }
+  if (!rows.length){ const tot = Object.values(pat).reduce((a, e) => a + e.n, 0); body.appendChild($(`<p style="color:var(--dim);font-size:12px">No repeated mistake yet · ${tot} decisions filed.</p>`)); return; }
   const TYPE_OF = { "Top pair": ["Top pair / overpair"], "Overpair": ["Top pair / overpair"], "Weak pair": ["Middle / weak pair"], "Two pair+": ["Two pair+"], "Flush draw": ["Strong draw"], "Straight draw": ["Strong draw", "Gutshot / overcards"], "Air": ["Ace high", "Air", "Gutshot / overcards"] };
   rows.slice(0, 6).forEach(r => { const [cls, ctx] = r.k.split("|"), st = Object.entries(r.x.st).sort((p, q) => q[1] - p[1]).map(([s, n]) => `${s.toLowerCase()} ${n}`).join(", ");
     const row = $(`<div style="padding:7px 0;border-bottom:1px solid var(--line,#2a2f3a);font-size:13px;display:flex;gap:8px;align-items:center"><div style="flex:1"><b>${cls}</b>${ctx ? " " + ctx : ""}: you <b style="color:var(--bad)">${r.w}</b><div style="color:var(--dim);font-size:11px;margin-top:2px">${r.x.n} of ${r.n} decisions · ${(r.x.p / r.x.n).toFixed(1)}% of pot lost each time · ${st}</div></div><div class="chip" style="flex:none">Train</div></div>`);
@@ -956,16 +956,15 @@ function leakSheet(){
     ks.forEach(k => { const e = b[k], row = $(`<div class="bar" style="grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) 78px;cursor:pointer"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${k.slice(2)}</span><div class="t"><i style="width:${100*avgLoss(e)/max}%;background:${avgLoss(e) > 3 ? "var(--bad)" : avgLoss(e) > 1.2 ? "var(--warn)" : "var(--accent)"}"></i></div><b>${avgLoss(e).toFixed(1)}% · ${e.n}</b></div>`);
       const name = k.slice(2), focus = prefix === "c:" ? { label: name, concepts: [name], types: [] } : prefix === "h:" ? { label: name.toLowerCase() + " hands", concepts: [], types: [name] } : prefix === "s:" ? { label: "the " + name.toLowerCase(), concepts: [], types: [], streets: [STREET_NAMES.indexOf(name)] } : null;
       if (focus) row.onclick = () => trainPick(focus); body.appendChild(row); });
-    if (prefix === "c:") body.appendChild($(`<p style="color:var(--dim);font-size:11px;margin:4px 0 0">Tap a row to train it.</p>`));
   };
-  if (!Object.keys(b).length) body.appendChild($(`<p style="color:var(--dim)">Play some hands or drills first. Every decision is filed under its situation, street and hand type; this screen shows where your EV goes.</p>`));
+  if (!Object.keys(b).length) body.appendChild($(`<p style="color:var(--dim)">Play some hands or drills first.</p>`));
   const plan = leakPlan();
   if (plan){ const n = Object.keys(b).filter(k => k.startsWith("s:")).reduce((a, k) => a + b[k].n, 0);
     const hd = $(`<div class="sheet" style="margin:0 0 6px;padding:12px 14px;border:1px solid var(--accent)"><h3 style="margin:0 0 4px">Train my leaks</h3><p style="margin:0 0 8px;font-size:12px;color:var(--dim)">${n} decisions filed. Costliest: ${[...plan.concepts, ...plan.types.map(t => t.toLowerCase() + " hands")].join(", ")}.</p><div class="chips"><div class="chip on">Hands</div><div class="chip">Drills</div><div class="chip">Puzzle</div></div></div>`);
     [...hd.querySelectorAll(".chip")].forEach((c, k) => c.onclick = () => trainFocus("leaks", ["hands", "drills", "puzzle"][k])); body.appendChild(hd); }
   patternRows(body);
   group("By situation", "c:"); group("By street", "s:"); group("By hand type", "h:"); group("By role", "p:");
-  body.appendChild($(`<p style="color:var(--dim);font-size:11px;margin-top:10px">Average EV lost per decision, as % of pot · number of decisions. Bars compare within a group.</p>`));
+  body.appendChild($(`<p style="color:var(--dim);font-size:11px;margin-top:10px">% of pot lost per decision · decisions</p>`));
   const rs = $(`<button class="next ghost" style="position:static;margin-top:6px">Reset history</button>`); rs.onclick = () => { store.set("book", {}); store.set("patterns", {}); o.remove(); }; body.appendChild(rs);
   const o = overlay("Where your EV goes", body);
 }
@@ -1067,7 +1066,7 @@ function puzzleWhy(s, W, inPre, CO){
   const tops = [...Array(169).keys()].filter(i => inPre(i) && CO[i].length && !CO[i].some(c => (W[c] || 0) >= 0.05) && ["strong"].includes(kind(CO[i][0]))).slice(0, 4).map(cellName);
   if (mids.length) out.push(`<b>Missing middle:</b> ${mids.join(", ")} have a pair that beats every bluff but loses to the value hands. Betting them folds out worse and gets called by better, so they take a checking line instead.`);
   if (tops.length) out.push(`<b>Missing monsters:</b> ${tops.join(", ")} would be strong here but mostly played an earlier street differently (bet or raised sooner, or chose the other bet size).`);
-  out.push(`<span style="color:var(--dim)">Which exact bluff combos get picked is partly arbitrary: the solver spreads bluffs over many near-equal hands, which is why weights under 30% are not required.</span>`);
+  out.push(`<span style="color:var(--dim)">Bluff combos under 30% are not required: the solver spreads them over near-equal hands.</span>`);
   return `<div class="pzwhy">${out.map(x => `<p>${x}</p>`).join("")}</div>`;
 }
 // replay the action: preflop pills, then each street's cards and actions, one at a time (tap the table to skip)
@@ -1107,7 +1106,7 @@ function nextPuzzle(){
   main.innerHTML = "";
   main.appendChild($(`<div class="table"><div class="hist">${rows.map(([st, ps]) => `<div class="hrow past"><span class="st">${st < 0 ? "Pre" : STREETS[st]}</span><div class="pls">${ps.join("")}</div></div>`).join("")}</div><div class="board">${s.board.map(c => cardEl(c)).join("")}</div></div>`));
   animateTable(main.querySelector(".table"));
-  const sheet = $(`<div class="sheet pz"><p class="prompt"><b>${s.villain}</b> gets here with about <b>${need}</b> exact combos. Find them. Dim squares were never in ${s.villain}'s preflop range.</p>
+  const sheet = $(`<div class="sheet pz"><p class="prompt"><b>${s.villain}</b> gets here with about <b>${need}</b> combos. Find them.</p>
     <div class="pzcount"><b id="pzn">0</b> / ${need} picked</div><div class="chips" id="pzp" style="margin-bottom:9px"></div><div id="pzgrid"></div><div id="pzfocus"></div>
     <div class="pztray" id="pztray"></div></div>`);
   const g = gridEl(); sheet.querySelector("#pzgrid").appendChild(g);
@@ -1124,14 +1123,14 @@ function nextPuzzle(){
       el.className = cls; el.firstChild.style.cssText = n ? `background:var(--accent);opacity:.55;top:${100 - 100 * fr}%` : ""; });
     const fo = sheet.querySelector("#pzfocus");
     if (focus < 0 || !CO[focus].length) fo.innerHTML = "";
-    else { fo.innerHTML = `<div class="pzf"><div class="hd"><b>${cellName(focus)}</b><span>${done ? "weight = how often this combo gets here" : "tap a combo to drop or add it"}</span>${done ? "" : `<em data-a="all">all</em>${hasFs ? `<em data-a="fs">${SUITCH[fs]} only</em>` : ""}<em data-a="none">none</em>`}</div><div class="cbs">${CO[focus].map(c => pair(c, (sel.has(c) ? "on " : "") + (done ? markOf(c) : ""))).join("")}</div></div>`;
+    else { fo.innerHTML = `<div class="pzf"><div class="hd"><b>${cellName(focus)}</b><span></span>${done ? "" : `<em data-a="all">all</em>${hasFs ? `<em data-a="fs">${SUITCH[fs]} only</em>` : ""}<em data-a="none">none</em>`}</div><div class="cbs">${CO[focus].map(c => pair(c, (sel.has(c) ? "on " : "") + (done ? markOf(c) : ""))).join("")}</div></div>`;
       if (done) [...fo.querySelectorAll(".cb")].forEach(b => { const w = W[b.dataset.c] || 0; if (w >= 0.05) b.insertAdjacentHTML("beforeend", `<small>${Math.round(100 * w)}%</small>`); });
       [...fo.querySelectorAll(".cb")].forEach(b => b.onclick = () => { if (done) return; sel.has(b.dataset.c) ? sel.delete(b.dataset.c) : sel.add(b.dataset.c); draw(); });
       [...fo.querySelectorAll("em")].forEach(e => e.onclick = () => { CO[focus].forEach(c => (e.dataset.a === "all" || (e.dataset.a === "fs" && holds(c))) ? sel.add(c) : sel.delete(c)); draw(); }); }
     // the table: every exact holding laid out, overlapping, grouped by hand
     const tray = sheet.querySelector("#pztray"), list = done ? [...new Set([...sel, ...Object.keys(W).filter(c => W[c] >= 0.3)])] : [...sel];
     const by = {}; list.forEach(c => (by[comboCell(c)] = by[comboCell(c)] || []).push(c));
-    tray.innerHTML = list.length ? Object.keys(by).map(Number).sort((x, y) => x - y).map(i => `<div class="grp" data-i="${i}"><label>${cellName(i)}</label><div class="fan">${by[i].map(c => pair(c, "on " + (done ? markOf(c) : ""))).join("")}</div></div>`).join("") : `<span class="hint">Picked hands show up here as cards.</span>`;
+    tray.innerHTML = list.length ? Object.keys(by).map(Number).sort((x, y) => x - y).map(i => `<div class="grp" data-i="${i}"><label>${cellName(i)}</label><div class="fan">${by[i].map(c => pair(c, "on " + (done ? markOf(c) : ""))).join("")}</div></div>`).join("") : "";
     [...tray.querySelectorAll(".grp")].forEach(el => el.onclick = () => { focus = +el.dataset.i; draw(); });
   };
   g.onclick = e => { const el = e.target.closest(".cell"); if (!el) return; const i = [...g.children].indexOf(el), cs = CO[i]; if (!cs.length) return;
@@ -1171,7 +1170,7 @@ function nextPuzzle(){
     new Set([...sel, ...Object.keys(W)]).forEach(c => { const m = markOf(c); if (m === "ok") hit++; else if (m === "miss") miss++; else if (m === "extra") extra++; });
     const score = 2*hit / (2*hit + miss + extra || 1), st = store.get("puzzle", { n: 0, sum: 0 }); st.n++; st.sum += score; store.set("puzzle", st); state.shareScore = Math.round(100 * score) + "%"; renderStats();
     const P = sheet.querySelector(".prompt");
-    P.innerHTML = `<b>${pct(score)}</b> · found ${hit} of ${need}${miss ? `, <span style="color:var(--bad)">missed ${miss}</span>` : ""}${extra ? `, <span style="color:var(--warn)">${extra} not there</span>` : ""}. ${suitNote(s)} <span style="color:var(--dim)">Average ${pct(st.sum / st.n)} over ${st.n}. Tap any square for its exact combos.</span>`;
+    P.innerHTML = `<b>${pct(score)}</b> · found ${hit} of ${need}${miss ? `, <span style="color:var(--bad)">missed ${miss}</span>` : ""}${extra ? `, <span style="color:var(--warn)">${extra} not there</span>` : ""}. ${suitNote(s)} <span style="color:var(--dim)">Average ${pct(st.sum / st.n)} over ${st.n}.</span>`;
     const BIG = [0, 14, 28, 42, 56, 70, 84, 1, 13], allIn = new Set(s.vcombos.map(c => comboCell(c[0])));
     const gone = BIG.filter(i => inPre(i) && CO[i].length && !allIn.has(i)), never = pre ? BIG.filter(i => !inPre(i) && CO[i].length) : [];
     if (gone.length) P.innerHTML += ` <span style="color:var(--dim)">${gone.map(cellName).join(", ")} started in ${s.villain}'s range but ${gone.length > 1 ? "take" : "takes"} a different line.</span>`;
