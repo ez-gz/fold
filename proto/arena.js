@@ -44,7 +44,8 @@ const rangeGrid = name => AR_GRIDS[name] || (AR_GRIDS[name] = parseRange(AR_RANG
 
 const AR_ORDER_PRE = ["UTG", "HJ", "CO", "BTN", "SB", "BB"], AR_ORDER_POST = ["SB", "BB", "UTG", "HJ", "CO", "BTN"];
 const AR_OPEN = { UTG: 2.5, HJ: 2.5, CO: 2.5, BTN: 2.5, SB: 3 };
-const AR = { stacks: {}, seatOf: 0, net: 0, n: 0, graded: 0, ok: 0, hand: null, busy: false };
+const AR = Object.assign({ stacks: {}, seatOf: 0, net: 0, n: 0, graded: 0, ok: 0, rebuys: 0, stack: 100 }, store.get("arena", {}), { hand: null, busy: false });
+function arenaSave(){ store.set("arena", { seatOf: AR.seatOf, net: AR.net, n: AR.n, graded: AR.graded, ok: AR.ok, rebuys: AR.rebuys, stack: AR.stack }); }
 
 /* ---------- preflop policy: (raise, call) probabilities for a seat from the charts ---------- */
 function prePolicy(H, seat, cell){
@@ -128,11 +129,12 @@ function arenaStop(){ const H = AR.hand; AR.hand = null; if (H && H.resolve){ co
 function shuffled(){ const d = []; for (const r of R) for (const s of "shdc") d.push(r + s); for (let i = d.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [d[i], d[j]] = [d[j], d[i]]; } return d; }
 function arenaDeal(){
   arenaStop();   // unwind any hand still running (a run parked on the hero's click would hold AR.busy forever)
-  SEATS.forEach(p => AR.stacks[p] = 100);   // top-up every hand: equal stacks, so no side pots
+  if (AR.stack < 1){ arenaBusted(); return; }
   AR.seatOf = (AR.seatOf + 1) % 6; const hero = SEATS[AR.seatOf];
+  SEATS.forEach(p => AR.stacks[p] = 100); AR.stacks[hero] = AR.stack;   // bots top up every hand; you carry your stack
   const deck = shuffled(), cards = {}; SEATS.forEach(p => cards[p] = [deck.pop(), deck.pop()]);
-  const H = { hero, cards, deck, board: [], street: -1, pot: 0, commit: {}, maxCommit: 0, alive: [...SEATS], allin: [], raises: [], callers: [], aggressor: null, post: [], f: null, log: [], done: false, res: [] };
-  SEATS.forEach(p => H.commit[p] = 0); H.commit.SB = 0.5; H.commit.BB = 1; AR.stacks.SB -= 0.5; AR.stacks.BB -= 1; H.maxCommit = 1;
+  const H = { hero, cards, deck, board: [], street: -1, pot: 0, commit: {}, paid: {}, maxCommit: 0, start: AR.stack, alive: [...SEATS], allin: [], raises: [], callers: [], aggressor: null, post: [], f: null, log: [], done: false, res: [] };
+  SEATS.forEach(p => { H.commit[p] = 0; H.paid[p] = 0; }); H.commit.SB = Math.min(0.5, AR.stacks.SB); H.commit.BB = Math.min(1, AR.stacks.BB); AR.stacks.SB -= H.commit.SB; AR.stacks.BB -= H.commit.BB; H.maxCommit = 1; ["SB", "BB"].forEach(p => { if (AR.stacks[p] <= 0.001) H.allin.push(p); });
   AR.hand = H; arenaRender(); arenaRun();
 }
 const arDelay = () => AR.fast ? 0 : 380 + Math.random() * 320;
@@ -145,6 +147,7 @@ async function bettingRound(H, order){
     const p = order[i % order.length]; i++;
     if (!H.alive.includes(p) || H.allin.includes(p) || (acted.has(p) && H.commit[p] === H.maxCommit)) continue;
     const a = await arenaDecide(p); if (AR.hand !== H) return false; acted.add(p);
+    if (p === H.hero && a.kind === "fold"){ arenaFoldOut(H); return false; }   // hero is out: the hand is over for them, deal the next one
     if (a.kind === "bet" || a.kind === "raise" || a.kind === "open"){ acted = new Set([p]); if (H.street >= 0) H.aggressor = p; }
   }
   return true;
@@ -156,7 +159,7 @@ async function arenaRun(){
   try {
     if (!await bettingRound(H, AR_ORDER_PRE)) return;
     for (let st = 0; st < 3 && H.alive.length > 1; st++){
-      H.street = st; SEATS.forEach(p => { H.pot += H.commit[p]; H.commit[p] = 0; }); H.maxCommit = 0;
+      H.street = st; SEATS.forEach(p => { H.pot += H.commit[p]; H.paid[p] += H.commit[p]; H.commit[p] = 0; }); H.maxCommit = 0;
       if (st === 0) H.aggressor = H.raises.length ? H.raises[H.raises.length - 1].seat : null;
       if (st === 0) arenaFlop(H); else H.board.push(H.deck.pop());
       arenaRender(); await sleep(AR.fast ? 0 : 500); if (AR.hand !== H) return;
@@ -211,7 +214,7 @@ function arenaApply(p, a){
   else { const to = Math.min(a.amt, AR.stacks[p] + prev); AR.stacks[p] -= to - prev; H.commit[p] = to; if (to > H.maxCommit) H.maxCommit = to; if (AR.stacks[p] <= 0.001) H.allin.push(p);
     if (H.street < 0){ if (a.kind === "open" || a.kind === "raise"){ H.raises.push({ seat: p, to }); H.callers = []; } else if (a.kind === "call") H.callers.push(p); } }
   const n = H.raises.length, label = a.kind === "open" ? bbf(H.commit[p]) : a.kind === "raise" && H.street < 0 ? `${n === 2 ? "3-bet" : n === 3 ? "4-bet" : "raise"} ${bbf(H.commit[p])}` : a.kind === "call" ? `call${H.street < 0 ? "" : " " + bbf(H.commit[p] - prev)}` : a.kind === "bet" ? `bet ${bbf(H.commit[p])}` : a.kind === "raise" ? `raise ${bbf(H.commit[p])}` : a.kind;
-  H.log.push({ street: H.street, pos: p, label, kind: a.kind === "open" ? "raise" : a.kind, allin: H.allin.includes(p) });
+  H.log.push({ street: H.street, pos: p, label, kind: a.kind === "open" || a.kind === "bet" ? "raise" : a.kind, allin: H.allin.includes(p) });
   if (H.street >= 0) H.post.push({ street: H.street, pos: p, label: a.kind === "bet" || a.kind === "raise" ? a.label : a.kind === "call" ? "Call" : a.kind === "check" ? "Check" : "Fold" });
   arenaRender();
 }
@@ -230,7 +233,7 @@ function arenaButtons(){
     const node = solvedNode(H), pot = H.pot + Object.values(H.commit).reduce((a, b) => a + b, 0);
     if (node && node.actor === p && node.actions.some((a, k) => node.strat[k] && node.strat[k][cell] > 0)){
       const tot = node.actions.reduce((t, a, k) => t + (node.strat[k] ? node.strat[k][cell] : 0), 0);
-      opts = node.actions.map((a, k) => ({ kind: a.kind, label: a.kind === "call" ? `Call ${bbf(toCall)}` : a.kind === "bet" ? `Bet ${bbf(a.amt)} (${a.label.replace(/\D/g, "")}%)` : a.kind === "raise" ? `Raise to ${bbf(a.amt)}` : a.label, amt: a.kind === "call" ? Math.min(cap, H.maxCommit) : a.kind === "check" || a.kind === "fold" ? H.commit[p] : Math.min(cap, a.amt), raw: a.label, freq: (node.strat[k] ? node.strat[k][cell] : 0) / tot }));
+      opts = node.actions.map((a, k) => ({ kind: a.kind, label: a.kind === "call" ? `Call ${bbf(Math.min(toCall, stack))}` : (a.kind === "bet" || a.kind === "raise") && a.amt >= cap ? `All-in ${bbf(stack)}` : a.kind === "bet" ? `Bet ${bbf(a.amt)} (${a.label.replace(/\D/g, "")}%)` : a.kind === "raise" ? `Raise to ${bbf(a.amt)}` : a.label, amt: a.kind === "call" ? Math.min(cap, H.maxCommit) : a.kind === "check" || a.kind === "fold" ? H.commit[p] : Math.min(cap, a.amt), raw: a.label, freq: (node.strat[k] ? node.strat[k][cell] : 0) / tot }));
       grade = { kind: "solved", node };
     } else {
       if (toCall > 0) opts.push({ kind: "fold", label: "Fold", amt: H.commit[p] });
@@ -296,8 +299,21 @@ function rank7(cards){
 }
 const cmpRank = (a, b) => { for (let i = 0; i < Math.max(a.length, b.length); i++){ const d = (a[i] || 0) - (b[i] || 0); if (d) return d; } return 0; };
 const RANK_NAMES = ["high card", "a pair", "two pair", "three of a kind", "a straight", "a flush", "a full house", "quads", "a straight flush"];
+// hero folded: settle their result now (what they put in is gone), skip the rest of the hand and deal again
+function arenaFoldOut(H){
+  H.done = true;   // your stack already reflects what you put in; the bots top up next hand anyway
+  arenaSettle(H, "You folded"); H.showdown = false; H.quick = true;
+  arenaRender(); renderStats();
+  setTimeout(() => { if (AR.hand === H && !AR.busy) arenaDeal(); }, AR.fast ? 0 : 700);
+}
+function arenaSettle(H, note){ AR.stack = Math.max(0, Math.round(AR.stacks[H.hero] * 100) / 100); const net = AR.stack - H.start; AR.net += net; AR.n++; H.net = net; H.note = note; arenaSave(); }
+function arenaBusted(){
+  AR.hand = null; main.innerHTML = "";
+  main.appendChild($(`<div class="sheet"><h3>Busted</h3><p style="margin:0 0 12px;color:var(--dim);font-size:13px">Your stack is gone. Buy back in for 100bb; the session keeps counting.</p><div class="kpis"><div class="kpi"><b style="color:${AR.net >= 0 ? "var(--accent)" : "var(--bad)"}">${(AR.net >= 0 ? "+" : "") + bbf(AR.net)}</b><span>net · ${AR.n} hands</span></div><div class="kpi"><b>${AR.rebuys}</b><span>buy-ins so far</span></div></div></div>`));
+  const b = $(`<button class="next">Buy back in · 100bb</button>`); b.onclick = () => { AR.rebuys++; AR.stack = 100; arenaSave(); arenaDeal(); }; main.appendChild(b);
+}
 function arenaFinish(){
-  const H = AR.hand; H.done = true; SEATS.forEach(p => { H.pot += H.commit[p]; H.commit[p] = 0; });
+  const H = AR.hand; H.done = true; SEATS.forEach(p => { H.pot += H.commit[p]; H.paid[p] += H.commit[p]; H.commit[p] = 0; });
   let winners = H.alive, note = "";
   if (H.alive.length > 1){
     while (H.board.length < 5) H.board.push(H.deck.pop());   // run it out when everyone is all-in
@@ -305,8 +321,11 @@ function arenaFinish(){
     winners = H.alive.filter(p => H.alive.every(q => cmpRank(ranks[p], ranks[q]) >= 0));
     note = `${winners.join(" & ")} ${winners.length > 1 ? "split" : "wins"} with ${RANK_NAMES[ranks[winners[0]][0]]}`;
   } else note = `${winners[0]} takes it`;
-  const share = H.pot / winners.length; winners.forEach(p => AR.stacks[p] += share);
-  const net = AR.stacks[H.hero] - 100; AR.net += net; AR.n++; H.net = net; H.note = note; H.showdown = H.alive.length > 1;
+  // side pots: each contribution level is its own pot, shared by the best hand among those who reached it
+  const ranks = {}; H.alive.forEach(p => ranks[p] = H.alive.length > 1 ? rank7([...H.cards[p], ...H.board]) : [0]);
+  const levels = [...new Set(H.alive.map(p => H.paid[p]))].sort((a, b) => a - b); let prev = 0;
+  for (const lv of levels){ let amt = 0; SEATS.forEach(p => amt += Math.max(0, Math.min(H.paid[p], lv) - prev)); const elig = H.alive.filter(p => H.paid[p] >= lv), ws = elig.filter(p => elig.every(q => cmpRank(ranks[p], ranks[q]) >= 0)); ws.forEach(p => AR.stacks[p] += amt / ws.length); prev = lv; }
+  arenaSettle(H, note); H.showdown = H.alive.length > 1;
   arenaRender(); renderStats();
 }
 
@@ -320,18 +339,28 @@ function arenaRender(acting){
   const seat = p => { const last = [...H.log].reverse().find(h => h.pos === p && h.street === H.street), dead = !H.alive.includes(p), cls = dead ? "folded" : last && (last.kind === "raise" || last.kind === "bet") ? "raise" : last && last.kind === "call" ? "call" : "";
     return `<div class="seat ${cls} ${acting === p ? "act-now" : ""}" data-p="${p}">${p === H.hero ? "<em>YOU</em>" : ""}${p}<small>${bbf(AR.stacks[p])}</small>${H.commit[p] && !H.done ? `<i class="bet">${bbf(H.commit[p]).replace("bb", "")}</i>` : ""}</div>`; };
   const villains = H.done && H.showdown ? H.alive.filter(p => p !== H.hero) : [];
+  const meta = `<span>${H.done ? H.note : H.f ? "solved flop" : H.street >= 0 ? "unsolved board · bots on policy" : "6-max · 100bb"}</span><span>${H.done ? (H.net >= 0 ? "+" : "") + bbf(H.net) : ""}</span>`;
+  const seats = SEATS.map(seat).join(""), potHtml = `Pot <b>${bbf(potAll)}</b>${toCall > 0 && !H.done && acting === H.hero ? ` · <b>${bbf(toCall)}</b> to call` : ""}`;
+  const heroHtml = `<div class="who">You<b>${H.hero}</b></div>${H.cards[H.hero].map(c => cardEl(c)).join("")}${villains.map(p => `<div class="who" style="margin-left:6px"><b>${p}</b></div>${H.cards[p].map(c => cardEl(c)).join("")}`).join("")}`;
+  const cur = main.querySelector(".table");
+  if (cur && cur._hand === H && !H.done){   // same hand: patch in place so the cards on the table stay put
+    cur.querySelector(".meta").innerHTML = meta; cur.querySelector(".seats").innerHTML = seats; cur.querySelector(".hist").innerHTML = hist; cur.querySelector(".pot").innerHTML = potHtml;
+    const bd = cur.querySelector(".board"); for (let i = bd.children.length; i < H.board.length; i++) bd.insertAdjacentHTML("beforeend", cardEl(H.board[i]));
+    main.querySelectorAll("#actions, .toast").forEach(x => x.remove());
+    return;
+  }
   const el = $(`<div class="table">
-    <div class="meta"><span>${H.done ? H.note : H.f ? "solved flop" : H.street >= 0 ? "unsolved board · bots on policy" : "6-max · 100bb"}</span><span>${H.done ? (H.net >= 0 ? "+" : "") + bbf(H.net) : ""}</span></div>
-    <div class="seats arena">${SEATS.map(seat).join("")}</div>
+    <div class="meta">${meta}</div>
+    <div class="seats arena">${seats}</div>
     <div class="hist">${hist}</div>
     <div class="board">${H.board.map(c => cardEl(c)).join("")}</div>
-    <div class="pot">Pot <b>${bbf(potAll)}</b>${toCall > 0 && !H.done && acting === H.hero ? ` · <b>${bbf(toCall)}</b> to call` : ""}</div>
-    <div class="hero"><div class="who">You<b>${H.hero}</b></div>${H.cards[H.hero].map(c => cardEl(c)).join("")}${villains.map(p => `<div class="who" style="margin-left:6px"><b>${p}</b></div>${H.cards[p].map(c => cardEl(c)).join("")}`).join("")}</div>
+    <div class="pot">${potHtml}</div>
+    <div class="hero">${heroHtml}</div>
   </div>`);
-  main.innerHTML = ""; main.appendChild(el);
-  if (H.done){
+  el._hand = H; main.innerHTML = ""; main.appendChild(el);
+  if (H.done && !H.quick){
     const col = r => r.g === "Best" || r.g === "Good" ? "var(--accent)" : r.g === "Mistake" ? "var(--bad)" : "var(--warn)";
-    main.appendChild($(`<div class="sheet"><h3>Session</h3><div class="kpis"><div class="kpi"><b style="color:${AR.net >= 0 ? "var(--accent)" : "var(--bad)"}">${(AR.net >= 0 ? "+" : "") + bbf(AR.net)}</b><span>net · ${AR.n} hands</span></div><div class="kpi"><b>${AR.n ? (100 * AR.net / AR.n).toFixed(0) : 0}</b><span>bb / 100</span></div><div class="kpi"><b>${AR.graded ? pct(AR.ok / AR.graded) : "–"}</b><span>on chart · ${AR.graded} graded</span></div></div>${H.res.length ? `<div class="bars">${H.res.map(r => `<div style="font-size:12px;color:${col(r)}">${r.text}</div>`).join("")}</div>` : `<p style="color:var(--dim);font-size:12px;margin:0">No graded decision this hand.</p>`}</div>`));
+    main.appendChild($(`<div class="sheet"><h3>Session</h3><div class="kpis"><div class="kpi"><b style="color:${AR.net >= 0 ? "var(--accent)" : "var(--bad)"}">${(AR.net >= 0 ? "+" : "") + bbf(AR.net)}</b><span>net · ${AR.n} hands</span></div><div class="kpi"><b>${AR.n ? (100 * AR.net / AR.n).toFixed(0) : 0}</b><span>bb / 100</span></div><div class="kpi"><b>${AR.graded ? pct(AR.ok / AR.graded) : "–"}</b><span>on chart · ${AR.graded} graded</span></div></div><p style="margin:8px 0 0;font-size:12px;color:var(--dim)">Stack ${bbf(AR.stack)}${AR.rebuys ? ` · ${AR.rebuys} buy-in${AR.rebuys > 1 ? "s" : ""}` : ""}</p>${H.res.length ? `<div class="bars">${H.res.map(r => `<div style="font-size:12px;color:${col(r)}">${r.text}</div>`).join("")}</div>` : `<p style="color:var(--dim);font-size:12px;margin:0">No graded decision this hand.</p>`}</div>`));
     const nx = $(`<button class="next">Next hand →</button>`); nx.onclick = () => { if (!AR.busy) arenaDeal(); }; main.appendChild(nx);
   }
 }
