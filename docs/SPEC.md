@@ -465,3 +465,35 @@ What runs instead (`preflop/iterate.py`, ranges in `preflop/it/r<k>/<role>.rng`,
   so the main session's GPU work always wins. Mac CPU measuring is opt-in (`FOLD_MAC=1`).
 - Adoption criteria unchanged: gap < 2.0 and BB defence vs CO within ~5 points of raked charts + rake adjustment.
   Not covered: HJ ranges, multiway/squeezes, the two-size tree bias (0.07-0.11bb, could be an offset later), 3-bet pots.
+
+### 13.8 Leaks → training loop, and the Arena (2026-09-26)
+
+**Shipped.** Leaks now finds patterns at three grains (exact hand type + context, coarse group + context,
+coarse group alone; thresholds 2/4, 2/4, 3/6 errors/decisions), every row has *Train*, and a *Train my leaks*
+header builds a focus from the costliest situations (book `c:` keys, n ≥ 4) and hand types (`h:` keys above the
+average loss). A focus is `{concepts, types, streets}` and is honoured by Hands (hands that contain such a
+decision), Drills (spots/hands that match) and Puzzle (spots in those situations). Every graded decision is
+appended to `fold.log` (capped 3000) so future views (replay worst decisions, trend over time) need no
+re-derivation. Hands shows the Drills *why* after each decision with the range lens folded underneath; the lens
+leads with hand-type bars and hides the 13×13 chart on phones.
+
+**Arena (proposed, not started).** A 6-max table against five bots, tracked for leaks like everything else.
+- *What we can back today*: preflop from v1 charts (`solver/src/preflop.rs`, later `preflop/it/`), heads-up
+  postflop from the 72-flop pack (BTN/CO/UTG/SB vs BB, CO vs BTN, 3-bet pots), 3-way from the pilot pack.
+  Any flop not in the pack has no solve, so postflop must be *policy*, not lookup: the §6 GTO bot with
+  nearest-flop mapping (same texture class: paired / monotone / two-tone / connected, high card bucket) plus
+  the hand-class strategy (`hclass_strat`) of that spot, which transfers across boards far better than
+  per-cell strategies. Multiway and off-tree lines use the §6 heuristic policy. "Quite good, not perfect" is
+  the honest description and should be said in the UI.
+- *Hero grading*: only decisions with a real solve are graded (heads-up on a pack flop, 3-way on a pilot
+  flop, preflop everywhere). Ungraded decisions still go to the log with `err: null` and a `graded: false`
+  flag so Leaks never counts them as clean.
+- *Deal control*: bias dealing toward pack flops (sample the flop from the pack when hero reaches a
+  heads-up postflop, ~80%) so most hands are gradable; show a small "solved" mark on those boards.
+- *Money*: 100bb stacks, top-up each hand, session bankroll and a bb/100 line; result chips and a session
+  sheet at the end feed the same book/patterns.
+- *Bots*: start with five GTO bots (§6); archetypes come after the exploit packs exist. Bot decision
+  time 300–700 ms with the seat animation already in place.
+- *Order of work*: (1) table engine (deal, blinds, action order, side pots, showdown) in the prototype;
+  (2) preflop bot from charts + hero preflop grading; (3) heads-up postflop lookup on pack flops, fallback
+  policy elsewhere; (4) leaks integration + session sheet; (5) 3-way pack when it is broader than one flop.
