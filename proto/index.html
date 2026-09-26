@@ -160,7 +160,7 @@ const store = { get(k, d){ try { const v = localStorage.getItem("fold."+k); retu
 
 let PACK = window.FOLD_PACK;
 const SEATS = ["UTG","HJ","CO","BTN","SB","BB"], sleep = ms => new Promise(r => setTimeout(r, ms));
-const state = { mode: store.get("mode", "hands"), hand: null, hn: 0, hsum: 0, street: store.get("street", -1), rangeCheck: store.get("rangeCheck", false), focus: null, queue: [], cur: null, n: 0, loss: 0, best: 0, streak: 0 };
+const state = { mode: store.get("mode", "hands") === "three" ? "hands" : store.get("mode", "hands"), hand: null, hn: 0, hsum: 0, street: store.get("street", -1), rangeCheck: store.get("rangeCheck", false), focus: null, queue: [], cur: null, n: 0, loss: 0, best: 0, streak: 0 };
 
 function cellName(i){ const r = Math.floor(i/13), c = i%13; return r === c ? R[r]+R[c] : r < c ? R[r]+R[c]+"s" : R[c]+R[r]+"o"; }
 function cellOf(hand){ // hand = ["Ah","Kd"]
@@ -972,7 +972,7 @@ function leakSheet(){
 }
 function renderFilters(){
   const el = document.getElementById("filters"); el.innerHTML = "";
-  [["Hands","hands"],["Drills","drills"],["Puzzle","puzzle"],["Arena","arena"],["3-way","three"]].forEach(([n, v]) => { const c = $(`<div class="chip ${state.mode === v ? "on" : ""}">${n}</div>`); c.onclick = () => { state.mode = v; store.set("mode", v); start(); }; el.appendChild(c); });
+  [["Hands","hands"],["Drills","drills"],["Puzzle","puzzle"],["Arena","arena"]].forEach(([n, v]) => { const c = $(`<div class="chip ${state.mode === v ? "on" : ""}">${n}</div>`); c.onclick = () => { state.mode = v; store.set("mode", v); start(); }; el.appendChild(c); });
   const lk = $(`<div class="chip">Leaks</div>`); lk.onclick = leakSheet; el.appendChild(lk);
   if (state.mode === "three" || state.mode === "arena") return;
   const fc = $(`<div class="chip ${state.focus ? "on" : ""}">${state.focus ? "Focus: " + focusLabel() : "Focus"}</div>`); fc.onclick = focusSheet; el.appendChild(fc);
