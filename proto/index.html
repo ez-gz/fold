@@ -149,6 +149,11 @@ header .stats{margin-left:auto;flex:none}header .chips{flex-wrap:wrap;min-width:
 .bar.duo{grid-template-columns:34px minmax(0,1fr) 38px;margin:5px 0}.bar.duo span{color:#fff;font-weight:600}.duel .legend{margin:6px 0 2px}
 .think{margin-top:12px;padding:14px;border-radius:16px;background:var(--panel,#111a23);border:1px solid #24313f;animation:up .25s ease}.think .q{font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px}.think .help{font-style:normal;width:18px;height:18px;border-radius:50%;border:1px solid var(--dim);color:var(--dim);font-size:11px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
 .think .opts{display:flex;gap:8px;margin-top:10px}.topt{flex:1;border:1px solid #24313f;background:#15202b;color:#fff;border-radius:14px;padding:10px 4px;font-weight:700;font-size:13px;cursor:pointer;transition:all .15s}.topt i{display:block;font-style:normal;font-size:20px;margin-bottom:2px}.topt:active{transform:scale(.96)}.topt.ok{background:#123c2c;border-color:var(--accent)}.topt.no{background:#432418;border-color:var(--bad)}.topt:disabled{opacity:.55}.topt.ok:disabled,.topt.no:disabled{opacity:1}.think .duel{margin-top:12px}
+.act.beg{background:#1c2733;box-shadow:inset 0 0 0 1px #ffffff24}.act.beg.done.best{background:#15382b;box-shadow:0 0 0 2px var(--accent)}.act.beg.done.beg-wrong{background:#3a1d22;box-shadow:0 0 0 2px var(--bad)}
+.g-Toss{background:#1b2633;color:#cfd8e3}.tossnote{font-size:12.5px;line-height:1.45;color:#cfd8e3;margin-bottom:12px}
+.reason .lab{font-style:normal;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);border:1px solid #2a3746;border-radius:6px;padding:2px 6px}.take + .reason{margin-top:14px;padding-top:12px;border-top:1px solid #1e2935}
+.keyst{margin-top:12px;padding:10px 12px;border-radius:12px;background:#3d321566;color:#fff;font-size:14px;text-align:left}.keyst span{display:block;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--warn);margin-bottom:3px}.keyst b{margin-right:8px}.keyst.ok{background:#123c2c;color:var(--accent);text-align:center;font-weight:700}
+.table .sitwrap{margin-bottom:16px}
 .cbanner{margin-top:10px;text-align:center;font-size:12px;font-weight:700;letter-spacing:.04em;color:var(--warn)}
 .contrast{margin-top:12px;padding:10px 12px;border-radius:12px;background:#15202b;border:1px solid #24313f}.contrast .ch{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--warn);margin-bottom:6px}.contrast p{margin:8px 0 0;font-size:12.5px;color:#cfd8e3}
 .crow{display:flex;align-items:center;gap:6px;font-size:12.5px;padding:3px 0}.crow span{color:var(--dim);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.crow b{color:#fff}.crow em{font-style:normal;color:var(--dim);font-size:11.5px;min-width:96px;text-align:right}
@@ -447,7 +452,7 @@ function renderActions(){
     if (c.prev && !main.querySelector(".cbanner")) main.appendChild($(`<div class="cbanner">⇄ Same spot, different hand</div>`));
     if (!c.tf && !c.prev && !rangeFacts(c.f, s).sure) c.tf = true;   // no question where the answer is not certain
     if (!c.tf && !c.prev){ c.tf = true; main.appendChild(thinkFirst(c.f, s, c.d, () => renderActions())); return; }
-    beginnerOptions(s, state.cur.d).forEach(o => { const b = $(`<button class="act ${kindClass(s, o.i)}" data-i="${o.i}"><div class="fill"></div><span>${o.label}</span><span class="sub"></span></button>`); b.onclick = () => answer(o.i); box.appendChild(b); });
+    beginnerOptions(s, state.cur.d).forEach(o => { const b = $(`<button class="act beg" data-i="${o.i}"><div class="fill"></div><span>${o.label}</span><span class="sub"></span></button>`); b.onclick = () => answer(o.i); box.appendChild(b); });
     main.appendChild(box); return;
   }
   s.actions.forEach((a, i) => {
@@ -530,14 +535,14 @@ function answer(i){
   if (navigator.vibrate) navigator.vibrate(gr.g === "Best" ? 12 : gr.g === "Good" ? 20 : [30, 40, 30]);
   markButtons(d, i, gr);
   if (state.beginner){
-    const bg = beginnerGrade(gr), up = rungProgress(gr);
+    const bg = begVerdict(s, d, gr), up = rungProgress(gr, f, s, d);
     main.appendChild($(`<div class="verdict ${bg.cls}"><div class="g">${bg.g}</div><div class="l">${bg.l}</div></div>`));
     trackReason(reasonOf(f, s, d, gr.bestIdx), gr.g === "Best" || gr.g === "Good");
     const dl = main.querySelector(".think .duel"); if (dl) dl.remove();   // the bars live on under the Ranges tab
     main.appendChild(beginnerPanel(f, s, d, i, gr, { contrast: state.cur.prev ? contrastCard(f, s, state.cur.prev, d, gr) : null }));
     if (!state.cur.prev && Math.random() < 0.4){ const x = pickContrast(f, s, d); if (x) state.contrast = { f, s, d: x, prev: d, tf: true }; }
     if (up) main.appendChild($(`<div class="sheet" style="border-color:var(--accent)"><h3>Next step unlocked</h3><p style="margin:0;font-size:13px">${up.name}. ${up.hint}</p></div>`));
-    const nx = $(`<button class="next">Next spot →</button>`); nx.onclick = next; main.appendChild(nx); renderFilters(); renderStats(); return;
+    const nx = $(`<button class="next">Next spot →</button>`); nx.onclick = next; main.appendChild(nx); renderFilters(); renderStats(); reveal(main.querySelector(".sheet.beg")); return;
   }
   main.appendChild($(`<div class="verdict g-${gr.g}"><div class="g">${gr.g}</div><div class="l">${lossText(gr)}</div></div>`));
   main.appendChild($(`<div class="sheet why"><h3>Why</h3>${explain(f, s, d, i, gr)}</div>`));
@@ -551,10 +556,9 @@ function answer(i){
 const lossText = gr => gr.loss < 0.005 ? "no EV lost" : `−${gr.loss.toFixed(2)}bb (${gr.p.toFixed(1)}% of pot)`;
 function markButtons(d, i, gr){
   if (state.beginner && state.cur && !state.cur.three){   // one button per kind: the best kind lights up, no numbers
-    const s = state.cur.s, bestKind = s.actions[gr.bestIdx].kind;
-    const kv = kindView(s, d), second = kv[1] && kv[1].strat >= 0.25 ? kv[1].kind : null;
-    [...document.querySelectorAll(".act")].forEach(b => { const k = +b.dataset.i, kind = s.actions[k].kind, best = kind === bestKind; b.classList.add("done"); if (best) b.classList.add("best"); if (k === i) b.classList.add("picked");
-      b.dataset.tag = best ? (k === i ? "✓ You · solver's pick" : "Solver's pick") : kind === second ? (k === i ? "You · also fine" : "also fine") : k === i ? "✗ You" : ""; if (k === i && !best && kind !== second) b.classList.add("beg-wrong"); });
+    const s = state.cur.s, bestKind = s.actions[gr.bestIdx].kind, toss = tossUp(s, d);
+    [...document.querySelectorAll(".act")].forEach(b => { const k = +b.dataset.i, kind = s.actions[k].kind, best = kind === bestKind, mine = k === i, fine = fineG(grade(s, d, k)); b.classList.add("done"); if (best && !toss) b.classList.add("best"); if (mine) b.classList.add("picked");
+      b.dataset.tag = toss ? (mine ? "You" : "") : best ? (mine ? "✓ You · solver's pick" : "Solver's pick") : fine ? (mine ? "You · also fine" : "also fine") : mine ? "✗ You" : ""; if (mine && !fine) b.classList.add("beg-wrong"); });
     return;
   }
   [...document.querySelectorAll(".act")].forEach((b, k) => {
@@ -649,12 +653,12 @@ function handAnswer(i, gr){
   let note = ok ? "" : `Solver prefers <b>${s.actions[gr.bestIdx].label}</b>. `;
   if (i !== step.line) note += `Continues on the solver's line: <b>${s.actions[step.line].label}</b>.`;
   if (state.beginner){
-    const bg = beginnerGrade(gr), up = rungProgress(gr);
+    const bg = begVerdict(s, d, gr), up = rungProgress(gr, H.f, s, d);
     main.appendChild($(`<div class="verdict ${bg.cls}"><div class="g">${bg.g}</div><div class="l">${bg.l}</div></div>`));
     trackReason(reasonOf(H.f, s, d, gr.bestIdx), gr.g === "Best" || gr.g === "Good");
     const pnl = beginnerPanel(H.f, s, d, i, gr); if (i !== step.line) pnl.insertBefore($(`<p class="dim" style="font-size:12px">The hand continues on the solver's line: <b>${KIND_WORD[s.actions[step.line].kind]}</b>.</p>`), pnl.querySelector(".btabs")); main.appendChild(pnl);
     if (up) main.appendChild($(`<div class="sheet" style="border-color:var(--accent)"><h3>Next step unlocked</h3><p style="margin:0;font-size:13px">${up.name}. ${up.hint}</p></div>`));
-    renderFilters();
+    renderFilters(); reveal(pnl);
   } else {
   main.appendChild($(`<div class="verdict g-${gr.g}"><div class="g">${gr.g} <small style="font-size:13px;font-weight:600;opacity:.8">${capText(d, i)}</small></div><div class="l">${lossText(gr)}</div></div>`));
   // the same why as Drills, then the range lens folded away so the hand keeps its pace
@@ -675,7 +679,7 @@ function handEnd(){
   main.innerHTML = "";
   // where each hand sat in its own range (hero: at the last decision; villain: at the end)
   const lastD = h.steps.length ? h.steps[h.steps.length - 1].spot.drills[0] : null, heroTop = lastD ? lastD.top : null;
-  const rk = t => t == null ? "" : `<small class="rk">${t <= 0.5 ? "top " + Math.max(1, Math.round(100 * t)) : "bottom " + Math.max(1, Math.round(100 * (1 - t)))}%</small>`;
+  const rk = t => t == null || state.beginner ? "" : `<small class="rk">${t <= 0.5 ? "top " + Math.max(1, Math.round(100 * t)) : "bottom " + Math.max(1, Math.round(100 * (1 - t)))}%</small>`;
   main.appendChild($(`<div class="table"><div class="meta"><span>${endTxt}</span></div>
     <div class="hist">${histHtml(f, h.hero, h._full)}</div>
     <div class="board">${h.board.map(c => cardEl(c)).join("")}</div>
@@ -687,15 +691,19 @@ function handEnd(){
     const off = H.res.some((r, k) => r.i !== h.steps[k].line);
     luck = `<div class="two" style="margin-top:12px;text-align:center"><div class="kpi"><b style="color:${h.net >= 0 ? "var(--accent)" : "var(--bad)"}">${sg(h.net)}</b><span>actual result</span></div><div class="kpi"><b>${sg(exp)}</b><span>expected from the flop</span></div></div><div style="color:var(--dim);font-size:11px;margin-top:6px">${h.net - exp >= 0 ? "Ran " + (h.net - exp).toFixed(1) + "bb above" : "Ran " + (exp - h.net).toFixed(1) + "bb below"} expectation${off ? " · played out on the solver's line" : ""}</div>`;
   }
-  const sheet = $(`<div class="sheet score"><h3>Decision score</h3><div class="big">${score.toFixed(1)}<small> / 10</small></div><div style="color:var(--dim);font-size:12px;margin-top:6px">${lost < 0.005 ? "No EV given up" : `${lost.toFixed(2)}bb given up`} · ${hs.got.toFixed(2)} of ${hs.max.toFixed(2)}bb captured</div>${luck}<div class="rows"></div></div>`);
+  let sheet;
+  if (state.beginner) sheet = beginnerResult(H);
+  else {
+  sheet = $(`<div class="sheet score"><h3>Decision score</h3><div class="big">${score.toFixed(1)}<small> / 10</small></div><div style="color:var(--dim);font-size:12px;margin-top:6px">${lost < 0.005 ? "No EV given up" : `${lost.toFixed(2)}bb given up`} · ${hs.got.toFixed(2)} of ${hs.max.toFixed(2)}bb captured</div>${luck}<div class="rows"></div></div>`);
   H.res.forEach((r, k) => { const sp = h.steps[k].spot; const row = $(`<div class="row"><span style="color:var(--dim)">${STREETS[sp.street]}</span><span style="text-align:left">${sp.actions[r.i].label}<small>${r.gr.g}${r.gr.bestIdx !== r.i ? ` · solver: ${sp.actions[r.gr.bestIdx].label}` : ""}</small></span><span class="pts">${r.cap}</span></div>`); row.onclick = () => replay(k); sheet.querySelector(".rows").appendChild(row); });
+  }
   main.appendChild(sheet);
   const review = $(`<div id="review"></div>`); main.appendChild(review);
   const show = k => {
     const sp = h.steps[k].spot, d = sp.drills[0], r = H.res[k];
     [...sheet.querySelectorAll(".row")].forEach((el, j) => el.classList.toggle("on", j === k));
     review.innerHTML = "";
-    if (state.beginner){ const pnl = beginnerPanel(f, sp, d, r.i, r.gr); pnl.insertBefore($(`<h3 style="margin-bottom:10px">${STREETS[sp.street]} · ${KIND_WORD[sp.actions[r.i].kind]} · ${beginnerGrade(r.gr).g}</h3>`), pnl.firstChild); review.appendChild(pnl); return; }
+    if (state.beginner){ const pnl = beginnerPanel(f, sp, d, r.i, r.gr); pnl.insertBefore($(`<h3 style="margin-bottom:10px">${STREETS[sp.street]} · ${KIND_WORD[sp.actions[r.i].kind]} · ${begVerdict(sp, d, r.gr).g}</h3>`), pnl.firstChild); review.appendChild(pnl); return; }
     review.appendChild($(`<div class="sheet why"><h3>${STREETS[sp.street]} · ${sp.actions[r.i].label} · ${r.gr.g}</h3>${explain(f, sp, d, r.i, r.gr)}</div>`));
     review.appendChild(lens(f, sp, d, r.i, r.gr));
     { const b = betSheet(f, sp, d); if (b) review.appendChild(b); }
@@ -705,6 +713,17 @@ function handEnd(){
   [...sheet.querySelectorAll(".row")].forEach((el, k) => el.onclick = () => show(k));
   try { show(H.res.reduce((b, r, k) => r.gr.loss > H.res[b].gr.loss + 1e-6 ? k : b, 0)); } catch (e) { console.error(e); }
   const nx = $(`<button class="next" style="margin:0;position:static">Next hand →</button>`); nx.onclick = nextHand; const row = $(`<div class="sharerow"></div>`); row.appendChild(shareBtn()); row.appendChild(nx); main.appendChild(row);
+}
+// the beginner's result: won or lost, the one street that mattered, and a plain verdict per street
+function beginnerResult(H){
+  const { h } = H, kw = (k, i) => KIND_WORD[h.steps[k].spot.actions[i].kind], vd = H.res.map((r, k) => { const sp = h.steps[k].spot; return begVerdict(sp, sp.drills[0], r.gr); });
+  let w = -1; H.res.forEach((r, k) => { if (!vd[k].toss && !fineG(r.gr) && (w < 0 || r.gr.loss > H.res[w].gr.loss)) w = k; });
+  const off = H.res.some((r, k) => r.i !== h.steps[k].line), net = h.net;
+  const head = net == null ? "" : `<div class="big" style="color:${net >= 0 ? "var(--accent)" : "var(--bad)"}">${net >= 0 ? "+" : "−"}${Math.abs(net).toFixed(1)}<small> bb</small></div><div style="color:var(--dim);font-size:12px;margin-top:6px">${net > 0 ? "You won" : net < 0 ? "You lost" : "Even"} · 1bb is one big blind${off ? "<br>Played out with the solver's choice where yours differed" : ""}</div>`;
+  const key = w < 0 ? `<div class="keyst ok">✓ No mistakes this hand</div>` : `<div class="keyst"><span>The street that mattered</span><b>${STREETS[h.steps[w].spot.street]}</b> You: ${kw(w, H.res[w].i)} → Solver: ${kw(w, H.res[w].gr.bestIdx)}</div>`;
+  const sheet = $(`<div class="sheet score"><h3>Result</h3>${head}${key}<div class="rows"></div></div>`);
+  H.res.forEach((r, k) => sheet.querySelector(".rows").appendChild($(`<div class="row"><span style="color:var(--dim)">${STREETS[h.steps[k].spot.street]}</span><span style="text-align:left">${kw(k, r.i)}</span><span class="pts" style="color:${vd[k].toss ? "var(--dim)" : fineG(r.gr) ? "var(--accent)" : "var(--warn)"}">${vd[k].g}</span></div>`)));
+  return sheet;
 }
 /* the table's action history grouped by street (the preflop row from the formation) */
 function histHtml(f, hero, history){
@@ -955,10 +974,12 @@ const RUNGS = [
 const RUNG_GOAL = 10;
 const srp3 = f => !!(formInfo(f).three_bet || f.three_bet);
 function rungState(){ const r = store.get("rung", { i: 0, ok: 0 }); r.i = Math.min(r.i, RUNGS.length - 1); return r; }
-function rungMatch(f, s, d){ const r = RUNGS[rungState().i], ri = rungState().i; if (!r.test(f, s)) return false; if (r.types && d && !r.types.includes(coarseType(fineType(d.hand, s.board)))) return false; return !d || ri >= 2 || clearSpot(s, d) || Math.random() < 0.3; }
-// a Fine answer moves you up the rung, a mistake takes one back; ten Fine answers unlock the next rung
-function rungProgress(gr){
+function rungMatch(f, s, d){ const r = RUNGS[rungState().i], ri = rungState().i; if (!r.test(f, s)) return false; if (r.types && d && !r.types.includes(coarseType(fineType(d.hand, s.board)))) return false; return !d || ri >= 2 || !tossUp(s, d); }   // the first two steps only serve spots where one of the buttons is a real mistake
+// a Fine answer moves you up the rung, a mistake takes one back; ten Fine answers unlock the next rung.
+// Only decisions of the rung's own kind count, and a toss-up never does: it cannot be got wrong.
+function rungProgress(gr, f, s, d){
   const r = rungState(); if (r.i >= RUNGS.length - 1) return null;
+  if (f && (tossUp(s, d) || !RUNGS[r.i].test(f, s))) return null;
   const ok = gr.g === "Best" || gr.g === "Good"; r.ok = Math.max(0, r.ok + (ok ? 1 : -1)); let up = false;
   if (r.ok >= RUNG_GOAL){ r.i++; r.ok = 0; up = true; state.queue = []; }
   store.set("rung", r); return up ? RUNGS[r.i] : null;
@@ -969,7 +990,7 @@ function rungChip(){
 }
 function rungSheet(){
   const r = rungState(), body = $(`<div></div>`);
-  body.appendChild($(`<p style="margin:0 0 10px;color:var(--dim);font-size:13px">Each step is one situation, and only the plain hand types at first. ${RUNG_GOAL} Fine answers unlock the next step; a mistake takes one back.</p>`));
+  body.appendChild($(`<p style="margin:0 0 10px;color:var(--dim);font-size:13px">Each step is one situation, and only the plain hand types at first. ${RUNG_GOAL} Fine answers unlock the next step; a mistake takes one back. Toss-ups do not count.</p>`));
   RUNGS.forEach((g, k) => { const row = $(`<div class="row ${k === r.i ? "on" : ""}" style="cursor:pointer"><span style="color:${k < r.i ? "var(--accent)" : k === r.i ? "#fff" : "var(--dim)"}">${k < r.i ? "✓" : k + 1}</span><span style="text-align:left">${g.name}<small>${g.hint}${k === r.i && k < RUNGS.length - 1 ? ` · ${r.ok}/${RUNG_GOAL}` : ""}</small></span></div>`);
     row.onclick = () => { store.set("rung", { i: k, ok: 0 }); document.querySelectorAll(".overlay").forEach(o => o.remove()); state.queue = []; state.hand = null; renderFilters(); goMode(); }; body.appendChild(row); });
   overlay("Your path", body);
@@ -988,6 +1009,11 @@ function beginnerOptions(s, d){
   return ["fold", "check", "call", "bet", "raise"].filter(k => k in by).map(k => ({ i: by[k], kind: k, label: KIND_WORD[k] }));
 }
 const beginnerGrade = gr => gr.g === "Best" || gr.g === "Good" ? { g: "Fine", cls: "g-Best", l: "" } : gr.p > 5 ? { g: "Big mistake", cls: "g-Mistake", l: `−${gr.loss.toFixed(1)}bb` } : { g: "Mistake", cls: "g-Inaccuracy", l: "" };
+const fineG = gr => gr.g === "Best" || gr.g === "Good";
+// a toss-up: every play on the buttons grades as fine, so there is nothing to get wrong and nothing to grade
+const tossUp = (s, d) => beginnerOptions(s, d).every(o => fineG(grade(s, d, o.i)));
+const begVerdict = (s, d, gr) => tossUp(s, d) ? { g: "Toss-up", cls: "g-Toss", l: "Either play works", toss: true } : beginnerGrade(gr);
+const repIdx = (s, d, kind) => (beginnerOptions(s, d).find(o => o.kind === kind) || {}).i;
 const shareWord = v => v >= 0.6 ? "mostly" : v >= 0.4 ? "about half" : v >= 0.2 ? "some" : v >= 0.07 ? "a few" : "almost no";
 const BUCKETS = [["Strong", "var(--bad)"], ["A pair", "var(--warn)"], ["A draw", "var(--call)"], ["Nothing", "#3a4654"]];
 const bucketShares = cls => { const g = groupSummary(cls); return [g.strong, g.mid, g.draws, g.air]; };
@@ -1005,18 +1031,30 @@ function reasonOf(f, s, d, i){
   if (k === "call") return draw ? "Price" : "Bluff-catch";
   return "Give up";
 }
-function beginnerWhy(f, s, d, chosen, gr){
-  const g = groupSummary(s.vclass), V = s.villain, A = s.actions, best = A[gr.bestIdx], ct = coarseType(fineType(d.hand, s.board)), eq = d.eq;
-  const k = best.kind, need = s.to_call > 0 ? s.to_call / (s.pot + s.to_call) : 0, r = respInfo(f, s, d, gr.bestIdx), draw = ct === "Flush draw" || ct === "Straight draw";
-  let why;
-  if (k === "bet" || k === "raise") why = eq >= 0.6 ? `You beat most of what ${V} has, so worse hands pay you.` : r && r.fold >= 0.4 ? `${V} folds ${pct(r.fold)} here, so you often take it now.` : `What ${V} folds is worth taking, and what calls is mostly weak.`;
-  else if (k === "check") why = ct === "Air" ? `A bet only folds hands you already beat.` : draw ? `See the next card for free.` : eq >= 0.6 ? `A bet folds out the hands that would pay you.` : `Too weak to bet, too good to give up.`;
-  else if (k === "fold") why = `You need ${pct(need)} to call and win ${pct(eq)}.`;
-  else why = `You need ${pct(need)} and win ${pct(eq)}.`;
-  const ok = gr.g === "Best" || gr.g === "Good", pk = KIND_WORD[A[chosen].kind];
-  const wrong = A[chosen].kind !== k ? (ok ? `<span class="dim">${pk} is fine too.</span> ` : `<span class="dim">${pk} ${gr.p > 5 ? "gives up a lot" : "gives up a little"}.</span> `) : "";
-  return `${wrong}<b>${KIND_WORD[k]}.</b> ${why}`;
+// one sentence per play, built from the solver's numbers: the reason when it is the solver's play, the outcome when it is not
+function whyPlay(f, s, d, i, best){
+  const V = s.villain, k = s.actions[i].kind, ct = coarseType(fineType(d.hand, s.board)), draw = ct === "Flush draw" || ct === "Straight draw";
+  const eq = d.eq, ec = d.eq_cont ? d.eq_cont[i] : eq, r = respInfo(f, s, d, i), need = s.to_call > 0 ? s.to_call / (s.pot + s.to_call) : 0;
+  if (k === "bet" || k === "raise"){
+    if (!r) return `${V} has to pay to continue.`;
+    if (best && ec >= 0.5) return `Worse hands pay you: you win ${pct(ec)} when ${V} continues.`;
+    if (best && r.fold >= 0.4) return `${V} folds ${pct(r.fold)} here, so you often take it now.`;
+    return `${V} folds ${pct(r.fold)}, and you win ${pct(ec)} when they continue.`;
+  }
+  if (k === "check"){
+    if (!best) return `You put in nothing and keep your ${pct(eq)} equity.`;
+    const bi = repIdx(s, d, "bet"), rb = bi != null ? respInfo(f, s, d, bi) : null;
+    if (ct === "Air") return rb ? `A bet gets a fold ${pct(rb.fold)} of the time and wins ${pct(d.eq_cont[bi])} when it does not.` : `Nothing to bet for.`;
+    if (draw && s.street < 2) return `See the next card for free.`;
+    if (eq >= 0.6){ const fc = rb && rb.foldCls, tt = fc ? fc.reduce((a, b) => a + b, 0) : 0, worse = tt ? fc.reduce((a, v, c) => a + (c > d.cls ? v : 0), 0) / tt : 0;
+      return worse >= 0.6 ? `A bet mostly folds hands you already beat.` : `You win ${pct(eq)} against ${V}'s range, and the pot stays small.`; }
+    return `Too weak to bet, too good to give up.`;
+  }
+  if (k === "fold") return best ? `You need ${pct(need)} to call and win ${pct(eq)}.` : `You give up the ${bbf(s.pot)} pot. A call needs ${pct(need)} and wins ${pct(eq)}.`;
+  return `You need ${pct(need)} and win ${pct(eq)}.`;
 }
+// bring the answer above the sticky button without scrolling the verdict (or the tabs) off the top
+function reveal(el, anchor){ requestAnimationFrame(() => { const v = anchor || main.querySelector(".verdict"); if (!el || !v || !el.isConnected) return; const over = el.getBoundingClientRect().bottom - (innerHeight - 84), room = v.getBoundingClientRect().top - 8; if (over > 0 && room > 0) scrollBy({ top: Math.min(over, room), behavior: "smooth" }); }); }
 /* ---- ranges, side by side: who is ahead, who holds the best hands, who is capped, what shape the betting range has ---- */
 function rangeFacts(f, s){
   const sum = a => a.reduce((x, y) => x + y, 0) || 1, hs = sum(s.hclass), vs = sum(s.vclass), F = formInfo(f);
@@ -1028,7 +1066,7 @@ function rangeFacts(f, s){
   else if (src){ const p = src.drills.map(x => [x.top, x.eq]).sort((a, b) => a[0] - b[0]), q = [[0, p[0][1]], ...p, [1, p[p.length - 1][1]]]; eq = 0; for (let i = 1; i < q.length; i++) eq += (q[i][0] - q[i - 1][0]) * (q[i][1] + q[i - 1][1]) / 2; }
   const sure = eq != null && (exact || Math.abs(eq - 0.5) >= 0.11);
   const H = bucketShares(s.hclass), V = bucketShares(s.vclass), nH = s.hclass[0] / hs, nV = s.vclass[0] / vs;
-  const ahead = eq == null ? null : eq >= 0.55 ? "you" : eq <= 0.45 ? "them" : "even";
+  const e100 = eq == null ? null : Math.round(100 * eq), ahead = eq == null ? null : e100 >= 55 ? "you" : e100 <= 45 ? "them" : "even";   // on the rounded figure, so the tag never disagrees with the number shown
   const best = nH >= 1.5 * nV && nH - nV >= 0.015 ? "you" : nV >= 1.5 * nH && nV - nH >= 0.015 ? "them" : null;
   const capped = nV < 0.02 && nH >= 0.04 ? "them" : nH < 0.02 && nV >= 0.04 ? "you" : null;
   const worst = H[3] - V[3] >= 0.08 ? "you" : V[3] - H[3] >= 0.08 ? "them" : null;
@@ -1069,7 +1107,7 @@ function beginnerCompare(f, s, d, chosen, gr){
     if (kind === "bet" || kind === "raise"){
       if (!x) return `If you ${w}, ${V} has to pay to continue.`;
       const bf = x.foldCls ? worseShare(x.foldCls) : 0.5;
-      return `If you ${w}, ${V} folds <b>${pct(x.fold)}</b>${x.fold >= 0.05 ? ` (${bf >= 0.7 ? "mostly hands you already beat" : bf <= 0.4 ? "including hands that beat you" : "some worse, some better"})` : ""}${x.raise >= 0.1 ? `, ${x.r.kinds.includes("bet") ? "bets" : "raises"} ${pct(x.raise)}` : ""}, and what continues beats you <b>${pct(1 - x.eq)}</b> of the time.`;
+      return `If you ${A[i].label.replace(/^./, c => c.toLowerCase())}, ${V} folds <b>${pct(x.fold)}</b>${x.fold >= 0.05 ? ` (${bf >= 0.7 ? "mostly hands you already beat" : bf <= 0.4 ? "including hands that beat you" : "some worse, some better"})` : ""}${x.raise >= 0.1 ? `, ${x.r.kinds.includes("bet") ? "bets" : "raises"} ${pct(x.raise)}` : ""}, and what continues beats you <b>${pct(1 - x.eq)}</b> of the time.`;
     }
     if (kind === "call") return `If you call, you pay ${bbf(s.to_call)} and win <b>${pct(d.eq)}</b> of the time; you need ${pct(s.to_call / (s.pot + s.to_call))} to break even.`;
     return `If you fold, the ${bbf(s.pot)} pot is gone; continuing would win <b>${pct(d.eq)}</b> of the time.`;
@@ -1089,16 +1127,19 @@ function beginnerTip(s, d, a, b){
   return t ? `<div class="tip"><b>When it is close</b>${t}</div>` : "";
 }
 // the beginner answer panel: two questions, then everything full mode shows behind "Show more"
-function reasonBadge(name){
-  const [ic, def] = REASONS[name], el = $(`<div class="reason"><i>${ic}</i><b>${name}</b><span>${def}</span></div>`);
+function reasonBadge(name, who){
+  const [ic, def] = REASONS[name], el = $(`<div class="reason">${who ? `<em class="lab">${who}</em>` : ""}<i>${ic}</i><b>${name}</b><span>${def}</span></div>`);
   el.onclick = () => el.classList.toggle("open"); return el;
 }
 function trackReason(name, ok){ const b = store.get("reasons", {}); const e = b[name] || (b[name] = { n: 0, ok: 0 }); e.n++; if (ok) e.ok++; store.set("reasons", b); }
 // the beginner answer: reason, one sentence, then icon tabs that open one layer at a time
 function beginnerPanel(f, s, d, chosen, gr, opts = {}){
-  const sheet = $(`<div class="sheet why beg"></div>`), reason = reasonOf(f, s, d, gr.bestIdx);
-  sheet.appendChild(reasonBadge(reason));
-  sheet.appendChild($(`<p class="take">${beginnerWhy(f, s, d, chosen, gr)}</p>`));
+  // your play first, then the solver's: each with its own reason and one sentence on the size the button stands for
+  const sheet = $(`<div class="sheet why beg"></div>`), A = s.actions, bk = A[gr.bestIdx].kind, ri = repIdx(s, d, bk), bi = ri == null ? gr.bestIdx : ri, same = A[chosen].kind === bk, toss = tossUp(s, d);
+  const part = (who, i, best, note) => { sheet.appendChild(reasonBadge(reasonOf(f, s, d, i), who)); sheet.appendChild($(`<p class="take"><b>${KIND_WORD[A[i].kind]}.</b> ${whyPlay(f, s, d, i, best)}${note ? ` <span class="dim">${note}</span>` : ""}</p>`)); };
+  if (toss) sheet.appendChild($(`<div class="tossnote">⚖️ The solver plays this both ways. Neither is a mistake, so it is not graded.</div>`));
+  if (same) part("", bi, true);
+  else { part("You", chosen, false, toss ? "" : fineG(gr) ? "Fine too." : gr.p > 5 ? "Gives up a lot." : "Gives up a little."); part(toss ? "Or" : "Solver", bi, true); }
   if (opts.contrast) sheet.appendChild(opts.contrast);
   const tabs = $(`<div class="btabs"></div>`), pane = $(`<div class="bpane"></div>`); let cur = null;
   const items = [
@@ -1106,7 +1147,7 @@ function beginnerPanel(f, s, d, chosen, gr, opts = {}){
     ["📊", "Ranges", () => rangeDuel(f, s)],
     ["🔬", "Full", () => { const w = $(`<div><div class="why" style="margin-bottom:6px">${explain(f, s, d, chosen, gr)}</div></div>`); const L = lens(f, s, d, chosen, gr); L.style.cssText = "padding:10px 0 0;background:none;border:0"; w.appendChild(L); return w; }],
   ];
-  items.forEach(([ic, name, build]) => { const t = $(`<div class="btab"><i>${ic}</i>${name}</div>`); t.onclick = () => { const same = cur === name; [...tabs.children].forEach(x => x.classList.remove("on")); pane.innerHTML = ""; cur = null; if (same) return; t.classList.add("on"); cur = name; pane.appendChild(build()); }; tabs.appendChild(t); });
+  items.forEach(([ic, name, build]) => { const t = $(`<div class="btab"><i>${ic}</i>${name}</div>`); t.onclick = () => { const same = cur === name; [...tabs.children].forEach(x => x.classList.remove("on")); pane.innerHTML = ""; cur = null; if (same) return; t.classList.add("on"); cur = name; pane.appendChild(build()); reveal(pane, tabs); }; tabs.appendChild(t); });
   sheet.appendChild(tabs); sheet.appendChild(pane);
   if (!(gr.g === "Best" || gr.g === "Good")) tabs.firstChild.click();   // after a mistake the comparison opens by itself
   return sheet;
@@ -1135,7 +1176,7 @@ function thinkFirst(f, s, d, done){
 /* contrast pairs: the same spot again with a different kind of hand, so the hand is the only thing that changed */
 function pickContrast(f, s, d){
   const r0 = reasonOf(f, s, d, grade(s, d, 0).bestIdx), k0 = s.actions[grade(s, d, 0).bestIdx].kind;
-  const c = s.drills.filter(x => x !== d && x.cls !== d.cls && clearSpot(s, x)).map(x => { const bi = grade(s, x, 0).bestIdx; return { x, kind: s.actions[bi].kind, reason: reasonOf(f, s, x, bi) }; }).filter(o => o.kind !== k0 || o.reason !== r0);
+  const c = s.drills.filter(x => x !== d && x.cls !== d.cls && clearSpot(s, x) && !tossUp(s, x)).map(x => { const bi = grade(s, x, 0).bestIdx; return { x, kind: s.actions[bi].kind, reason: reasonOf(f, s, x, bi) }; }).filter(o => o.kind !== k0 || o.reason !== r0);
   const diff = c.filter(o => o.kind !== k0), pool = diff.length ? diff : c; return pool.length ? pool[Math.floor(Math.random() * pool.length)].x : null;
 }
 function contrastCard(f, s, prev, d, gr){

@@ -75,7 +75,7 @@
     const b = $h(`<div class="intro"><p>Every answer is graded against a solver. After each one you see <b>why</b>, built around what your opponent can hold.</p>
       <div class="m"><b>Hands</b><p>Play a full hand street by street, then review it.</p></div>
       <div class="m"><b>Drills</b><p>Single decisions, fast. Filter by street or focus on your leaks.</p></div>
-      ${(typeof state !== "undefined" && state.beginner) ? `<div class="m"><b>Beginner mode is on</b><p>Two questions per decision: what do they have, and what do I do about it. Switch to advanced any time from this sheet.</p></div>` : `<div class="m"><b>Puzzle</b><p>Your opponent's range is narrow. Name the exact hands they can have.</p></div>`}
+      ${(typeof state !== "undefined" && state.beginner) ? `<div class="m"><b>Beginner mode is on</b><p>One tap per decision, then the reason in one line. Tap the icons to go deeper. Toss-ups are not graded. Switch to advanced any time from this sheet.</p></div>` : `<div class="m"><b>Puzzle</b><p>Your opponent's range is narrow. Name the exact hands they can have.</p></div>`}
       <div class="m"><b>Leaks</b><p>Where you lose the most, tracked as you play.</p></div>
       <button class="xbtn pri wide">Start</button><p style="text-align:center;font-size:12px;margin-top:10px">Free. No account needed. <a href="privacy.html" style="color:var(--dim)">Privacy &amp; Terms</a></p></div>`);
     const o = sheet("Welcome to Fold", b); b.querySelector("button").onclick = () => o.remove();

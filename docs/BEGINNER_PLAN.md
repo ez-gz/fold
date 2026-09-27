@@ -105,3 +105,16 @@ Built in `proto/index.html`:
 - **Contrast pairs**: about 40% of drills are followed by the same spot with a different kind of hand, with a card comparing both hands, plays and reasons.
 
 Accuracy limit: the pack has exact range equity only at the start of the flop (`briefing.equity`). Elsewhere it is estimated from the sampled hands (mean error 1 point, worst 6 across 64 checked spots), so the question is asked only when the estimate clears 50% by 11 points, which is about one spot in five. To ask it everywhere, export range equity per spot from `build_spot` in `solver/src/export.rs` (it already computes every hand's equity) and rebuild the pack.
+
+
+### Audit fixes (2026-09-27)
+
+After a first-time-player audit (random taps scored Fine 87% on step 1):
+
+1. **Toss-ups.** `tossUp(s, d)` is true when every button grades Fine. Steps 1 and 2 never serve them (drills, hands filter, contrast pairs). Elsewhere the verdict is "Toss-up", the panel says it is not graded, and the step counter does not move. In Hands, only decisions matching the step's own test move the counter.
+2. **Your play first.** The panel shows the player's play (badge + one sentence of outcome), then the solver's. `whyPlay` builds each sentence from the solver's numbers for the size the button stands for; Compare names that size.
+3. **Reveal.** `reveal()` scrolls the answer above the sticky button without pushing the verdict off the top.
+4. **Buttons.** Neutral until answered; green outline for the solver's pick, red only for a graded mistake. No ✗ on a Fine answer.
+5. **Result.** `beginnerResult`: bb won or lost, the street that mattered, one plain verdict per street.
+
+Measured after: random taps on step 1 score 48% (77 graded drills remain of 301). A random walk can still reach 10 by luck.
