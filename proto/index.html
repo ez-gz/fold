@@ -154,6 +154,8 @@ header .stats{margin-left:auto;flex:none}header .chips{flex-wrap:wrap;min-width:
 .reason .lab{font-style:normal;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);border:1px solid #2a3746;border-radius:6px;padding:2px 6px}.take + .reason{margin-top:14px;padding-top:12px;border-top:1px solid #1e2935}
 .keyst{margin-top:12px;padding:10px 12px;border-radius:12px;background:#3d321566;color:#fff;font-size:14px;text-align:left}.keyst span{display:block;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--warn);margin-bottom:3px}.keyst b{margin-right:8px}.keyst.ok{background:#123c2c;color:var(--accent);text-align:center;font-weight:700}
 .table .sitwrap{margin-bottom:16px}
+.next.share{display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1}.next.share small{font-size:10px;font-weight:800;letter-spacing:.06em;margin-top:3px}
+.cwhy{font-size:12px;line-height:1.4;color:#cfd8e3;margin:2px 0 8px}
 .cbanner{margin-top:10px;text-align:center;font-size:12px;font-weight:700;letter-spacing:.04em;color:var(--warn)}
 .contrast{margin-top:12px;padding:10px 12px;border-radius:12px;background:#15202b;border:1px solid #24313f}.contrast .ch{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--warn);margin-bottom:6px}.contrast p{margin:8px 0 0;font-size:12.5px;color:#cfd8e3}
 .crow{display:flex;align-items:center;gap:6px;font-size:12.5px;padding:3px 0}.crow span{color:var(--dim);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.crow b{color:#fff}.crow em{font-style:normal;color:var(--dim);font-size:11.5px;min-width:96px;text-align:right}
@@ -719,7 +721,10 @@ function beginnerResult(H){
   const { h } = H, kw = (k, i) => KIND_WORD[h.steps[k].spot.actions[i].kind], vd = H.res.map((r, k) => { const sp = h.steps[k].spot; return begVerdict(sp, sp.drills[0], r.gr); });
   let w = -1; H.res.forEach((r, k) => { if (!vd[k].toss && !fineG(r.gr) && (w < 0 || r.gr.loss > H.res[w].gr.loss)) w = k; });
   const off = H.res.some((r, k) => r.i !== h.steps[k].line), net = h.net;
-  const head = net == null ? "" : `<div class="big" style="color:${net >= 0 ? "var(--accent)" : "var(--bad)"}">${net >= 0 ? "+" : "−"}${Math.abs(net).toFixed(1)}<small> bb</small></div><div style="color:var(--dim);font-size:12px;margin-top:6px">${net > 0 ? "You won" : net < 0 ? "You lost" : "Even"} · 1bb is one big blind${off ? "<br>Played out with the solver's choice where yours differed" : ""}</div>`;
+  const endTxt = h.end === "showdown" ? (h.result === 1 ? "you win at showdown" : h.result === 0.5 ? "a split pot" : `${h.villain} wins at showdown`) : h.end === "villain_fold" ? `${h.villain} folds` : "your fold";
+  const sg = net == null ? "" : Math.abs(net) < 0.05 ? "0bb" : `${net >= 0 ? "+" : "−"}${Math.abs(net).toFixed(1)}bb`;
+  // once a choice of yours differed, the rest of the hand is the solver's, so its result is shown as the solver's and not as yours
+  const head = net == null ? "" : off ? `<div style="color:var(--dim);font-size:13px;line-height:1.45">From where your play differed, the hand follows the solver's play.<br>It ends with ${endTxt.replace(/^you win/, "your win")}: <b style="color:#fff">${sg}</b>. <span style="font-size:11px">1bb is one big blind.</span></div>` : `<div class="big" style="color:${net >= 0 ? "var(--accent)" : "var(--bad)"}">${net >= 0 ? "+" : "−"}${Math.abs(net).toFixed(1)}<small> bb</small></div><div style="color:var(--dim);font-size:12px;margin-top:6px">${net > 0 ? "You won" : net < 0 ? "You lost" : "Even"} · 1bb is one big blind</div>`;
   const key = w < 0 ? `<div class="keyst ok">✓ No mistakes this hand</div>` : `<div class="keyst"><span>The street that mattered</span><b>${STREETS[h.steps[w].spot.street]}</b> You: ${kw(w, H.res[w].i)} → Solver: ${kw(w, H.res[w].gr.bestIdx)}</div>`;
   const sheet = $(`<div class="sheet score"><h3>Result</h3>${head}${key}<div class="rows"></div></div>`);
   H.res.forEach((r, k) => sheet.querySelector(".rows").appendChild($(`<div class="row"><span style="color:var(--dim)">${STREETS[h.steps[k].spot.street]}</span><span style="text-align:left">${kw(k, r.i)}</span><span class="pts" style="color:${vd[k].toss ? "var(--dim)" : fineG(r.gr) ? "var(--accent)" : "var(--warn)"}">${vd[k].g}</span></div>`)));
@@ -965,23 +970,23 @@ function lens(f, s, d, chosen, gr){
    looks like: four buckets instead of a grid, one button per kind of action, a Fine / Mistake verdict, one sentence
    of why. Everything full mode shows sits behind "Show more". A short curriculum (rungs) picks the spots. */
 const RUNGS = [
-  { name: "You raised, they checked to you", short: "Checked to you", hint: "Bet or check?", test: (f, s) => s.street === 0 && s.to_call === 0 && s.hero === formInfo(f).opener && !srp3(f), types: ["Top pair", "Air", "Flush draw"] },
-  { name: "You called in the big blind, they bet", short: "Facing a bet", hint: "Call, fold or raise?", test: (f, s) => s.street === 0 && s.to_call > 0 && s.hero !== formInfo(f).opener && !srp3(f), types: ["Top pair", "Air", "Flush draw", "Weak pair"] },
+  { name: "You raised, they checked to you", short: "Checked to you", hint: "Bet or check?", test: (f, s) => s.street === 0 && s.to_call === 0 && s.hero === formInfo(f).opener && !srp3(f), types: ["Top pair", "Air", "Flush draw", "Overpair", "Two pair+", "Weak pair"] },
+  { name: "You called in the big blind, they bet", short: "Facing a bet", hint: "Call, fold or raise?", test: (f, s) => s.street === 0 && s.to_call > 0 && s.hero !== formInfo(f).opener && !srp3(f), types: ["Top pair", "Air", "Flush draw", "Weak pair", "Overpair", "Two pair+", "Straight draw"] },
   { name: "The turn", short: "The turn", hint: "One more card. Still ahead?", test: (f, s) => s.street === 1 && !srp3(f), types: null },
   { name: "Facing a raise", short: "Facing a raise", hint: "They came back at you.", test: (f, s) => s.to_call > 0 && /raise/i.test(concept(f, s)), types: null },
   { name: "Everything", short: "Everything", hint: "Every spot the solver knows.", test: () => true, types: null },
 ];
-const RUNG_GOAL = 10;
+const RUNG_GOAL = 8, RUNG_WINDOW = 10;
 const srp3 = f => !!(formInfo(f).three_bet || f.three_bet);
-function rungState(){ const r = store.get("rung", { i: 0, ok: 0 }); r.i = Math.min(r.i, RUNGS.length - 1); return r; }
+function rungState(){ const r = store.get("rung", { i: 0, ok: 0 }); r.i = Math.min(r.i, RUNGS.length - 1); if (!Array.isArray(r.last)) r.last = Array(Math.min(r.ok || 0, RUNG_GOAL - 1)).fill(1); r.ok = r.last.reduce((a, b) => a + b, 0); return r; }
 function rungMatch(f, s, d){ const r = RUNGS[rungState().i], ri = rungState().i; if (!r.test(f, s)) return false; if (r.types && d && !r.types.includes(coarseType(fineType(d.hand, s.board)))) return false; return !d || ri >= 2 || !tossUp(s, d); }   // the first two steps only serve spots where one of the buttons is a real mistake
-// a Fine answer moves you up the rung, a mistake takes one back; ten Fine answers unlock the next rung.
+// eight Fine answers among the last ten graded ones unlock the next rung, so a lucky run of guesses does not.
 // Only decisions of the rung's own kind count, and a toss-up never does: it cannot be got wrong.
 function rungProgress(gr, f, s, d){
   const r = rungState(); if (r.i >= RUNGS.length - 1) return null;
   if (f && (tossUp(s, d) || !RUNGS[r.i].test(f, s))) return null;
-  const ok = gr.g === "Best" || gr.g === "Good"; r.ok = Math.max(0, r.ok + (ok ? 1 : -1)); let up = false;
-  if (r.ok >= RUNG_GOAL){ r.i++; r.ok = 0; up = true; state.queue = []; }
+  r.last = r.last.concat(fineG(gr) ? 1 : 0).slice(-RUNG_WINDOW); r.ok = r.last.reduce((a, b) => a + b, 0); let up = false;
+  if (r.ok >= RUNG_GOAL){ r.i++; r.ok = 0; r.last = []; up = true; state.queue = []; }
   store.set("rung", r); return up ? RUNGS[r.i] : null;
 }
 function rungChip(){
@@ -990,7 +995,7 @@ function rungChip(){
 }
 function rungSheet(){
   const r = rungState(), body = $(`<div></div>`);
-  body.appendChild($(`<p style="margin:0 0 10px;color:var(--dim);font-size:13px">Each step is one situation, and only the plain hand types at first. ${RUNG_GOAL} Fine answers unlock the next step; a mistake takes one back. Toss-ups do not count.</p>`));
+  body.appendChild($(`<p style="margin:0 0 10px;color:var(--dim);font-size:13px">Each step is one situation, and only the plain hand types at first. Get ${RUNG_GOAL} of your last ${RUNG_WINDOW} right to unlock the next step. Toss-ups do not count.</p>`));
   RUNGS.forEach((g, k) => { const row = $(`<div class="row ${k === r.i ? "on" : ""}" style="cursor:pointer"><span style="color:${k < r.i ? "var(--accent)" : k === r.i ? "#fff" : "var(--dim)"}">${k < r.i ? "✓" : k + 1}</span><span style="text-align:left">${g.name}<small>${g.hint}${k === r.i && k < RUNGS.length - 1 ? ` · ${r.ok}/${RUNG_GOAL}` : ""}</small></span></div>`);
     row.onclick = () => { store.set("rung", { i: k, ok: 0 }); document.querySelectorAll(".overlay").forEach(o => o.remove()); state.queue = []; state.hand = null; renderFilters(); goMode(); }; body.appendChild(row); });
   overlay("Your path", body);
@@ -1154,12 +1159,14 @@ function beginnerPanel(f, s, d, chosen, gr, opts = {}){
 }
 /* ---- before acting: what the table is telling you, as tappable chips, then one question about the ranges ---- */
 const HAND_ICON = { "Top pair": "🥇", "Overpair": "🥇", "Weak pair": "🔸", "Two pair+": "💎", "Flush draw": "🎯", "Straight draw": "🎯", "Air": "💨" };
+const SEAT = { UTG: "under the gun, the first seat to act before the flop", HJ: "the hijack, two seats before the button", CO: "the cutoff, one seat before the button", BTN: "the button, the dealer's seat and the last to act after the flop", SB: "the small blind, which pays half a blind before the cards and acts first after the flop", BB: "the big blind, which pays one blind before the cards" };
 function situationChips(f, s, d){
   const F = formInfo(f), ft = fineType(d.hand, s.board), ct = coarseType(ft), tb = srp3(f), raiser = tb ? F.opener === s.hero ? s.villain : s.hero : F.opener;   // in a 3-bet pot the 3-bettor is formInfo's caller
   const last = (f.pos || F.pos || [])[1] === s.hero, row = $(`<div class="sit"></div>`), note = $(`<div class="tagnote"></div>`);
   const chips = [[HAND_ICON[ct] || "🂠", ft, ct === "Air" ? "No pair and no draw. It only wins if they fold or it improves." : ct === "Top pair" ? "A pair with the highest card on the board. Usually ahead, rarely the very best hand." : ct === "Weak pair" ? "A pair, but not the top one. It beats bluffs and loses to most bets." : ct === "Two pair+" ? "Two pair or better. One of the best hands you can have here." : ct === "Overpair" ? "A pocket pair above every board card." : "Not made yet. It needs another card to become strong."],
     [raiser === s.hero ? "🔺" : "🔻", raiser === s.hero ? "You raised" : `${s.villain} raised`, raiser === s.hero ? "You raised last before the flop, so your range has the big pairs and big aces." : `${s.villain} raised last before the flop, so their range has the big pairs and big aces.`],
-    [last ? "⏩" : "⏪", last ? "You act last" : "You act first", last ? "You see what they do before you decide. That is an advantage on every street." : "You decide before seeing what they do. Checking more often is normal here."]];
+    [last ? "⏩" : "⏪", last ? "You act last" : "You act first", last ? "You see what they do before you decide. That is an advantage on every street." : "You decide before seeing what they do. Checking more often is normal here."],
+    ["🪑", `${s.hero} vs ${s.villain}`, `You sit in ${s.hero}: ${SEAT[s.hero] || "a seat at the table"}. ${s.villain} is ${SEAT[s.villain] || "your opponent"}. Amounts are in big blinds: 1bb is one big blind.`]];
   chips.forEach(([ic, label, why]) => { const c = $(`<div class="tag"><i>${ic}</i>${label}</div>`); c.onclick = () => { const on = c.classList.contains("on"); [...row.children].forEach(x => x.classList.remove("on")); c.classList.toggle("on", !on); note.textContent = on ? "" : why; }; row.appendChild(c); });
   const wrap = $(`<div class="sitwrap"></div>`); wrap.appendChild(row); wrap.appendChild(note); return wrap;
 }
@@ -1180,7 +1187,8 @@ function pickContrast(f, s, d){
   const diff = c.filter(o => o.kind !== k0), pool = diff.length ? diff : c; return pool.length ? pool[Math.floor(Math.random() * pool.length)].x : null;
 }
 function contrastCard(f, s, prev, d, gr){
-  const row = (dd, bi) => `<div class="crow">${dd.hand.map(c => cardEl(c, "mini")).join("")}<span>${fineType(dd.hand, s.board)}</span><b>${KIND_WORD[s.actions[bi].kind]}</b><em>${REASONS[reasonOf(f, s, dd, bi)][0]} ${reasonOf(f, s, dd, bi)}</em></div>`;
+  const row = (dd, bi) => `<div class="crow">${dd.hand.map(c => cardEl(c, "mini")).join("")}<span>${fineType(dd.hand, s.board)}</span><b>${KIND_WORD[s.actions[bi].kind]}</b><em>${REASONS[reasonOf(f, s, dd, bi)][0]} ${reasonOf(f, s, dd, bi)}</em></div><div class="cwhy">${whyPlay(f, s, dd, rix(dd, bi), true)}</div>`;
+  const rix = (dd, bi) => { const r = repIdx(s, dd, s.actions[bi].kind); return r == null ? bi : r; };
   const pb = grade(s, prev, 0).bestIdx, same = s.actions[pb].kind === s.actions[gr.bestIdx].kind;
   return $(`<div class="contrast"><div class="ch">⇄ Same spot, different hand</div>${row(prev, pb)}${row(d, gr.bestIdx)}<p>${same ? "Same play, different reason. The action is not the idea: the reason is." : "Same board, same opponent. Only your hand changed, and so did the play."}</p></div>`);
 }
@@ -1323,10 +1331,10 @@ function takeShared(k){ if (!SHARED || SHARED[0] !== k) return null; const s = S
 function setShare(k, a, b){ state.shareScore = null; history.replaceState(null, "", location.pathname + location.search + `#${k}=${a}.${b}`); }
 function challengeNote(){ if (!state.challenge) return; const c = state.challenge; state.challenge = null; main.prepend($(`<div class="challenge">A friend scored <b>${c}</b> on this one. Your turn.</div>`)); }
 function shareBtn(){
-  const b = $(`<button class="next share" aria-label="Share">↗</button>`);
+  const b = $(`<button class="next share" aria-label="Share"><span>↗</span><small>Share</small></button>`);
   b.onclick = async () => { const sc = state.shareScore, url = location.href.replace(/&s=.*$/, "") + (sc ? "&s=" + encodeURIComponent(sc) : ""), pz = location.hash[1] === "p";
     const text = sc ? `I scored ${sc}${pz ? "" : "/10"} on this ${pz ? "range puzzle" : "poker hand"}. Can you beat it?` : `Try this ${pz ? "range puzzle" : "poker hand"} on Fold`;
-    try { if (navigator.share) await navigator.share({ title: "Fold", text, url }); else { await navigator.clipboard.writeText(text + " " + url); b.textContent = "✓"; setTimeout(() => b.textContent = "↗", 1200); } } catch (e) {} };
+    try { if (navigator.share) await navigator.share({ title: "Fold", text, url }); else { await navigator.clipboard.writeText(text + " " + url); b.firstChild.textContent = "✓"; setTimeout(() => b.firstChild.textContent = "↗", 1200); } } catch (e) {} };
   return b;
 }
 function puzzlePool(){ const out = []; PACK.flops.forEach(f => f.spots.forEach(s => { if (s.vcombos && s.vcombos.filter(c => c[1] >= 0.3).length >= 6 && focusMatch(f, s, null)) out.push({ f, s }); })); if (!out.length && state.focus) { state.focus = null; renderFilters(); return puzzlePool(); } return out; }

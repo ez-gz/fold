@@ -118,3 +118,12 @@ After a first-time-player audit (random taps scored Fine 87% on step 1):
 5. **Result.** `beginnerResult`: bb won or lost, the street that mattered, one plain verdict per street.
 
 Measured after: random taps on step 1 score 48% (77 graded drills remain of 301). A random walk can still reach 10 by luck.
+
+### Second round (2026-09-27)
+
+- **Step rule:** 8 Fine answers among the last 10 graded ones (`RUNG_GOAL = 8`, `RUNG_WINDOW = 10`, stored as `rung.last`). Simulated answers needed per step: 11 at 80% accuracy, 22 at 65%, 68 when guessing.
+- **Hand types:** step 1 adds Overpair, Two pair+ and Weak pair (149 graded drills, was 77); step 2 adds Overpair, Two pair+ and Straight draw (1,096).
+- **Result screen:** once the player's choice differed, the ending is described as the solver's, without a big won/lost number.
+- **Contrast card:** each hand carries its one-sentence why.
+- **Seat chip:** a fourth chip ("BTN vs BB") explains both seats and what 1bb is. The share button is labelled.
+- Not changed: in Hands only the step's own kind of decision counts, so Drills remains the faster way up.
