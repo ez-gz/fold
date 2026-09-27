@@ -521,3 +521,5 @@ untouched.
 - *Order of work*: (1) table engine (deal, blinds, action order, side pots, showdown) in the prototype;
   (2) preflop bot from charts + hero preflop grading; (3) heads-up postflop lookup on pack flops, fallback
   policy elsewhere; (4) leaks integration + session sheet; (5) 3-way pack when it is broader than one flop.
+
+Answer layers (2026-09-26): reason badge, one-sentence takeaway, icon tabs (Compare, Ranges, Full), situation chips, a range question before acting where range equity is certain, and contrast pairs in Drills. Details in `docs/BEGINNER_PLAN.md`.

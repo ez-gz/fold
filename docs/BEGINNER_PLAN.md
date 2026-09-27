@@ -85,3 +85,23 @@ Items 5, 6, 7, 10 and 11 change the curriculum engine and are the larger second 
 - https://www.learningscientists.org/blog/2026/6/18-1 (worked examples for novices, retrieval after instruction)
 - https://www.structural-learning.com/post/desirable-difficulties
 - https://blog.duolingo.com/chess-course (bite-sized, guided first move, fading, spaced return)
+
+## Decisions, 2026-09-26
+
+| Idea | Decision |
+|---|---|
+| 1 | Changed: teach the UI through icons, tap states and progressive disclosure, not sentences |
+| 2, 3, 6, 10 | Approved and built |
+| 4 | Dropped: percentages are easy to understand |
+| 5 | Dropped: the player must act on every spot |
+| 7, 8, 9, 11, 12 | Undecided |
+
+Built in `proto/index.html`:
+
+- **Reason badge**: every answer names one of ten reasons (Value, Bluff, Semi-bluff, Protect, Trap, Pot control, Free card, Give up, Bluff-catch, Price). Tap for a one-line definition. Accuracy is stored per reason under store key `reasons`.
+- **Layered answer**: reason, one sentence, then icon tabs (Compare, Ranges, Full) that open one at a time. Compare opens by itself after a mistake.
+- **Situation chips** under the hero's cards: hand type, who raised, who acts first. Tap for one line.
+- **Whose range is stronger?** One tap before the buttons appear, then the range duel: two bucket bars and tappable tags for who is ahead, who has the best hands, who is capped, who has more nothing, and whether the betting range is polarized or linear.
+- **Contrast pairs**: about 40% of drills are followed by the same spot with a different kind of hand, with a card comparing both hands, plays and reasons.
+
+Accuracy limit: the pack has exact range equity only at the start of the flop (`briefing.equity`). Elsewhere it is estimated from the sampled hands (mean error 1 point, worst 6 across 64 checked spots), so the question is asked only when the estimate clears 50% by 11 points, which is about one spot in five. To ask it everywhere, export range equity per spot from `build_spot` in `solver/src/export.rs` (it already computes every hand's equity) and rebuild the pack.

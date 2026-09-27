@@ -140,6 +140,19 @@ header .stats{margin-left:auto;flex:none}header .chips{flex-wrap:wrap;min-width:
 .sheet.whatif{border:1px solid #e8c54755}.sheet.whatif h3 small{font-size:12px}
 .gridwrap{margin-top:8px}.gridwrap .gridtog{display:inline-block;margin-bottom:6px;font-size:11px}
 .chip.rung{display:flex;align-items:center;gap:3px;padding-left:9px}.chip.rung i{display:inline-block;width:7px;height:7px;border-radius:50%;background:#2a3540}.chip.rung i.done{background:var(--accent)}.chip.rung i.now{background:#fff}.chip.rung span{margin-left:4px}
+.why.beg .dim,.dim{color:var(--dim)}.why.beg .take{font-size:15px;line-height:1.45;margin:10px 0 0}
+.reason{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px}.reason i{font-style:normal;font-size:20px}.reason b{color:#fff;letter-spacing:.02em}.reason span{display:none;color:var(--dim);font-size:12px}.reason.open span{display:inline}.reason::after{content:"ⓘ";margin-left:auto;color:var(--dim);font-size:13px}.reason.open::after{color:var(--accent)}
+.btabs{display:flex;gap:6px;margin-top:12px}.btab{flex:1;text-align:center;padding:8px 4px;border-radius:12px;background:#15202b;border:1px solid #24313f;font-size:12px;font-weight:600;color:var(--dim);cursor:pointer;transition:all .15s}.btab i{display:block;font-style:normal;font-size:17px;margin-bottom:2px}.btab.on{background:#123c2c;border-color:var(--accent);color:#fff}.btab:active{transform:scale(.96)}
+.bpane:not(:empty){margin-top:12px;animation:up .2s ease}.bpane p{margin:0 0 9px}
+.tags,.sit{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.sit{justify-content:center}.tag{display:flex;align-items:center;gap:5px;padding:5px 9px;border-radius:999px;background:#15202b;border:1px solid #24313f;font-size:11.5px;font-weight:600;color:#cfd8e3;cursor:pointer;transition:all .15s}.tag i{font-style:normal;font-size:13px}.tag.on{background:#123c2c;border-color:var(--accent);color:#fff}.tag:active{transform:scale(.95)}
+.tagnote{font-size:12.5px;line-height:1.45;color:#cfd8e3}.tagnote:not(:empty){margin-top:8px;padding:8px 10px;border-radius:10px;background:#0c1218;animation:up .2s ease}.sitwrap .tagnote{text-align:center}
+.bar.duo{grid-template-columns:34px minmax(0,1fr) 38px;margin:5px 0}.bar.duo span{color:#fff;font-weight:600}.duel .legend{margin:6px 0 2px}
+.think{margin-top:12px;padding:14px;border-radius:16px;background:var(--panel,#111a23);border:1px solid #24313f;animation:up .25s ease}.think .q{font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px}.think .help{font-style:normal;width:18px;height:18px;border-radius:50%;border:1px solid var(--dim);color:var(--dim);font-size:11px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.think .opts{display:flex;gap:8px;margin-top:10px}.topt{flex:1;border:1px solid #24313f;background:#15202b;color:#fff;border-radius:14px;padding:10px 4px;font-weight:700;font-size:13px;cursor:pointer;transition:all .15s}.topt i{display:block;font-style:normal;font-size:20px;margin-bottom:2px}.topt:active{transform:scale(.96)}.topt.ok{background:#123c2c;border-color:var(--accent)}.topt.no{background:#432418;border-color:var(--bad)}.topt:disabled{opacity:.55}.topt.ok:disabled,.topt.no:disabled{opacity:1}.think .duel{margin-top:12px}
+.cbanner{margin-top:10px;text-align:center;font-size:12px;font-weight:700;letter-spacing:.04em;color:var(--warn)}
+.contrast{margin-top:12px;padding:10px 12px;border-radius:12px;background:#15202b;border:1px solid #24313f}.contrast .ch{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--warn);margin-bottom:6px}.contrast p{margin:8px 0 0;font-size:12.5px;color:#cfd8e3}
+.crow{display:flex;align-items:center;gap:6px;font-size:12.5px;padding:3px 0}.crow span{color:var(--dim);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.crow b{color:#fff}.crow em{font-style:normal;color:var(--dim);font-size:11.5px;min-width:96px;text-align:right}
+.card.mini{width:24px;height:32px;border-radius:5px;font-size:12px;box-shadow:none;animation:none}.card.mini small{font-size:9px}
 .why.beg h3{margin:0 0 6px}.why.beg h3+h3,.why.beg p+h3{margin-top:14px}.why.beg details.more{margin-top:12px}.why.beg .tip{margin-top:10px;padding:10px 12px;border-radius:12px;background:#15202b;border:1px solid #24313f;font-size:13px;line-height:1.45}.why.beg .tip b{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--warn);margin-bottom:3px}.why.beg .legend{display:flex;flex-wrap:wrap;gap:8px 12px;font-size:11px;color:var(--dim)}.why.beg .legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:4px;vertical-align:-1px}
 .seats.arena .seat{padding:3px 0 2px;font-size:10px;position:relative}.seats.arena .seat .bet{position:absolute;right:-6px;bottom:-7px;font-style:normal;font-size:8.5px;font-weight:700;line-height:18px;min-width:18px;height:18px;padding:0 3px;border-radius:9px;background:var(--warn);color:#160d02;box-shadow:0 0 0 2px var(--bg);letter-spacing:0}.seats.arena .seat small{font-size:9px}.seats.arena .seat.folded{opacity:.3}
 </style>
@@ -208,7 +221,8 @@ function buildQueue(){
   for (let i = q.length - 1; i > 0; i--){ const j = Math.floor(Math.random()*(i+1)); [q[i], q[j]] = [q[j], q[i]]; }
   state.queue = q;
 }
-function next(){ if (!state.queue.length) buildQueue(); state.cur = state.queue.pop(); state.cur ? renderSpot() : (main.innerHTML = `<div class="empty">No spots for this filter.</div>`); window.scrollTo(0,0); }
+function next(){ if (state.beginner && state.contrast){ state.cur = state.contrast; state.contrast = null; renderSpot(); window.scrollTo(0, 0); return; }
+  if (!state.queue.length) buildQueue(); state.cur = state.queue.pop(); state.cur ? renderSpot() : (main.innerHTML = `<div class="empty">No spots for this filter.</div>`); window.scrollTo(0,0); }
 
 /* ---------- grading ---------- */
 /* ---------- concepts: name the situation so results can be tracked and drilled by it ---------- */
@@ -428,6 +442,11 @@ function renderActions(){
   const { s } = state.cur;
   const box = $(`<div class="actions" id="actions"></div>`);
   if (state.beginner && !state.cur.three){
+    const c = state.cur, tbl = main.querySelector(".table");
+    if (tbl && !tbl.querySelector(".sitwrap")) tbl.appendChild(situationChips(c.f, s, c.d));
+    if (c.prev && !main.querySelector(".cbanner")) main.appendChild($(`<div class="cbanner">⇄ Same spot, different hand</div>`));
+    if (!c.tf && !c.prev && !rangeFacts(c.f, s).sure) c.tf = true;   // no question where the answer is not certain
+    if (!c.tf && !c.prev){ c.tf = true; main.appendChild(thinkFirst(c.f, s, c.d, () => renderActions())); return; }
     beginnerOptions(s, state.cur.d).forEach(o => { const b = $(`<button class="act ${kindClass(s, o.i)}" data-i="${o.i}"><div class="fill"></div><span>${o.label}</span><span class="sub"></span></button>`); b.onclick = () => answer(o.i); box.appendChild(b); });
     main.appendChild(box); return;
   }
@@ -513,7 +532,10 @@ function answer(i){
   if (state.beginner){
     const bg = beginnerGrade(gr), up = rungProgress(gr);
     main.appendChild($(`<div class="verdict ${bg.cls}"><div class="g">${bg.g}</div><div class="l">${bg.l}</div></div>`));
-    main.appendChild(beginnerPanel(f, s, d, i, gr));
+    trackReason(reasonOf(f, s, d, gr.bestIdx), gr.g === "Best" || gr.g === "Good");
+    const dl = main.querySelector(".think .duel"); if (dl) dl.remove();   // the bars live on under the Ranges tab
+    main.appendChild(beginnerPanel(f, s, d, i, gr, { contrast: state.cur.prev ? contrastCard(f, s, state.cur.prev, d, gr) : null }));
+    if (!state.cur.prev && Math.random() < 0.4){ const x = pickContrast(f, s, d); if (x) state.contrast = { f, s, d: x, prev: d, tf: true }; }
     if (up) main.appendChild($(`<div class="sheet" style="border-color:var(--accent)"><h3>Next step unlocked</h3><p style="margin:0;font-size:13px">${up.name}. ${up.hint}</p></div>`));
     const nx = $(`<button class="next">Next spot →</button>`); nx.onclick = next; main.appendChild(nx); renderFilters(); renderStats(); return;
   }
@@ -575,7 +597,7 @@ function nextHand(){
 }
 async function handStep(first){
   const H = state.hand, step = H.h.steps[H.k], s = step.spot;
-  state.cur = { f: H.f, s, d: s.drills[0] };
+  state.cur = { f: H.f, s, d: s.drills[0], tf: H.k > 0 };
   renderSpot();
   const table = main.querySelector(".table"), board = table.querySelector(".board"), potEl = table.querySelector(".pot");
   // reveal order: each street's cards, then that street's actions, one at a time
@@ -629,7 +651,8 @@ function handAnswer(i, gr){
   if (state.beginner){
     const bg = beginnerGrade(gr), up = rungProgress(gr);
     main.appendChild($(`<div class="verdict ${bg.cls}"><div class="g">${bg.g}</div><div class="l">${bg.l}</div></div>`));
-    const pnl = beginnerPanel(H.f, s, d, i, gr); if (i !== step.line) pnl.insertBefore($(`<p style="color:var(--dim)">The hand continues on the solver's line: <b>${KIND_WORD[s.actions[step.line].kind]}</b>.</p>`), pnl.querySelector("details")); main.appendChild(pnl);
+    trackReason(reasonOf(H.f, s, d, gr.bestIdx), gr.g === "Best" || gr.g === "Good");
+    const pnl = beginnerPanel(H.f, s, d, i, gr); if (i !== step.line) pnl.insertBefore($(`<p class="dim" style="font-size:12px">The hand continues on the solver's line: <b>${KIND_WORD[s.actions[step.line].kind]}</b>.</p>`), pnl.querySelector(".btabs")); main.appendChild(pnl);
     if (up) main.appendChild($(`<div class="sheet" style="border-color:var(--accent)"><h3>Next step unlocked</h3><p style="margin:0;font-size:13px">${up.name}. ${up.hint}</p></div>`));
     renderFilters();
   } else {
@@ -966,21 +989,71 @@ function beginnerOptions(s, d){
 }
 const beginnerGrade = gr => gr.g === "Best" || gr.g === "Good" ? { g: "Fine", cls: "g-Best", l: "" } : gr.p > 5 ? { g: "Big mistake", cls: "g-Mistake", l: `−${gr.loss.toFixed(1)}bb` } : { g: "Mistake", cls: "g-Inaccuracy", l: "" };
 const shareWord = v => v >= 0.6 ? "mostly" : v >= 0.4 ? "about half" : v >= 0.2 ? "some" : v >= 0.07 ? "a few" : "almost no";
+const BUCKETS = [["Strong", "var(--bad)"], ["A pair", "var(--warn)"], ["A draw", "var(--call)"], ["Nothing", "#3a4654"]];
+const bucketShares = cls => { const g = groupSummary(cls); return [g.strong, g.mid, g.draws, g.air]; };
+const bucketBar = (cls, h = 12) => `<div class="t" style="height:${h}px">${bucketShares(cls).map((v, k) => `<i style="width:${100 * v}%;background:${BUCKETS[k][1]}"></i>`).join("")}</div>`;
+const bucketLegend = () => `<div class="legend">${BUCKETS.map(b => `<span><i style="background:${b[1]}"></i>${b[0]}</span>`).join("")}</div>`;
+/* why a play is made, as one of ten named reasons: the name is what lets learning accumulate across spots */
+const REASONS = {
+  "Value": ["💰", "Bet so worse hands pay you."], "Bluff": ["🎭", "Bet so better hands fold."], "Semi-bluff": ["🎯", "Bet a draw: win now, or improve later."],
+  "Protect": ["🛡", "Ahead now. Make their draws pay to catch up."], "Trap": ["🪤", "Strong hand. Let them do the betting."], "Pot control": ["⚖️", "Medium hand. Keep the pot small."],
+  "Free card": ["🎟", "A draw that gets to see the next card for free."], "Give up": ["🏳", "Nothing to win here. Save the chips."], "Bluff-catch": ["🥅", "Call, because they bluff often enough."], "Price": ["🏷", "The pot pays enough for the times you win."] };
+function reasonOf(f, s, d, i){
+  const k = s.actions[i].kind, ct = coarseType(fineType(d.hand, s.board)), draw = ct === "Flush draw" || ct === "Straight draw", ec = d.eq_cont ? d.eq_cont[i] : d.eq;
+  if (k === "bet" || k === "raise") return ec >= 0.5 ? "Value" : draw ? "Semi-bluff" : d.eq >= 0.5 ? "Protect" : "Bluff";
+  if (k === "check") return draw ? "Free card" : d.cls === 0 || d.eq >= 0.85 ? "Trap" : d.eq >= 0.35 ? "Pot control" : "Give up";
+  if (k === "call") return draw ? "Price" : "Bluff-catch";
+  return "Give up";
+}
 function beginnerWhy(f, s, d, chosen, gr){
   const g = groupSummary(s.vclass), V = s.villain, A = s.actions, best = A[gr.bestIdx], ct = coarseType(fineType(d.hand, s.board)), eq = d.eq;
-  const buckets = [["Strong", g.strong, "var(--bad)", "strong"], ["A pair", g.mid, "var(--warn)", "a pair"], ["A draw", g.draws, "var(--call)", "a draw"], ["Nothing", g.air, "#3a4654", "nothing"]];
-  const parts = buckets.filter(b => b[1] >= 0.07).sort((a, b) => b[1] - a[1]).map(b => `${shareWord(b[1])} are ${b[3]}`), list = parts.length > 1 ? parts.slice(0, -1).join(", ") + " and " + parts[parts.length - 1] : parts[0] || "a bit of everything";
-  const eqWord = eq >= 0.6 ? "most" : eq >= 0.4 ? "about half" : eq >= 0.2 ? "some" : eq >= 0.07 ? "a little" : "almost none";
-  const have = `<div class="bar" style="grid-template-columns:minmax(0,1fr) auto;margin:6px 0 4px"><div class="t" style="height:12px">${buckets.map(b => `<i style="width:${100 * b[1]}%;background:${b[2]}"></i>`).join("")}</div></div><div class="legend" style="margin-bottom:8px">${buckets.map(b => `<span><i style="background:${b[2]}"></i>${b[0]}</span>`).join("")}</div><p>Of ${V}'s hands, ${list}. You have <b>${fineType(d.hand, s.board).toLowerCase()}</b>, which beats ${eqWord} of that.</p>`;
-  const k = best.kind, need = s.to_call > 0 ? s.to_call / (s.pot + s.to_call) : 0, weak = g.mid + g.air, r = respInfo(f, s, d, gr.bestIdx), draw = ct === "Flush draw" || ct === "Straight draw";
+  const k = best.kind, need = s.to_call > 0 ? s.to_call / (s.pot + s.to_call) : 0, r = respInfo(f, s, d, gr.bestIdx), draw = ct === "Flush draw" || ct === "Straight draw";
   let why;
-  if (k === "bet" || k === "raise") why = eq >= 0.6 ? `You are ahead of most of what ${V} has, so worse hands pay you.` : r && r.fold >= 0.4 ? `${V} folds ${pct(r.fold)} of the time here, so you often take it right now.` : `What ${V} folds is worth taking, and what calls is mostly weak pairs and draws.`;
-  else if (k === "check") why = ct === "Air" ? `You have nothing, and a bet only folds hands you already beat. Keep it cheap.` : draw ? `Not there yet. See the next card for free.` : eq >= 0.6 ? `You are ahead, but a bet folds out the hands that would pay you. Let ${V} bet.` : `Not strong enough to bet, not weak enough to give up.`;
-  else if (k === "fold") why = `You lose to most of what ${V} has: you need ${pct(need)} to call and have ${pct(eq)}.`;
-  else why = draw ? `Not there yet, but the price is right: you need ${pct(need)} and have ${pct(eq)}.` : `You beat enough of ${V}'s hands for the price: you need ${pct(need)} and have ${pct(eq)}.`;
+  if (k === "bet" || k === "raise") why = eq >= 0.6 ? `You beat most of what ${V} has, so worse hands pay you.` : r && r.fold >= 0.4 ? `${V} folds ${pct(r.fold)} here, so you often take it now.` : `What ${V} folds is worth taking, and what calls is mostly weak.`;
+  else if (k === "check") why = ct === "Air" ? `A bet only folds hands you already beat.` : draw ? `See the next card for free.` : eq >= 0.6 ? `A bet folds out the hands that would pay you.` : `Too weak to bet, too good to give up.`;
+  else if (k === "fold") why = `You need ${pct(need)} to call and win ${pct(eq)}.`;
+  else why = `You need ${pct(need)} and win ${pct(eq)}.`;
   const ok = gr.g === "Best" || gr.g === "Good", pk = KIND_WORD[A[chosen].kind];
-  const wrong = A[chosen].kind !== k ? `<p>${ok ? `<b>${pk}</b> is fine too, but the stronger play is` : `<b>${pk}</b> ${gr.p > 5 ? "gives up a lot" : "gives up a little"}. The play is`} ` : "<p>";
-  return `<h3>What do they have?</h3>${have}<h3>What do I do?</h3>${wrong}<b>${KIND_WORD[k]}.</b> ${why}</p>${beginnerCompare(f, s, d, chosen, gr)}`;
+  const wrong = A[chosen].kind !== k ? (ok ? `<span class="dim">${pk} is fine too.</span> ` : `<span class="dim">${pk} ${gr.p > 5 ? "gives up a lot" : "gives up a little"}.</span> `) : "";
+  return `${wrong}<b>${KIND_WORD[k]}.</b> ${why}`;
+}
+/* ---- ranges, side by side: who is ahead, who holds the best hands, who is capped, what shape the betting range has ---- */
+function rangeFacts(f, s){
+  const sum = a => a.reduce((x, y) => x + y, 0) || 1, hs = sum(s.hclass), vs = sum(s.vclass), F = formInfo(f);
+  // range equity: exact at the start of the flop (the solver's briefing); elsewhere the area under the sampled hands' equity curve,
+  // which measured within 1 point on average and 6 at worst, so it only counts as a verdict when it clears the line by that much
+  const root = s.street === 0 && !(s.history && s.history.length) && f.briefing, src = s.drills.length >= 6 ? s : (f.spots || []).find(x => x.id === s.id && x.drills.length >= 6);
+  let eq = null, exact = false;
+  if (root){ eq = f.briefing.equity[0]; exact = true; }
+  else if (src){ const p = src.drills.map(x => [x.top, x.eq]).sort((a, b) => a[0] - b[0]), q = [[0, p[0][1]], ...p, [1, p[p.length - 1][1]]]; eq = 0; for (let i = 1; i < q.length; i++) eq += (q[i][0] - q[i - 1][0]) * (q[i][1] + q[i - 1][1]) / 2; }
+  const sure = eq != null && (exact || Math.abs(eq - 0.5) >= 0.11);
+  const H = bucketShares(s.hclass), V = bucketShares(s.vclass), nH = s.hclass[0] / hs, nV = s.vclass[0] / vs;
+  const ahead = eq == null ? null : eq >= 0.55 ? "you" : eq <= 0.45 ? "them" : "even";
+  const best = nH >= 1.5 * nV && nH - nV >= 0.015 ? "you" : nV >= 1.5 * nH && nV - nH >= 0.015 ? "them" : null;
+  const capped = nV < 0.02 && nH >= 0.04 ? "them" : nH < 0.02 && nV >= 0.04 ? "you" : null;
+  const worst = H[3] - V[3] >= 0.08 ? "you" : V[3] - H[3] >= 0.08 ? "them" : null;
+  // the shape of whoever is doing the betting: villain's range if they bet into us, else the hands the solver bets with for us
+  let shape = null, who = null;
+  const classify = b => { const tt = sum(b), strong = (b[0] + b[1]) / tt, mid = b[2] / tt, weak = 1 - strong - mid; return mid <= 0.15 && weak >= 0.3 && strong >= 0.2 ? "polarized" : weak <= 0.25 ? "linear" : null; };
+  if (s.to_call > 0){ shape = classify(s.vclass); who = "them"; }
+  else { const b = s.hclass.map((w, c) => w * s.actions.reduce((a, x, k) => a + (x.kind === "bet" || x.kind === "raise" ? s.hclass_strat[c][k] : 0), 0)); if (sum(b) / hs >= 0.1 && b.some(x => x > 0)){ shape = classify(b); who = "you"; } }
+  return { eq, exact, sure, ahead, best, capped, worst, shape, who, H, V, nH, nV, heroRaised: s.hero === F.opener && !srp3(f) || (srp3(f) && s.hero !== F.opener) };
+}
+function rangeDuel(f, s){
+  const R = rangeFacts(f, s), V = s.villain, el = $(`<div class="duel"></div>`), me = "You", nm = w => w === "you" ? me : V;
+  const show = R.exact || R.sure, e = x => R.exact ? pct(x) : "~" + 5 * Math.round(20 * x) + "%";
+  el.appendChild($(`<div class="bar duo"><span>You</span>${bucketBar(s.hclass, 14)}<b>${show ? e(R.eq) : ""}</b></div>`));
+  el.appendChild($(`<div class="bar duo"><span>${V}</span>${bucketBar(s.vclass, 14)}<b>${show ? e(1 - R.eq) : ""}</b></div>`));
+  el.appendChild($(bucketLegend()));
+  const tags = [];
+  if (show) tags.push(["📈", R.ahead === "even" ? "Ranges are even" : `${nm(R.ahead)} ahead`, `All your possible hands win ${R.exact ? pct(R.eq) : "about " + 5 * Math.round(20 * R.eq) + "%"} against all of theirs. ${R.heroRaised ? "You raised before the flop, so you hold the big pairs and big aces." : `${V} raised before the flop, so ${V} holds the big pairs and big aces.`}`]);
+  if (R.best) tags.push(["👑", `Best hands: ${nm(R.best)}`, `Two pair or better: you ${pct(R.nH)}, ${V} ${pct(R.nV)}. Whoever has more of the very best hands can bet big.`]);
+  if (R.capped) tags.push(["🔒", `${nm(R.capped)} capped`, R.capped === "them" ? `${V} almost never has two pair or better here (${pct(R.nV)}). ${R.heroRaised ? "They only called before the flop: AA, KK and AK would have raised." : "Their line leaves the strongest hands out."}` : `You almost never have two pair or better here (${pct(R.nH)}), so big bets from ${V} are hard to fight.`]);
+  if (R.worst) tags.push(["🕳", `More nothing: ${nm(R.worst)}`, `Hands with no pair and no draw: you ${pct(R.H[3])}, ${V} ${pct(R.V[3])}. The side with more nothing has to give up more often.`]);
+  if (R.shape) tags.push([R.shape === "polarized" ? "🧲" : "📏", `${R.who === "you" ? "Your bets" : V + "'s bets"}: ${R.shape}`, R.shape === "polarized" ? "Polarized: very strong hands and bluffs, little in between. Medium hands become bluff-catchers against it." : "Linear: the best hands downward, few bluffs. Against it, medium hands are usually behind."]);
+  const row = $(`<div class="tags"></div>`), note = $(`<div class="tagnote"></div>`);
+  tags.forEach(([ic, label, why]) => { const c = $(`<div class="tag"><i>${ic}</i>${label}</div>`); c.onclick = () => { const on = c.classList.contains("on"); [...row.children].forEach(x => x.classList.remove("on")); c.classList.toggle("on", !on); note.textContent = on ? "" : why; }; row.appendChild(c); });
+  el.appendChild(row); el.appendChild(note); el._facts = R; return el;
 }
 // what happens after each option, side by side: this comparison is the crux of why one play beats another
 function beginnerCompare(f, s, d, chosen, gr){
@@ -1003,7 +1076,7 @@ function beginnerCompare(f, s, d, chosen, gr){
   };
   const best = kv[0], alt = kv.find(x => x.kind === A[chosen].kind && x !== best) || kv[1], mixed = alt.strat >= 0.25;
   const close = mixed ? `<p><b>The solver does both:</b> ${KIND_WORD[best.kind]} ${pct(best.strat)}, ${KIND_WORD[alt.kind]} ${pct(alt.strat)}. Either is fine here.</p>` : `<p>That is why <b>${KIND_WORD[best.kind]}</b> beats ${KIND_WORD[alt.kind].toLowerCase()} here.</p>`;
-  return `<h3>Compare</h3><p>${line(best.kind)}</p><p>${line(alt.kind)}</p>${close}${mixed ? beginnerTip(s, d, best.kind, alt.kind) : ""}`;
+  return `<p>${line(best.kind)}</p><p>${line(alt.kind)}</p>${close}${mixed ? beginnerTip(s, d, best.kind, alt.kind) : ""}`;
 }
 // when it is close, the opponent decides: a small callout on how to lean against a real player
 function beginnerTip(s, d, a, b){
@@ -1016,11 +1089,59 @@ function beginnerTip(s, d, a, b){
   return t ? `<div class="tip"><b>When it is close</b>${t}</div>` : "";
 }
 // the beginner answer panel: two questions, then everything full mode shows behind "Show more"
-function beginnerPanel(f, s, d, chosen, gr){
-  const sheet = $(`<div class="sheet why beg">${beginnerWhy(f, s, d, chosen, gr)}<details class="more"><summary>Show more</summary><div class="full"></div></details></div>`);
-  const full = sheet.querySelector(".full"); let built = false;
-  sheet.querySelector("details").addEventListener("toggle", e => { if (built || !e.target.open) return; built = true; full.appendChild($(`<div class="why" style="margin-top:10px"><h3>Why</h3>${explain(f, s, d, chosen, gr)}</div>`)); const L = lens(f, s, d, chosen, gr); L.style.cssText = "padding:10px 0 0;background:none;border:0"; full.appendChild(L); });
+function reasonBadge(name){
+  const [ic, def] = REASONS[name], el = $(`<div class="reason"><i>${ic}</i><b>${name}</b><span>${def}</span></div>`);
+  el.onclick = () => el.classList.toggle("open"); return el;
+}
+function trackReason(name, ok){ const b = store.get("reasons", {}); const e = b[name] || (b[name] = { n: 0, ok: 0 }); e.n++; if (ok) e.ok++; store.set("reasons", b); }
+// the beginner answer: reason, one sentence, then icon tabs that open one layer at a time
+function beginnerPanel(f, s, d, chosen, gr, opts = {}){
+  const sheet = $(`<div class="sheet why beg"></div>`), reason = reasonOf(f, s, d, gr.bestIdx);
+  sheet.appendChild(reasonBadge(reason));
+  sheet.appendChild($(`<p class="take">${beginnerWhy(f, s, d, chosen, gr)}</p>`));
+  if (opts.contrast) sheet.appendChild(opts.contrast);
+  const tabs = $(`<div class="btabs"></div>`), pane = $(`<div class="bpane"></div>`); let cur = null;
+  const items = [
+    ["⚔️", "Compare", () => $(`<div>${beginnerCompare(f, s, d, chosen, gr)}</div>`)],
+    ["📊", "Ranges", () => rangeDuel(f, s)],
+    ["🔬", "Full", () => { const w = $(`<div><div class="why" style="margin-bottom:6px">${explain(f, s, d, chosen, gr)}</div></div>`); const L = lens(f, s, d, chosen, gr); L.style.cssText = "padding:10px 0 0;background:none;border:0"; w.appendChild(L); return w; }],
+  ];
+  items.forEach(([ic, name, build]) => { const t = $(`<div class="btab"><i>${ic}</i>${name}</div>`); t.onclick = () => { const same = cur === name; [...tabs.children].forEach(x => x.classList.remove("on")); pane.innerHTML = ""; cur = null; if (same) return; t.classList.add("on"); cur = name; pane.appendChild(build()); }; tabs.appendChild(t); });
+  sheet.appendChild(tabs); sheet.appendChild(pane);
+  if (!(gr.g === "Best" || gr.g === "Good")) tabs.firstChild.click();   // after a mistake the comparison opens by itself
   return sheet;
+}
+/* ---- before acting: what the table is telling you, as tappable chips, then one question about the ranges ---- */
+const HAND_ICON = { "Top pair": "🥇", "Overpair": "🥇", "Weak pair": "🔸", "Two pair+": "💎", "Flush draw": "🎯", "Straight draw": "🎯", "Air": "💨" };
+function situationChips(f, s, d){
+  const F = formInfo(f), ft = fineType(d.hand, s.board), ct = coarseType(ft), tb = srp3(f), raiser = tb ? F.opener === s.hero ? s.villain : s.hero : F.opener;   // in a 3-bet pot the 3-bettor is formInfo's caller
+  const last = (f.pos || F.pos || [])[1] === s.hero, row = $(`<div class="sit"></div>`), note = $(`<div class="tagnote"></div>`);
+  const chips = [[HAND_ICON[ct] || "🂠", ft, ct === "Air" ? "No pair and no draw. It only wins if they fold or it improves." : ct === "Top pair" ? "A pair with the highest card on the board. Usually ahead, rarely the very best hand." : ct === "Weak pair" ? "A pair, but not the top one. It beats bluffs and loses to most bets." : ct === "Two pair+" ? "Two pair or better. One of the best hands you can have here." : ct === "Overpair" ? "A pocket pair above every board card." : "Not made yet. It needs another card to become strong."],
+    [raiser === s.hero ? "🔺" : "🔻", raiser === s.hero ? "You raised" : `${s.villain} raised`, raiser === s.hero ? "You raised last before the flop, so your range has the big pairs and big aces." : `${s.villain} raised last before the flop, so their range has the big pairs and big aces.`],
+    [last ? "⏩" : "⏪", last ? "You act last" : "You act first", last ? "You see what they do before you decide. That is an advantage on every street." : "You decide before seeing what they do. Checking more often is normal here."]];
+  chips.forEach(([ic, label, why]) => { const c = $(`<div class="tag"><i>${ic}</i>${label}</div>`); c.onclick = () => { const on = c.classList.contains("on"); [...row.children].forEach(x => x.classList.remove("on")); c.classList.toggle("on", !on); note.textContent = on ? "" : why; }; row.appendChild(c); });
+  const wrap = $(`<div class="sitwrap"></div>`); wrap.appendChild(row); wrap.appendChild(note); return wrap;
+}
+function thinkFirst(f, s, d, done){
+  const box = $(`<div class="think"><div class="q">Whose range is stronger?<i class="help">?</i></div><div class="opts"></div><div class="tagnote"></div></div>`), R = rangeFacts(f, s);
+  box.querySelector(".help").onclick = () => { const n = box.querySelector(".tagnote"); n.textContent = n.textContent ? "" : "Your range is every hand you could hold after playing the hand this way. Theirs is every hand they could hold."; };
+  [["you", "🙋", "Mine"], ["even", "⚖️", "Even"], ["them", "🧑", s.villain + "'s"]].forEach(([v, ic, label]) => { const b = $(`<button class="topt"><i>${ic}</i>${label}</button>`);
+    b.onclick = () => { if (box._done) return; box._done = true; const ok = v === R.ahead; trackReason("Range read", ok);
+      [...box.querySelectorAll(".topt")].forEach(x => { x.disabled = true; }); b.classList.add(ok ? "ok" : "no"); const right = [...box.querySelectorAll(".topt")][["you", "even", "them"].indexOf(R.ahead)]; right.classList.add("ok");
+      box.querySelector(".tagnote").textContent = ""; box.appendChild(rangeDuel(f, s)); done(); };
+    box.querySelector(".opts").appendChild(b); });
+  return box;
+}
+/* contrast pairs: the same spot again with a different kind of hand, so the hand is the only thing that changed */
+function pickContrast(f, s, d){
+  const r0 = reasonOf(f, s, d, grade(s, d, 0).bestIdx), k0 = s.actions[grade(s, d, 0).bestIdx].kind;
+  const c = s.drills.filter(x => x !== d && x.cls !== d.cls && clearSpot(s, x)).map(x => { const bi = grade(s, x, 0).bestIdx; return { x, kind: s.actions[bi].kind, reason: reasonOf(f, s, x, bi) }; }).filter(o => o.kind !== k0 || o.reason !== r0);
+  const diff = c.filter(o => o.kind !== k0), pool = diff.length ? diff : c; return pool.length ? pool[Math.floor(Math.random() * pool.length)].x : null;
+}
+function contrastCard(f, s, prev, d, gr){
+  const row = (dd, bi) => `<div class="crow">${dd.hand.map(c => cardEl(c, "mini")).join("")}<span>${fineType(dd.hand, s.board)}</span><b>${KIND_WORD[s.actions[bi].kind]}</b><em>${REASONS[reasonOf(f, s, dd, bi)][0]} ${reasonOf(f, s, dd, bi)}</em></div>`;
+  const pb = grade(s, prev, 0).bestIdx, same = s.actions[pb].kind === s.actions[gr.bestIdx].kind;
+  return $(`<div class="contrast"><div class="ch">⇄ Same spot, different hand</div>${row(prev, pb)}${row(d, gr.bestIdx)}<p>${same ? "Same play, different reason. The action is not the idea: the reason is." : "Same board, same opponent. Only your hand changed, and so did the play."}</p></div>`);
 }
 
 /* ---------- chrome ---------- */
@@ -1400,7 +1521,7 @@ function answer3(i){
   renderStats();
 }
 function setBeginner(on){ state.beginner = !!on; store.set("beginner", state.beginner); if (state.beginner && state.mode === "puzzle"){ state.mode = "hands"; store.set("mode", "hands"); } state.queue = []; state.focus = null; start(); }
-function start(){ state.hand = null; state.cur = null; if (state.mode !== "arena" && typeof arenaStop === "function") arenaStop(); renderFilters(); renderStats(); state.mode === "puzzle" ? nextPuzzle() : state.mode === "hands" ? nextHand() : state.mode === "arena" ? arenaStart() : state.mode === "three" ? next3() : next(); }
+function start(){ state.hand = null; state.cur = null; state.contrast = null; if (state.mode !== "arena" && typeof arenaStop === "function") arenaStop(); renderFilters(); renderStats(); state.mode === "puzzle" ? nextPuzzle() : state.mode === "hands" ? nextHand() : state.mode === "arena" ? arenaStart() : state.mode === "three" ? next3() : next(); }
 </script>
 <script src="arena.js"></script>
 </body>
