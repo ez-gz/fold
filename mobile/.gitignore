@@ -1,5 +1,7 @@
 node_modules/
 build_output/
+fastlane/report.xml
+fastlane/README.md
 ios/App/Pods/
 ios/App/build/
 ios/App/App.xcworkspace/xcuserdata/

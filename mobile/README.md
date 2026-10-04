@@ -19,26 +19,48 @@ redesign.
 - `.github/workflows/mobile-beta.yml` — pushes to `main` touching `mobile/**`
   build on the same self-hosted runner (`g-mac`) and upload to TestFlight.
 
-## One-time setup still needed (outside this repo, needs your Apple/App Store Connect access)
-1. **App Store Connect**: app already created — `com.foldpoker.app` under
-   team `JL39GTJ62X` (confirm this matches `fastlane/Appfile` / `Matchfile`;
-   update both if the app's actual team id differs).
-2. **Certs repo**: `ez-gz/fold-private` (private, deploy-keys enabled at the
-   org level). A write-enabled deploy key titled "fastlane match (fold CI)"
-   is already added there, and its private half is the `FOLD_MATCH_DEPLOY_KEY`
-   secret on `ez-gz/fold` — done.
-3. **ASC API key**: still needed — `FOLD_ASC_KEY_ID`, `FOLD_ASC_ISSUER_ID`,
-   `FOLD_ASC_KEY_CONTENT` secrets are not yet set. Mint one at App Store
-   Connect → Users and Access → Integrations → Keys (App Manager role is
-   enough), or confirm an existing key (e.g. from sleep-tune, if same team)
-   is still Active and reuse its Key ID / Issuer ID / `.p8` content.
-4. **Match password**: pick any passphrase, set it as `FOLD_MATCH_PASSWORD`.
-5. Run `bundle exec fastlane bootstrap_certs` once (locally, needs the ASC
-   key + `MATCH_PASSWORD` in your env and push access to `fold-private`) to
-   generate certs/profiles into the certs repo.
-6. First real run: `bundle exec fastlane beta`, or push to `main`.
+## Setup status (as of 2026-10-04)
+All done — first TestFlight build (1.0, build 2) uploaded and processed
+successfully via a manual `fastlane beta` run:
+- App Store Connect: `com.foldpoker.app`, team `JL39GTJ62X` (same team as
+  sleep-tune; confirmed by the cert match bootstrap_certs issued).
+- Certs repo: `ez-gz/fold-private` (private; org-level deploy-keys-enabled
+  flipped on for `ez-gz` to allow this — that's an org-wide setting, not
+  scoped to this one repo). Write-enabled deploy key "fastlane match (fold
+  CI)" installed there; its private half is the `FOLD_MATCH_DEPLOY_KEY`
+  secret on `ez-gz/fold`.
+- ASC API key (`FOLD_ASC_KEY_ID` / `FOLD_ASC_ISSUER_ID` / `FOLD_ASC_KEY_CONTENT`)
+  and `FOLD_MATCH_PASSWORD` are set as secrets on `ez-gz/fold`.
+- Signing cert + appstore provisioning profile generated and pushed to
+  `fold-private` via `bundle exec fastlane bootstrap_certs`.
 
-## Local dev
+**Remaining gap: no self-hosted runner registered for `ez-gz/fold` yet**
+(`gh api repos/ez-gz/fold/actions/runners` returns 0). The workflow targets
+`runs-on: self-hosted` — a push to `main` touching `mobile/**` will queue
+and hang until one exists. Either register a runner (same pattern as
+sleep-tune's `g-mac`: install the actions-runner, register it against this
+repo specifically — a runner can't silently be shared across repos without
+re-registering), or switch the workflow to `runs-on: macos-latest`
+(GitHub-hosted — simpler, no machine to maintain, but slower and consumes
+Actions minutes).
+
+## Running manually (no CI)
+Needed once to bootstrap certs, and anytime you want to ship without CI:
+```
+cd mobile
+bundle install
+export ASC_KEY_ID="8QR6XCJXRU"
+export ASC_ISSUER_ID="4ac28e33-89df-4cb6-8298-ab82ee09465d"
+export ASC_KEY_CONTENT="$(cat /path/to/AuthKey_8QR6XCJXRU.p8)"
+export MATCH_PASSWORD="<see memory: fold-poker-match-password>"
+export MATCH_GIT_URL="git@github.com:ez-gz/fold-private.git"
+bundle exec fastlane beta              # or: bootstrap_certs, to regenerate certs
+```
+Don't leave these exported in a saved shell script or dotfile — they're
+live credentials. Export them in the shell you're running from and let
+them die with that shell.
+
+## Local dev (simulator/device, no build/upload)
 ```
 cd mobile
 npm install
