@@ -20,20 +20,22 @@ redesign.
   build on the same self-hosted runner (`g-mac`) and upload to TestFlight.
 
 ## One-time setup still needed (outside this repo, needs your Apple/App Store Connect access)
-1. **App Store Connect**: create the app `com.foldpoker.app` ("Fold Poker") under
-   your team. Confirm the team id — `fastlane/Appfile` and `fastlane/Matchfile`
-   currently assume it's the same team as sleep-tune (`JL39GTJ62X`); change both
-   files if fold-poker uses a different team.
-2. **Certs repo**: create a private repo `gtarpenning/fold-poker-certs` (match's
-   git storage) — can't reuse sleep-tune's, since match stores profiles by repo.
-3. **ASC API key**: either reuse sleep-tune's App Store Connect API key or mint
-   a new one (App Store Connect → Users and Access → Keys).
-4. **GitHub Actions secrets** on this repo: `FOLD_MATCH_DEPLOY_KEY` (deploy key
-   for the certs repo), `FOLD_ASC_KEY_ID`, `FOLD_ASC_ISSUER_ID`, `FOLD_ASC_KEY_CONTENT`,
-   `FOLD_MATCH_PASSWORD`.
-5. Run `bundle exec fastlane bootstrap_certs` once (locally or via
-   `gh workflow run`, add a dispatch-only bootstrap workflow if you want it
-   from CI) to generate certs/profiles into the certs repo.
+1. **App Store Connect**: app already created — `com.foldpoker.app` under
+   team `JL39GTJ62X` (confirm this matches `fastlane/Appfile` / `Matchfile`;
+   update both if the app's actual team id differs).
+2. **Certs repo**: `ez-gz/fold-private` (private, deploy-keys enabled at the
+   org level). A write-enabled deploy key titled "fastlane match (fold CI)"
+   is already added there, and its private half is the `FOLD_MATCH_DEPLOY_KEY`
+   secret on `ez-gz/fold` — done.
+3. **ASC API key**: still needed — `FOLD_ASC_KEY_ID`, `FOLD_ASC_ISSUER_ID`,
+   `FOLD_ASC_KEY_CONTENT` secrets are not yet set. Mint one at App Store
+   Connect → Users and Access → Integrations → Keys (App Manager role is
+   enough), or confirm an existing key (e.g. from sleep-tune, if same team)
+   is still Active and reuse its Key ID / Issuer ID / `.p8` content.
+4. **Match password**: pick any passphrase, set it as `FOLD_MATCH_PASSWORD`.
+5. Run `bundle exec fastlane bootstrap_certs` once (locally, needs the ASC
+   key + `MATCH_PASSWORD` in your env and push access to `fold-private`) to
+   generate certs/profiles into the certs repo.
 6. First real run: `bundle exec fastlane beta`, or push to `main`.
 
 ## Local dev
