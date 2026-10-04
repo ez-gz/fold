@@ -1,0 +1,4 @@
+app_identifier("com.foldpoker.app")
+# TODO: confirm this is the same Apple Developer Team as sleep-tune
+# (JL39GTJ62X) or swap in fold-poker's own team id before first run.
+apple_team_id("JL39GTJ62X")

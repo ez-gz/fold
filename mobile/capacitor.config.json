@@ -1,0 +1,13 @@
+{
+  "appId": "com.foldpoker.app",
+  "appName": "Fold Poker",
+  "webDir": "www",
+  "server": {
+    "url": "https://fold-poker.gtarpenning.workers.dev",
+    "androidScheme": "https",
+    "cleartext": false
+  },
+  "ios": {
+    "contentInset": "always"
+  }
+}
