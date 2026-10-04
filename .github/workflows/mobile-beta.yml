@@ -1,5 +1,10 @@
 name: Fold Poker TestFlight
 
+# SECURITY: do not add a `pull_request` or `pull_request_target` trigger to
+# this workflow. It runs on a self-hosted runner (this repo's machine, with
+# access to signing secrets) -- a `pull_request` trigger would let a fork
+# PR's code execute on that machine with those secrets. push + workflow_dispatch
+# only, both of which require write access to this repo.
 on:
   push:
     branches: [main]
