@@ -20,7 +20,7 @@ cd "$(dirname "$0")"
 SCHEME="App"
 BUNDLE_ID="com.foldpoker.app"
 WORKSPACE="ios/App/App.xcworkspace"
-ALIVE_AFTER_SECONDS="${ALIVE_AFTER_SECONDS:-5}"
+ALIVE_AFTER_SECONDS="${ALIVE_AFTER_SECONDS:-12}"
 
 echo "==> Picking the newest available iOS simulator runtime"
 # simctl prints e.g. "iOS 27.0 (27.0 - 25A1234) - com.apple...iOS-27-0"
@@ -130,4 +130,17 @@ if ! xcrun simctl spawn "$SIM_ID" launchctl list 2>/dev/null | grep -q "$BUNDLE_
 fi
 
 echo ""
-echo "PASS: app launched and survived ${ALIVE_AFTER_SECONDS}s on iOS $RUNTIME_VER"
+echo "==> Checking content isn't drawn under the status bar / notch"
+# Real regression this guards against: the header rendered directly under the
+# Dynamic Island on a real iPhone 15 Pro. This screenshots whatever the
+# simulator actually loaded -- the app's remote URL, live -- so it fails on a
+# stale deploy exactly as it would on a stale CSS value. A pixel check instead
+# of a DOM check on purpose: the launch-alive check above proves nothing about
+# layout, and a DOM/CSS inspection can't see what the WebView's safe-area
+# insets actually resolved to on this simulator.
+SHOT="$BUILD_DIR/launch.png"
+xcrun simctl io "$SIM_ID" screenshot "$SHOT" > /dev/null
+python3 "$(dirname "$0")/check-top-inset.py" "$SHOT" || exit 1
+
+echo ""
+echo "PASS: app launched, survived ${ALIVE_AFTER_SECONDS}s, and content clears the top safe area on iOS $RUNTIME_VER"
