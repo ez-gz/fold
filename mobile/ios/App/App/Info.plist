@@ -50,5 +50,11 @@
 		<key>UIApplicationSupportsMultipleScenes</key>
 		<false/>
 	</dict>
+	<!-- The app uses only standard HTTPS, which is exempt. Declaring this
+	     here means uploads skip the export-compliance question instead of
+	     sitting in MISSING_EXPORT_COMPLIANCE, invisible to testers, until
+	     someone answers it in App Store Connect. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>
