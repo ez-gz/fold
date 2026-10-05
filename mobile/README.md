@@ -60,6 +60,28 @@ Don't leave these exported in a saved shell script or dotfile — they're
 live credentials. Export them in the shell you're running from and let
 them die with that shell.
 
+## Launch smoke test (the upload gate)
+```
+cd mobile
+./smoke-test.sh                        # newest installed runtime, warns if < iOS 27
+SMOKE_MIN_IOS_MAJOR=27 ./smoke-test.sh # what CI runs: hard-fails on an older runtime
+```
+Builds for the simulator, launches the app, and fails if the process is gone
+5s later (`ALIVE_AFTER_SECONDS` to change). CI runs this *before* `fastlane
+beta`, so a launch crash never reaches TestFlight.
+
+Why the version floor exists: builds 7 and 8 crashed on launch on iOS 27 only
+— the iOS 27 SDK turned "never adopted the UIScene lifecycle" from a logged
+warning into a hard trap. Both archived cleanly, and both would have passed a
+smoke test on a 26.x runtime. So if CI fails with "older than the required iOS
+27", install the runtime on the runner:
+```
+xcodebuild -downloadPlatform iOS       # ~7GB, slow
+```
+Do **not** lower `SMOKE_MIN_IOS_MAJOR` to go green — that silently restores the
+exact blind spot that shipped the broken builds. This catches launch-time
+crashes, not gameplay regressions; it is a floor, not a test suite.
+
 ## Local dev (simulator/device, no build/upload)
 ```
 cd mobile

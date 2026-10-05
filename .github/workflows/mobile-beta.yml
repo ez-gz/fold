@@ -63,6 +63,20 @@ jobs:
           export PATH="/opt/homebrew/opt/ruby@3.3/bin:/opt/homebrew/bin:$PATH"
           pod install
 
+      # UPLOAD GATE: builds for the newest installed simulator runtime, launches
+      # the app, and fails if it dies. Two builds shipped to TestFlight with a
+      # launch crash that compiled perfectly, so a green archive proves nothing.
+      # SMOKE_MIN_IOS_MAJOR is the point of this step: passing on a stale
+      # runtime is worse than not running at all, because the crash we gate on
+      # is OS-version-specific. If this fails because the runner lacks the
+      # runtime, install it there (`xcodebuild -downloadPlatform iOS`) -- do not
+      # lower the floor to make the build go green.
+      - name: Launch smoke test (gates the upload)
+        working-directory: mobile
+        env:
+          SMOKE_MIN_IOS_MAJOR: "27"
+        run: ./smoke-test.sh
+
       - name: Build keychain
         # Self-hosted runner, same dedicated signing keychain sleep-tune uses
         # (shared machine, different repo checkout). Only this keychain is
