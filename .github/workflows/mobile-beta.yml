@@ -27,9 +27,6 @@ jobs:
     name: Build & Upload
     runs-on: self-hosted
     timeout-minutes: 60
-    defaults:
-      run:
-        working-directory: mobile
     permissions:
       contents: write
 
@@ -48,12 +45,14 @@ jobs:
           ssh-private-key: ${{ secrets.FOLD_MATCH_DEPLOY_KEY }}
 
       - name: Ruby + Bundler
+        working-directory: mobile
         run: |
           export PATH="/opt/homebrew/opt/ruby@3.3/bin:/opt/homebrew/bin:$PATH"
           gem install bundler --no-document 2>/dev/null || true
           bundle install --jobs 4 --retry 3
 
       - name: npm install + cap sync
+        working-directory: mobile
         run: |
           npm install
           npx cap sync ios
@@ -83,6 +82,7 @@ jobs:
           git config --global user.email "ci@fold-poker.app"
 
       - name: Fastlane beta
+        working-directory: mobile
         env:
           ASC_KEY_ID:       ${{ secrets.FOLD_ASC_KEY_ID }}
           ASC_ISSUER_ID:    ${{ secrets.FOLD_ASC_ISSUER_ID }}
