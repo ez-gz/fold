@@ -81,7 +81,20 @@ platform :ios do
     )
 
     reset_git_repo(force: true, files: ["ios/App/App.xcodeproj/project.pbxproj"])
-    push_to_git_remote
+
+    # The build is already uploaded by this point, so a push failure here must
+    # not fail the lane -- it would report a red build for an app that
+    # actually shipped. Rebase first (someone may have landed a commit while
+    # we built), and if the push still fails, say so loudly and carry on:
+    # the only thing lost is the build-number bump commit, which the next run
+    # recomputes from TestFlight anyway.
+    begin
+      sh("git pull --rebase origin main")
+      push_to_git_remote
+    rescue => e
+      UI.important("Build shipped, but pushing the version bump failed: #{e.message}")
+      UI.important("Not failing the lane -- the next run re-reads the build number from TestFlight.")
+    end
   end
 
   desc "Bootstrap certs (run once, or re-run after adding capabilities)"
