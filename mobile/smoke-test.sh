@@ -111,8 +111,20 @@ if ! xcrun simctl spawn "$SIM_ID" launchctl list 2>/dev/null | grep -q "$BUNDLE_
     echo ""
     echo "FAIL: the app is not running ${ALIVE_AFTER_SECONDS}s after launch -- it crashed."
     echo "Most recent crash log:"
-    CRASH=$(ls -t ~/Library/Logs/DiagnosticReports/App-*.ips 2>/dev/null | head -1)
-    [ -n "$CRASH" ] && head -40 "$CRASH"
+    # A simulator crash is written under the *device's* diagnostics directory,
+    # not the host's ~/Library/Logs/DiagnosticReports -- check both, newest
+    # first, or this prints nothing exactly when it is needed most.
+    CRASH=$(ls -t \
+      ~/Library/Logs/CoreSimulator/"$SIM_ID"/DiagnosticReports/App*.ips \
+      ~/Library/Developer/CoreSimulator/Devices/"$SIM_ID"/data/Library/Logs/DiagnosticReports/App*.ips \
+      ~/Library/Logs/DiagnosticReports/App-*.ips \
+      2>/dev/null | head -1)
+    if [ -n "$CRASH" ]; then
+      echo "    ($CRASH)"
+      head -40 "$CRASH"
+    else
+      echo "    (none found; check Console.app or re-run with ALIVE_AFTER_SECONDS larger)"
+    fi
     exit 1
   fi
 fi
