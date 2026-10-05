@@ -8,6 +8,7 @@
     "cleartext": false
   },
   "ios": {
-    "contentInset": "always"
+    "contentInset": "never",
+    "backgroundColor": "#0b0f14"
   }
 }

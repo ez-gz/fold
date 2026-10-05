@@ -11,7 +11,10 @@
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:15px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif;overscroll-behavior:none}
-#app{max-width:440px;margin:0 auto;min-height:100%;display:flex;flex-direction:column;padding:10px 14px calc(14px + env(safe-area-inset-bottom))}
+/* The top pad must honour safe-area-inset-top: with viewport-fit=cover (and in
+   the iOS shell, which draws under the status bar) a flat 10px puts the header
+   behind the clock/notch. Bottom inset was already handled; top was not. */
+#app{max-width:440px;margin:0 auto;min-height:100%;display:flex;flex-direction:column;padding:calc(10px + env(safe-area-inset-top)) 14px calc(14px + env(safe-area-inset-bottom))}
 header{display:flex;align-items:center;gap:8px;padding:4px 0 8px}
 header .logo{font-weight:800;letter-spacing:.12em;font-size:13px;color:var(--accent)}
 header .stats{margin-left:auto;flex:none}header .chips{flex-wrap:wrap;min-width:0}
