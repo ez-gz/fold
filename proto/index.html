@@ -99,6 +99,7 @@ header .stats{margin-left:auto;flex:none}header .chips{flex-wrap:wrap;min-width:
 @keyframes up{from{transform:translateY(14px);opacity:0}}
 .sheet h3{margin:0 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--dim);font-weight:600}
 .why p{margin:0 0 9px}.why p:last-child{margin:0}.why b{color:#fff}.why .k{color:var(--accent);font-weight:600}
+.chdr{margin:0 0 8px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
 .seg{display:flex;background:#0c1218;border-radius:11px;padding:3px;gap:3px;margin-bottom:9px}
 .seg div{flex:1;text-align:center;padding:7px 4px;border-radius:9px;font-size:12px;color:var(--dim);cursor:pointer;font-weight:600}
 .seg div.on{background:var(--panel2);color:var(--text)}
@@ -273,6 +274,9 @@ function errKind(s, d, i, gr){
   if (agg(me)) return s.to_call > 0 ? "raise when calling is best" : "bet when checking is best";
   return s.to_call > 0 ? "call when raising is best" : "check when betting is best";
 }
+// was the mistake in reading the range, or in acting on a range read that was right? only known on the
+// (beginner, first-decision) spots where thinkFirst ran and set rangeOk; otherwise there is no signal to give.
+const mistakeOrigin = (gr, rangeOk) => gr.g === "Best" || gr.g === "Good" || rangeOk == null ? null : rangeOk ? "logic" : "calibration";
 /* finer hand type than the pack's 7 classes, from the exact cards: kicker, pair rank, nut vs low flush draw, open-ender vs gutshot */
 function fineType(hand, B){
   const ri = c => R.indexOf(c[0]), m = madeHand([...hand, ...B].length >= 5 ? [...hand, ...B] : [...hand, ...B, "2x", "3y"]);
@@ -302,10 +306,10 @@ const COARSE = { "Top pair, good kicker": "Top pair", "Top pair, weak kicker": "
   "Ace high": "Air", "Two overcards": "Air", "No pair, no draw": "Air" };
 const coarseType = ft => COARSE[ft] || ft;
 /* every graded decision, newest last (capped): lets Leaks find patterns at any grain and replay the costly ones */
-function logDecision(f, s, d, i, gr){
+function logDecision(f, s, d, i, gr, rangeOk){
   const log = store.get("log", []), F = formInfo(f);
   log.push({ t: Date.now(), k: f._k, sid: s.id, hand: d.hand.join(""), c: concept(f, s), st: s.street, cls: f.class_names[d.cls], ft: fineType(d.hand, s.board), ctx: s.to_call > 0 ? "facing a bet" : "with the option to bet",
-    err: errKind(s, d, i, gr), p: Math.min(gr.p, 25), bb: gr.loss, role: s.hero === F.opener ? "aggressor" : "caller", mode: state.hand ? "hands" : "drills", hi: state.hand ? f.hands.indexOf(state.hand.h) : -1 });
+    err: errKind(s, d, i, gr), origin: mistakeOrigin(gr, rangeOk), p: Math.min(gr.p, 25), bb: gr.loss, role: s.hero === F.opener ? "aggressor" : "caller", mode: state.hand ? "hands" : "drills", hi: state.hand ? f.hands.indexOf(state.hand.h) : -1 });
   if (log.length > 3000) log.splice(0, log.length - 3000);
   store.set("log", log);
 }
@@ -340,6 +344,9 @@ function respInfo(f, spot, d, a){
   const contGrid = Array(169).fill(0); r.kinds.forEach((k, x) => { if (k !== "fold") r.grid[x].forEach((v, c) => contGrid[c] += v); });
   return { r, fold, raise, cont, foldCls: fi >= 0 ? r.cls[fi] : null, eq: d.eq_cont[a], foldEx: fi >= 0 ? exampleCells(spot, r.grid[fi]) : "", contEx: exampleCells(spot, contGrid) };
 }
+// a short label for how this street got here ("Second barrel", "River probe"): shown so the explanation carries the thread
+// from street to street instead of treating each one as a fresh puzzle. Skipped on the flop, where there is no thread yet.
+function streetHeader(f, spot){ return spot.street >= 1 ? `<h4 class="chdr">${concept(f, spot)}</h4>` : ""; }
 function explain(f, spot, d, chosen, gr){
   const V = spot.villain, A = spot.actions, out = [], g = groupSummary(spot.vclass), best = gr.bestIdx;
   const rank = d.top == null ? "" : ` — ${d.top <= 0.5 ? "top " + Math.max(1, Math.round(100*d.top)) : "bottom " + Math.max(1, Math.round(100*(1-d.top)))}% of your range`;
@@ -362,7 +369,7 @@ function explain(f, spot, d, chosen, gr){
   };
   [...new Set([best, chosen])].forEach(i => { const t = line(i); if (t) out.push(t); });
   const vt = valueText(f, spot, d, chosen, gr); if (vt) out.push(vt.split(/\. (?=Against)/)[0] + ".");
-  return out.map(s => `<p>${s}</p>`).join("") + `<details class="more"><summary>Full breakdown</summary>${explainFull(f, spot, d, chosen, gr)}</details>`;
+  return streetHeader(f, spot) + out.map(s => `<p>${s}</p>`).join("") + `<details class="more"><summary>Full breakdown</summary>${explainFull(f, spot, d, chosen, gr)}</details>`;
 }
 function explainFull(f, spot, d, chosen, gr){
   const V = spot.villain, out = [], A = spot.actions, cn = f.class_names[d.cls].toLowerCase();
@@ -372,6 +379,22 @@ function explainFull(f, spot, d, chosen, gr){
   if (spot.to_call > 0){
     const need = spot.to_call / (spot.pot + spot.to_call);
     out.push(`<span class="k">The price:</span> calling ${bbf(spot.to_call)} into ${bbf(spot.pot)} needs <b>${pct(need)}</b> equity. You have ${pct(d.eq)} against the range that bets here${d.eq < need ? " — not enough on its own" : d.eq < need + 0.08 ? " — close, so how well the hand plays later streets decides it" : " — comfortably enough"}.`);
+  }
+  // the bluff-catching checklist, as five short questions instead of one verdict: a repeatable method for facing
+  // a bet with a hand that only wins at showdown, built entirely from numbers the solver already gives us
+  const callI = A.findIndex(a => a.kind === "call");
+  if (spot.to_call > 0 && callI >= 0){
+    const betI = A.findIndex(a => a.kind === "bet" || a.kind === "raise"), x = betI >= 0 ? respInfo(f, spot, d, betI) : null;
+    if (x){
+      const raiseI = A.findIndex((a, i) => i > callI && (a.kind === "raise" || a.kind === "bet"));
+      const beatValue = x.eq >= 0.5, nonSD = g.air + g.draws >= 0.15, raiseBetter = raiseI >= 0 && d.ev[raiseI] > d.ev[callI] + 0.02;
+      out.push(`<span class="k">Bluff-catching, step by step:</span><br>`
+        + `1. Beat their value? ${beatValue ? `Yes — you have ${pct(x.eq)} against what continues.` : `No, not clearly — only ${pct(x.eq)} against what continues.`}<br>`
+        + `2. Capable of bluffing here? ${g.air >= 0.1 ? `Yes, ${pct(g.air)} of their range is air.` : `Not much — only ${pct(g.air)} air in their range.`}<br>`
+        + `3. Is ${bbf(spot.to_call)} a significant size for the stakes? ${spot.to_call >= 3 ? "Yes — this is a real bet, not a token one." : "Not especially — a small bet risks little either way."}<br>`
+        + `4. Do they have non-showdown value here (draws, overcards) that would rather bluff than check? ${nonSD ? `Yes — ${pct(g.draws + g.air)} of their range has no made hand.` : "Not much — most of their range is pairs or better."}<br>`
+        + `5. Is raising better than calling? ${raiseI >= 0 ? (raiseBetter ? "Yes, by the numbers — but that only matters if you also beat their value (step 1)." : "No — calling keeps their worse hands bluffing again next street.") : "No raise available to compare here."}`);
+    }
   }
   const infos = A.map((_, a) => respInfo(f, spot, d, a));
   A.forEach((a, i) => {
@@ -459,7 +482,7 @@ function renderActions(){
     if (tbl && !tbl.querySelector(".sitwrap")) tbl.appendChild(situationChips(c.f, s, c.d));
     if (c.prev && !main.querySelector(".cbanner")) main.appendChild($(`<div class="cbanner">⇄ Same spot, different hand</div>`));
     if (!c.tf && !c.prev && !rangeFacts(c.f, s).sure) c.tf = true;   // no question where the answer is not certain
-    if (!c.tf && !c.prev){ c.tf = true; main.appendChild(thinkFirst(c.f, s, c.d, () => renderActions())); return; }
+    if (!c.tf && !c.prev){ c.tf = true; main.appendChild(thinkFirst(c.f, s, c.d, () => renderActions(), c)); return; }
     beginnerOptions(s, state.cur.d).forEach(o => { const b = $(`<button class="act beg" data-i="${o.i}"><div class="fill"></div><span>${o.label}</span><span class="sub"></span></button>`); b.onclick = () => answer(o.i); box.appendChild(b); });
     main.appendChild(box); return;
   }
@@ -537,7 +560,7 @@ function renderRangeCheck(){
 
 function answer(i){
   const { f, s, d } = state.cur; if (state.cur.done) return; state.cur.done = true;
-  const gr = grade(s, d, i); track(f, s, d, gr); trackErr(f, s, d, i, gr); logDecision(f, s, d, i, gr);
+  const gr = grade(s, d, i); track(f, s, d, gr); trackErr(f, s, d, i, gr); logDecision(f, s, d, i, gr, state.cur.rangeOk);
   if (state.hand) return handAnswer(i, gr);
   state.n++; state.loss += gr.p; if (gr.g === "Best" || gr.g === "Good"){ state.best++; state.streak++; } else state.streak = 0;
   if (navigator.vibrate) navigator.vibrate(gr.g === "Best" ? 12 : gr.g === "Good" ? 20 : [30, 40, 30]);
@@ -1033,12 +1056,14 @@ const bucketLegend = () => `<div class="legend">${BUCKETS.map(b => `<span><i sty
 /* why a play is made, as one of ten named reasons: the name is what lets learning accumulate across spots */
 const REASONS = {
   "Value": ["💰", "Bet so worse hands pay you."], "Bluff": ["🎭", "Bet so better hands fold."], "Semi-bluff": ["🎯", "Bet a draw: win now, or improve later."],
-  "Protect": ["🛡", "Ahead now. Make their draws pay to catch up."], "Trap": ["🪤", "Strong hand. Let them do the betting."], "Pot control": ["⚖️", "Medium hand. Keep the pot small."],
+  "Protect": ["🛡", "Ahead now. Make their draws pay to catch up."], "Trap": ["🪤", "Strong hand. Let them do the betting."], "Pot control": ["⚖️", "Medium hand. Bet small to keep weaker hands in, not to protect it."],
+  "Showdown value": ["🪑", "Not strong enough to bet. Its only job is to show up at showdown — don't touch it."],
   "Free card": ["🎟", "A draw that gets to see the next card for free."], "Give up": ["🏳", "Nothing to win here. Save the chips."], "Bluff-catch": ["🥅", "Call, because they bluff often enough."], "Price": ["🏷", "The pot pays enough for the times you win."] };
+// showdown value's job is only to reach showdown, so it only applies once betting is no longer live (no draw left to improve)
 function reasonOf(f, s, d, i){
   const k = s.actions[i].kind, ct = coarseType(fineType(d.hand, s.board)), draw = ct === "Flush draw" || ct === "Straight draw", ec = d.eq_cont ? d.eq_cont[i] : d.eq;
   if (k === "bet" || k === "raise") return ec >= 0.5 ? "Value" : draw ? "Semi-bluff" : d.eq >= 0.5 ? "Protect" : "Bluff";
-  if (k === "check") return draw ? "Free card" : d.cls === 0 || d.eq >= 0.85 ? "Trap" : d.eq >= 0.35 ? "Pot control" : "Give up";
+  if (k === "check") return draw ? "Free card" : d.cls === 0 || d.eq >= 0.85 ? "Trap" : d.eq >= 0.45 ? "Pot control" : d.eq >= 0.3 ? "Showdown value" : "Give up";
   if (k === "call") return draw ? "Price" : "Bluff-catch";
   return "Give up";
 }
@@ -1059,7 +1084,9 @@ function whyPlay(f, s, d, i, best){
     if (draw && s.street < 2) return `See the next card for free.`;
     if (eq >= 0.6){ const fc = rb && rb.foldCls, tt = fc ? fc.reduce((a, b) => a + b, 0) : 0, worse = tt ? fc.reduce((a, v, c) => a + (c > d.cls ? v : 0), 0) / tt : 0;
       return worse >= 0.6 ? `A bet mostly folds hands you already beat.` : `You win ${pct(eq)} against ${V}'s range, and the pot stays small.`; }
-    return `Too weak to bet, too good to give up.`;
+    if (eq >= 0.45) return `Medium strength. Betting invites a raise from better hands; checking keeps the pot the size it is.`;
+    if (eq >= 0.3) return `Not strong enough to bet for value, and there's nothing to protect. Its only job here is a cheap showdown — don't try to make something happen.`;
+    return `Little equity, nothing to protect. Checking costs nothing.`;
   }
   if (k === "fold") return best ? `You need ${pct(need)} to call and win ${pct(eq)}.` : `You give up the ${bbf(s.pot)} pot. A call needs ${pct(need)} and wins ${pct(eq)}.`;
   return `You need ${pct(need)} and win ${pct(eq)}.`;
@@ -1176,11 +1203,11 @@ function situationChips(f, s, d){
   chips.forEach(([ic, label, why]) => { const c = $(`<div class="tag"><i>${ic}</i>${label}</div>`); c.onclick = () => { const on = c.classList.contains("on"); [...row.children].forEach(x => x.classList.remove("on")); c.classList.toggle("on", !on); note.textContent = on ? "" : why; }; row.appendChild(c); });
   const wrap = $(`<div class="sitwrap"></div>`); wrap.appendChild(row); wrap.appendChild(note); return wrap;
 }
-function thinkFirst(f, s, d, done){
+function thinkFirst(f, s, d, done, cur){
   const box = $(`<div class="think"><div class="q">Whose range is stronger?<i class="help">?</i></div><div class="opts"></div><div class="tagnote"></div></div>`), R = rangeFacts(f, s);
   box.querySelector(".help").onclick = () => { const n = box.querySelector(".tagnote"); n.textContent = n.textContent ? "" : "Your range is every hand you could hold after playing the hand this way. Theirs is every hand they could hold."; };
   [["you", "🙋", "Mine"], ["even", "⚖️", "Even"], ["them", "🧑", s.villain + "'s"]].forEach(([v, ic, label]) => { const b = $(`<button class="topt"><i>${ic}</i>${label}</button>`);
-    b.onclick = () => { if (box._done) return; box._done = true; const ok = v === R.ahead; trackReason("Range read", ok);
+    b.onclick = () => { if (box._done) return; box._done = true; const ok = v === R.ahead; trackReason("Range read", ok); if (cur) cur.rangeOk = ok;   // fed to logDecision: a wrong action after a right range read is a logic mistake, not a calibration one
       [...box.querySelectorAll(".topt")].forEach(x => { x.disabled = true; }); b.classList.add(ok ? "ok" : "no"); const right = [...box.querySelectorAll(".topt")][["you", "even", "them"].indexOf(R.ahead)]; right.classList.add("ok");
       box.querySelector(".tagnote").textContent = ""; box.appendChild(rangeDuel(f, s)); done(); };
     box.querySelector(".opts").appendChild(b); });
@@ -1211,12 +1238,21 @@ function worstTypes(n){ const b = store.get("book", {}), ks = Object.keys(b).fil
   const all = ks.reduce((a, k) => a + b[k].p, 0) / ks.reduce((a, k) => a + b[k].n, 0); return ks.filter(k => avgLoss(b[k]) > all).sort((x, y) => avgLoss(b[y]) - avgLoss(b[x])).slice(0, n).map(k => k.slice(2)); }
 /* what to train: the costliest situations and hand types, from the book */
 function leakPlan(){ const c = worstConcepts(3), h = worstTypes(2); return c.length || h.length ? { label: "my leaks", concepts: c, types: h } : null; }
-/* a focus is null (everything), a concept name, "leaks" (auto plan) or { label, concepts[], types[], streets[] } */
+// of the mistakes where thinkFirst had already asked "whose range is stronger?", how many were a bad range read
+// (calibration: needs more reps reading lines and sizing) vs a right read acted on wrong (logic: needs a better rule)
+function mistakeOrigins(){
+  const log = store.get("log", []).filter(e => e.origin), n = log.length; if (n < 4) return null;
+  const calibration = log.filter(e => e.origin === "calibration").length;
+  return { n, calibration, logic: n - calibration };
+}
+/* a focus is null (everything), a concept name, "leaks" (auto plan) or { label, concepts[], types[], streets[], reasons[] } */
 function focusObj(){ const f = state.focus; if (!f) return null; if (f === "leaks") return leakPlan(); if (typeof f === "string") return { label: f, concepts: [f], types: [] }; return f; }
 function focusLabel(){ const o = focusObj(); return o ? o.label : ""; }
-// a spot (and hero hand, when there is one) belongs to the focus if it is one of its situations, or hero holds one of its hand types
+// a spot (and hero hand, when there is one) belongs to the focus if it is one of its situations, hero holds one of its
+// hand types, or the solver's correct play here is tagged with one of its reasons (e.g. the showdown-value pack)
 function focusMatch(f, s, d){ const o = focusObj(); if (!o) return true;
   if (o.streets && o.streets.length && !o.streets.includes(s.street)) return false;
+  if (o.reasons && o.reasons.length) return !!d && o.reasons.includes(reasonOf(f, s, d, grade(s, d, 0).bestIdx));
   if (!d && !(o.concepts || []).length) return true;   // no hero hand to judge (puzzles): hand-type focus falls back to street only
   const c = (o.concepts || []).includes(concept(f, s)), h = d && (o.types || []).includes(f.class_names[d.cls]);
   return (o.concepts || []).length && (o.types || []).length ? (c || h) : (o.concepts || []).length ? c : h; }
@@ -1232,6 +1268,7 @@ function focusSheet(){
   const add = (label, sub, val) => { const r = $(`<div class="row ${state.focus === val || (!state.focus && !val) ? "on" : ""}"><span></span><span style="text-align:left">${label}<small>${sub}</small></span><span></span></div>`); r.onclick = () => { o.remove(); trainFocus(val); }; body.appendChild(r); };
   add("Everything", "all situations, shuffled", null);
   const plan = leakPlan(); if (plan) add("My leaks", [plan.concepts.length ? "situations: " + plan.concepts.join(", ") : "", plan.types.length ? "hand types: " + plan.types.join(", ") : ""].filter(Boolean).join(" · "), "leaks");
+  add("Showdown value", "hands too weak to bet, too good to give up — when to just check it", { label: "Showdown value", concepts: [], types: [], reasons: ["Showdown value"] });
   Object.keys(counts).sort((x, y) => counts[y] - counts[x]).forEach(c => { const e = b["c:" + c]; add(c, `${counts[c]} drills` + (e ? ` · you: ${e.n} played, ${avgLoss(e).toFixed(1)}% of pot lost on average` : ""), c); });
   const o = overlay("Focus on a situation", body);
 }
@@ -1278,6 +1315,8 @@ function leakSheet(){
   if (plan){ const n = Object.keys(b).filter(k => k.startsWith("s:")).reduce((a, k) => a + b[k].n, 0);
     const hd = $(`<div class="sheet" style="margin:0 0 6px;padding:12px 14px;border:1px solid var(--accent)"><h3 style="margin:0 0 4px">Train my leaks</h3><p style="margin:0 0 8px;font-size:12px;color:var(--dim)">${n} decisions filed. Costliest: ${[...plan.concepts, ...plan.types.map(t => t.toLowerCase() + " hands")].join(", ")}.</p><div class="chips"><div class="chip on">Hands</div><div class="chip">Drills</div><div class="chip">Puzzle</div></div></div>`);
     [...hd.querySelectorAll(".chip")].forEach((c, k) => c.onclick = () => trainFocus("leaks", ["hands", "drills", "puzzle"][k])); body.appendChild(hd); }
+  const mo = mistakeOrigins();
+  if (mo) body.appendChild($(`<div class="tagnote" style="margin-bottom:10px">Of your mistakes on spots where you answered "whose range is stronger?" first: <b>${pct(mo.calibration / mo.n)}</b> had the wrong range read (reps will fix this), <b>${pct(mo.logic / mo.n)}</b> had the right read but the wrong action (the decision rule needs work). Based on ${mo.n} decisions.</div>`));
   patternRows(body);
   group("By situation", "c:"); group("By street", "s:"); group("By hand type", "h:"); group("By role", "p:");
   body.appendChild($(`<p style="color:var(--dim);font-size:11px;margin-top:10px">% of pot lost per decision · decisions</p>`));
