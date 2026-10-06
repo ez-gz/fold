@@ -99,7 +99,7 @@ header .stats{margin-left:auto;flex:none}header .chips{flex-wrap:wrap;min-width:
 @keyframes up{from{transform:translateY(14px);opacity:0}}
 .sheet h3{margin:0 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--dim);font-weight:600}
 .why p{margin:0 0 9px}.why p:last-child{margin:0}.why b{color:#fff}.why .k{color:var(--accent);font-weight:600}
-.chdr{margin:0 0 8px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+.chdr{margin:0 0 9px;font-size:13px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);padding-bottom:6px;border-bottom:1px solid var(--line)}
 .seg{display:flex;background:#0c1218;border-radius:11px;padding:3px;gap:3px;margin-bottom:9px}
 .seg div{flex:1;text-align:center;padding:7px 4px;border-radius:9px;font-size:12px;color:var(--dim);cursor:pointer;font-weight:600}
 .seg div.on{background:var(--panel2);color:var(--text)}
@@ -374,7 +374,9 @@ function explain(f, spot, d, chosen, gr){
 function explainFull(f, spot, d, chosen, gr){
   const V = spot.villain, out = [], A = spot.actions, cn = f.class_names[d.cls].toLowerCase();
   const g = groupSummary(spot.vclass);
-  out.push(`<span class="k">${V}'s range right now:</span> ${pct(g.strong)} top pair or better, ${pct(g.mid)} weaker pairs, ${pct(g.draws)} draws, ${pct(g.air)} ace-high / air.`);
+  // same four buckets as the Ranges tab's legend (Strong/A pair/A draw/Nothing) -- one vocabulary for range
+  // strength everywhere in the app, instead of this sentence inventing its own synonyms for the same split
+  out.push(`<span class="k">${V}'s range right now:</span> ${pct(g.strong)} strong (top pair or better), ${pct(g.mid)} a pair, ${pct(g.draws)} a draw, ${pct(g.air)} nothing.`);
   out.push(`<span class="k">Your hand:</span> ${cn} with <b>${pct(d.eq)}</b> equity against that range.`);
   if (spot.to_call > 0){
     const need = spot.to_call / (spot.pot + spot.to_call);
@@ -1203,8 +1205,17 @@ function situationChips(f, s, d){
   chips.forEach(([ic, label, why]) => { const c = $(`<div class="tag"><i>${ic}</i>${label}</div>`); c.onclick = () => { const on = c.classList.contains("on"); [...row.children].forEach(x => x.classList.remove("on")); c.classList.toggle("on", !on); note.textContent = on ? "" : why; }; row.appendChild(c); });
   const wrap = $(`<div class="sitwrap"></div>`); wrap.appendChild(row); wrap.appendChild(note); return wrap;
 }
+// a few phrasings of the same range-read question, so a repeated drill doesn't feel like reading the same card
+// twice -- all of them are answered against the same R.ahead verdict, only the prompt text rotates
+const THINK_Q = [
+  "Whose range is stronger?",
+  "Who has the better hand here, on average?",
+  "If you ran every combo, who's ahead?",
+  "Which side of this would you rather hold?",
+];
 function thinkFirst(f, s, d, done, cur){
-  const box = $(`<div class="think"><div class="q">Whose range is stronger?<i class="help">?</i></div><div class="opts"></div><div class="tagnote"></div></div>`), R = rangeFacts(f, s);
+  const q = THINK_Q[Math.floor(Math.random() * THINK_Q.length)];
+  const box = $(`<div class="think"><div class="q">${q}<i class="help">?</i></div><div class="opts"></div><div class="tagnote"></div></div>`), R = rangeFacts(f, s);
   box.querySelector(".help").onclick = () => { const n = box.querySelector(".tagnote"); n.textContent = n.textContent ? "" : "Your range is every hand you could hold after playing the hand this way. Theirs is every hand they could hold."; };
   [["you", "🙋", "Mine"], ["even", "⚖️", "Even"], ["them", "🧑", s.villain + "'s"]].forEach(([v, ic, label]) => { const b = $(`<button class="topt"><i>${ic}</i>${label}</button>`);
     b.onclick = () => { if (box._done) return; box._done = true; const ok = v === R.ahead; trackReason("Range read", ok); if (cur) cur.rangeOk = ok;   // fed to logDecision: a wrong action after a right range read is a logic mistake, not a calibration one
