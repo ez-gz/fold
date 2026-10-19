@@ -320,6 +320,22 @@ function trackErr(f, s, d, i, gr){
   const w = errKind(s, d, i, gr); if (w){ const x = e.err[w] || (e.err[w] = { n: 0, p: 0 }); x.n++; x.p += Math.min(gr.p, 25); }
   store.set("patterns", pat);
 }
+// in a genuine toss-up there's no right answer, so nothing above grades it -- but a consistent lean one way is
+// itself a pattern worth knowing about: it says something about temperament (risk-averse, call-happy) that a
+// graded spot never reveals, because a graded spot always has a "correct" pull toward one side.
+function trackMix(s, d, i){
+  if (!tossUp(s, d)) return;
+  const opts = beginnerOptions(s, d); if (opts.length !== 2) return;   // keep it to a clean two-way lean
+  const mine = opts.find(o => o.i === i); if (!mine) return;
+  const mp = store.get("mixprefs", {}), key = opts.map(o => o.kind).sort().join("/"), e = mp[key] || (mp[key] = { n: 0, by: {} });
+  e.n++; e.by[mine.kind] = (e.by[mine.kind] || 0) + 1; store.set("mixprefs", mp);
+}
+// a lean worth mentioning: played a real two-way toss-up at least 8 times and picked one side 70%+ of the time
+function mixTendency(){
+  const mp = store.get("mixprefs", {});
+  const leans = Object.entries(mp).filter(([, e]) => e.n >= 8).map(([key, e]) => { const [top] = Object.entries(e.by).sort((x, y) => y[1] - x[1]); const share = top[1] / e.n; return share >= 0.7 ? { key, kind: top[0], share, n: e.n } : null; }).filter(Boolean);
+  return leans.sort((x, y) => y.share - x.share).slice(0, 2);
+}
 function grade(spot, d, i){
   const best = Math.max(...d.ev), loss = Math.max(0, best - d.ev[i]), p = 100*loss/spot.pot;
   let g = p <= 0.3 ? "Best" : p <= 1.5 ? "Good" : p <= 5 ? "Inaccuracy" : p <= 12 ? "Mistake" : "Blunder";
@@ -563,7 +579,7 @@ function renderRangeCheck(){
 
 function answer(i){
   const { f, s, d } = state.cur; if (state.cur.done) return; state.cur.done = true;
-  const gr = grade(s, d, i); track(f, s, d, gr); trackErr(f, s, d, i, gr); logDecision(f, s, d, i, gr, state.cur.rangeOk);
+  const gr = grade(s, d, i); track(f, s, d, gr); trackErr(f, s, d, i, gr); logDecision(f, s, d, i, gr, state.cur.rangeOk); trackMix(s, d, i);
   if (state.hand) return handAnswer(i, gr);
   state.n++; state.loss += gr.p; if (gr.g === "Best" || gr.g === "Good"){ state.best++; state.streak++; } else state.streak = 0;
   if (navigator.vibrate) navigator.vibrate(gr.g === "Best" ? 12 : gr.g === "Good" ? 20 : [30, 40, 30]);
@@ -1200,6 +1216,9 @@ function beginnerPanel(f, s, d, chosen, gr, opts = {}){
   const items = [
     ["⚔️", "Compare", () => $(`<div>${beginnerCompare(f, s, d, chosen, gr)}</div>`)],
     ["📊", "Ranges", () => rangeDuel(f, s)],
+    // fold% was already computed for full mode (betSheet) and just never surfaced here -- who folds, and whether
+    // those folds were hands that were ahead or already behind, is the actual payoff of a bluff
+    ...(betSheet(f, s, d) ? [["🎯", "Fold %", () => { const b = betSheet(f, s, d); b.style.cssText = "padding:0;background:none;border:0"; b.querySelector("h3").remove(); return b; }]] : []),
     ["🔬", "Full", () => { const w = $(`<div><div class="why" style="margin-bottom:6px">${explain(f, s, d, chosen, gr)}</div></div>`); const L = lens(f, s, d, chosen, gr); L.style.cssText = "padding:10px 0 0;background:none;border:0"; w.appendChild(L); return w; }],
   ];
   items.forEach(([ic, name, build]) => { const t = $(`<div class="btab"><i>${ic}</i>${name}</div>`); t.onclick = () => { const same = cur === name; [...tabs.children].forEach(x => x.classList.remove("on")); pane.innerHTML = ""; cur = null; if (same) return; t.classList.add("on"); cur = name; pane.appendChild(build()); reveal(pane, tabs); }; tabs.appendChild(t); });
@@ -1346,10 +1365,13 @@ function leakSheet(){
     [...hd.querySelectorAll(".chip")].forEach((c, k) => c.onclick = () => trainFocus("leaks", ["hands", "drills", "puzzle"][k])); body.appendChild(hd); }
   const mo = mistakeOrigins();
   if (mo) body.appendChild($(`<div class="tagnote" style="margin-bottom:10px">Of your mistakes on spots where you answered "whose range is stronger?" first: <b>${pct(mo.calibration / mo.n)}</b> had the wrong range read (reps will fix this), <b>${pct(mo.logic / mo.n)}</b> had the right read but the wrong action (the decision rule needs work). Based on ${mo.n} decisions.</div>`));
+  // nothing above is "wrong" here -- a toss-up has no correct side -- but a consistent lean says something about
+  // temperament that a graded spot can't show, since a graded spot always pulls you toward the right answer
+  mixTendency().forEach(m => { const [a, b] = m.key.split("/"); body.appendChild($(`<div class="tagnote" style="margin-bottom:10px">In genuine toss-ups between <b>${KIND_WORD[a]}</b> and <b>${KIND_WORD[b]}</b>, you picked <b>${KIND_WORD[m.kind]}</b> ${pct(m.share)} of the time (${m.n} spots) — not a mistake, since the solver mixes there too, but worth noticing about how you play close decisions.</div>`)); });
   patternRows(body);
   group("By situation", "c:"); group("By street", "s:"); group("By hand type", "h:"); group("By role", "p:");
   body.appendChild($(`<p style="color:var(--dim);font-size:11px;margin-top:10px">% of pot lost per decision · decisions</p>`));
-  const rs = $(`<button class="next ghost" style="position:static;margin-top:6px">Reset history</button>`); rs.onclick = () => { store.set("book", {}); store.set("patterns", {}); o.remove(); }; body.appendChild(rs);
+  const rs = $(`<button class="next ghost" style="position:static;margin-top:6px">Reset history</button>`); rs.onclick = () => { store.set("book", {}); store.set("patterns", {}); store.set("mixprefs", {}); o.remove(); }; body.appendChild(rs);
   const o = overlay("Where your EV goes", body);
 }
 function renderFilters(){
