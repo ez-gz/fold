@@ -500,8 +500,9 @@ function renderActions(){
     const c = state.cur, tbl = main.querySelector(".table");
     if (tbl && !tbl.querySelector(".sitwrap")) tbl.appendChild(situationChips(c.f, s, c.d));
     if (c.prev && !main.querySelector(".cbanner")) main.appendChild($(`<div class="cbanner">⇄ Same spot, different hand</div>`));
-    if (!c.tf && !c.prev && !rangeFacts(c.f, s).sure) c.tf = true;   // no question where the answer is not certain
-    if (!c.tf && !c.prev){ c.tf = true; main.appendChild(thinkFirst(c.f, s, c.d, () => renderActions(), c)); return; }
+    // thinkFirst returns null when no range-read question has a certain answer on this spot; fall through to the
+    // buttons in that case rather than asking something that can't be graded honestly
+    if (!c.tf && !c.prev){ c.tf = true; const q = thinkFirst(c.f, s, c.d, () => renderActions(), c); if (q){ main.appendChild(q); return; } }
     beginnerOptions(s, state.cur.d).forEach(o => { const b = $(`<button class="act beg" data-i="${o.i}"><div class="fill"></div><span>${o.label}</span><span class="sub"></span></button>`); b.onclick = () => answer(o.i); box.appendChild(b); });
     main.appendChild(box); return;
   }
@@ -1247,14 +1248,40 @@ const THINK_Q = [
   "If you ran every combo, who's ahead?",
   "Which side of this would you rather hold?",
 ];
+// a question is only worth asking when its answer isn't a judgement call: a clear edge one way, or clearly level.
+// anything in between returns null and that flavour of question simply isn't offered on this spot.
+// min guards the "even" verdict: on a board where neither side holds any of the category, "who has more?" is
+// technically even and completely useless to be asked ("you 0%, BB 0%") -- that needs to be no question at all.
+const cmpShare = (a, b, ratio, hi, lo, min) =>
+  a >= ratio * b && a - b >= hi ? "you" : b >= ratio * a && b - a >= hi ? "them" : Math.abs(a - b) <= lo && Math.max(a, b) >= min ? "even" : null;
+// three flavours of range read, not three wordings of one. Overall equity is the headline question, but "who holds
+// the best hands" and "who holds the most air" are the reads that actually drive betting and giving up -- and they
+// often have a clear answer on spots where overall equity is too close to grade, so they widen the coverage too.
+function thinkQuestions(f, s){
+  const R = rangeFacts(f, s), V = s.villain, qs = [];
+  if (R.sure) qs.push({ ans: R.ahead, skipAhead: true, q: THINK_Q[Math.floor(Math.random() * THINK_Q.length)],
+    help: "Your range is every hand you could hold after playing the hand this way. Theirs is every hand they could hold." });
+  // thresholds mirror rangeFacts' own best/worst tests, so a question never disagrees with the tag shown underneath it
+  const nuts = cmpShare(R.nH, R.nV, 1.5, 0.015, 0.005, 0.03);
+  if (nuts) qs.push({ ans: nuts, q: "Who has more two pair or better?",
+    help: "Count the hands each side could hold that make two pair or better on this board. Whoever has more of them can bet big.",
+    note: `Two pair or better: you ${pct(R.nH)}, ${V} ${pct(R.nV)}.` });
+  const air = cmpShare(R.H[3], R.V[3], 1.25, 0.08, 0.02, 0.10);
+  if (air) qs.push({ ans: air, q: "Who has more nothing — no pair, no draw?",
+    help: "Hands that missed this board completely. The side holding more of them has to give up more often.",
+    note: `No pair and no draw: you ${pct(R.H[3])}, ${V} ${pct(R.V[3])}.` });
+  return qs;
+}
 function thinkFirst(f, s, d, done, cur){
-  const q = THINK_Q[Math.floor(Math.random() * THINK_Q.length)];
-  const box = $(`<div class="think"><div class="q">${q}<i class="help">?</i></div><div class="opts"></div><div class="tagnote"></div></div>`), R = rangeFacts(f, s);
-  box.querySelector(".help").onclick = () => { const n = box.querySelector(".tagnote"); n.textContent = n.textContent ? "" : "Your range is every hand you could hold after playing the hand this way. Theirs is every hand they could hold."; };
+  const qs = thinkQuestions(f, s); if (!qs.length) return null;   // caller falls through to the action buttons
+  const Q = qs[Math.floor(Math.random() * qs.length)];
+  const box = $(`<div class="think"><div class="q">${Q.q}<i class="help">?</i></div><div class="opts"></div><div class="tagnote"></div></div>`);
+  box.querySelector(".help").onclick = () => { const n = box.querySelector(".tagnote"); n.textContent = n.textContent ? "" : Q.help; };
   [["you", "🙋", "Mine"], ["even", "⚖️", "Even"], ["them", "🧑", s.villain + "'s"]].forEach(([v, ic, label]) => { const b = $(`<button class="topt"><i>${ic}</i>${label}</button>`);
-    b.onclick = () => { if (box._done) return; box._done = true; const ok = v === R.ahead; trackReason("Range read", ok); if (cur) cur.rangeOk = ok;   // fed to logDecision: a wrong action after a right range read is a logic mistake, not a calibration one
-      [...box.querySelectorAll(".topt")].forEach(x => { x.disabled = true; }); b.classList.add(ok ? "ok" : "no"); const right = [...box.querySelectorAll(".topt")][["you", "even", "them"].indexOf(R.ahead)]; right.classList.add("ok");
-      box.querySelector(".tagnote").textContent = ""; box.appendChild(rangeDuel(f, s, { skipAhead: true })); done(); };
+    b.onclick = () => { if (box._done) return; box._done = true; const ok = v === Q.ans; trackReason("Range read", ok); if (cur) cur.rangeOk = ok;   // fed to logDecision: a wrong action after a right range read is a logic mistake, not a calibration one
+      [...box.querySelectorAll(".topt")].forEach(x => { x.disabled = true; }); b.classList.add(ok ? "ok" : "no"); const right = [...box.querySelectorAll(".topt")][["you", "even", "them"].indexOf(Q.ans)]; right.classList.add("ok");
+      // the equity question is answered by the bar rangeDuel draws anyway; the other two need their numbers said out loud
+      box.querySelector(".tagnote").textContent = Q.note || ""; box.appendChild(rangeDuel(f, s, { skipAhead: Q.skipAhead })); done(); };
     box.querySelector(".opts").appendChild(b); });
   return box;
 }
