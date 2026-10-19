@@ -352,7 +352,7 @@ function explain(f, spot, d, chosen, gr){
   const rank = d.top == null ? "" : ` — ${d.top <= 0.5 ? "top " + Math.max(1, Math.round(100*d.top)) : "bottom " + Math.max(1, Math.round(100*(1-d.top)))}% of your range`;
   if (gr.g !== "Best" && gr.g !== "Good") out.push(`<b>${A[chosen].label}</b> gives up ${gr.loss.toFixed(2)}bb vs <b>${A[best].label}</b>.`);
   else if (d.strat.filter(v => v > 0.15).length > 1) out.push(`Mixed spot: the options are near-equal in EV.`);
-  out.push(`<span class="k">${V}:</span> ${pct(g.strong)} top pair+, ${pct(g.mid)} weak pairs, ${pct(g.draws)} draws, ${pct(g.air)} air. <span class="k">You:</span> ${f.class_names[d.cls].toLowerCase()}, <b>${pct(d.eq)}</b> equity${rank}.`);
+  out.push(`<span class="k">${V}:</span> ${pct(g.strong)} strong, ${pct(g.mid)} a pair, ${pct(g.draws)} a draw, ${pct(g.air)} nothing. <span class="k">You:</span> ${f.class_names[d.cls].toLowerCase()}, <b>${pct(d.eq)}</b> equity${rank}.`);
   const line = i => {
     const a = A[i], x = respInfo(f, spot, d, i);
     if ((a.kind === "bet" || a.kind === "raise") && x){
@@ -591,7 +591,7 @@ function markButtons(d, i, gr){
   if (state.beginner && state.cur && !state.cur.three){   // one button per kind: the best kind lights up, no numbers
     const s = state.cur.s, bestKind = s.actions[gr.bestIdx].kind, toss = tossUp(s, d);
     [...document.querySelectorAll(".act")].forEach(b => { const k = +b.dataset.i, kind = s.actions[k].kind, best = kind === bestKind, mine = k === i, fine = fineG(grade(s, d, k)); b.classList.add("done"); if (best && !toss) b.classList.add("best"); if (mine) b.classList.add("picked");
-      b.dataset.tag = toss ? (mine ? "You" : "") : best ? (mine ? "✓ You · solver's pick" : "Solver's pick") : fine ? (mine ? "You · also fine" : "also fine") : mine ? "✗ You" : ""; if (mine && !fine) b.classList.add("beg-wrong"); });
+      b.dataset.tag = toss ? (mine ? "You" : "") : best ? (mine ? "✓ You · solver's pick" : "Solver's pick") : fine ? (mine ? "You · alternate line" : "alternate line") : mine ? "✗ You" : ""; if (mine && !fine) b.classList.add("beg-wrong"); });
     return;
   }
   [...document.querySelectorAll(".act")].forEach((b, k) => {
@@ -700,8 +700,7 @@ function handAnswer(i, gr){
   }
   const go = () => { if (state.hand !== H || H.k !== k0) return; H.k++; H.k < H.h.steps.length ? handStep(false) : handEnd(); window.scrollTo(0, 0); }, k0 = H.k;
   const nx = $(`<button class="next">${H.k + 1 < H.h.steps.length ? "Continue →" : "See result →"}</button>`); nx.onclick = go; main.appendChild(nx);
-  // only the obvious ones move on by themselves; anything mixed or wrong waits so the why can be read
-  if (ok && i === step.line && d.strat[i] >= 0.85) setTimeout(go, 2600);
+  // the player advances manually, always -- even an obviously-right answer deserves a moment to read the why
 }
 function handEnd(){
   const H = state.hand, { f, h } = H;
@@ -755,7 +754,7 @@ function beginnerResult(H){
   const endTxt = h.end === "showdown" ? (h.result === 1 ? "you win at showdown" : h.result === 0.5 ? "a split pot" : `${h.villain} wins at showdown`) : h.end === "villain_fold" ? `${h.villain} folds` : "your fold";
   const sg = net == null ? "" : Math.abs(net) < 0.05 ? "0bb" : `${net >= 0 ? "+" : "−"}${Math.abs(net).toFixed(1)}bb`;
   // once a choice of yours differed, the rest of the hand is the solver's, so its result is shown as the solver's and not as yours
-  const head = net == null ? "" : off ? `<div style="color:var(--dim);font-size:13px;line-height:1.45">From where your play differed, the hand follows the solver's play.<br>It ends with ${endTxt.replace(/^you win/, "your win")}: <b style="color:#fff">${sg}</b>. <span style="font-size:11px">1bb is one big blind.</span></div>` : `<div class="big" style="color:${net >= 0 ? "var(--accent)" : "var(--bad)"}">${net >= 0 ? "+" : "−"}${Math.abs(net).toFixed(1)}<small> bb</small></div><div style="color:var(--dim);font-size:12px;margin-top:6px">${net > 0 ? "You won" : net < 0 ? "You lost" : "Even"} · 1bb is one big blind</div>`;
+  const head = net == null ? "" : off ? `<div style="color:var(--dim);font-size:13px;line-height:1.45">From where your play differed, the hand follows the solver's play.<br>It ends with ${endTxt.replace(/^you win/, "your win")}: <b style="color:#fff">${sg}</b>.</div>` : `<div class="big" style="color:${net >= 0 ? "var(--accent)" : "var(--bad)"}">${net >= 0 ? "+" : "−"}${Math.abs(net).toFixed(1)}<small> bb</small></div><div style="color:var(--dim);font-size:12px;margin-top:6px">${net > 0 ? "You won" : net < 0 ? "You lost" : "Even"}</div>`;
   const key = w < 0 ? `<div class="keyst ok">✓ No mistakes this hand</div>` : `<div class="keyst"><span>The street that mattered</span><b>${STREETS[h.steps[w].spot.street]}</b> You: ${kw(w, H.res[w].i)} → Solver: ${kw(w, H.res[w].gr.bestIdx)}</div>`;
   const sheet = $(`<div class="sheet score"><h3>Result</h3>${head}${key}<div class="rows"></div></div>`);
   H.res.forEach((r, k) => sheet.querySelector(".rows").appendChild($(`<div class="row"><span style="color:var(--dim)">${STREETS[h.steps[k].spot.street]}</span><span style="text-align:left">${kw(k, r.i)}</span><span class="pts" style="color:${vd[k].toss ? "var(--dim)" : fineG(r.gr) ? "var(--accent)" : "var(--warn)"}">${vd[k].g}</span></div>`)));
@@ -966,7 +965,7 @@ function lens(f, s, d, chosen, gr){
     if (t.a === -1){
       const sv = sheet._suit || 0, src = !s.vsuit || !sv ? s.vr : (sv === 1 ? s.vsuit.with : s.vsuit.without).map(x => Math.max(0, x));
       paintSplit(g, src, [{ color: "var(--call)", grid: Array(169).fill(1) }], -1);
-      kp.innerHTML = `<div class="kpi"><b>${pct(d.eq)}</b><span>your equity</span></div><div class="kpi"><b>${pct(s.vclass[0]+s.vclass[1])}</b><span>top pair+</span></div><div class="kpi"><b>${pct(s.vclass[5]+s.vclass[6])}</b><span>ace-high / air</span></div>`;
+      kp.innerHTML = `<div class="kpi"><b>${pct(d.eq)}</b><span>your equity</span></div><div class="kpi"><b>${pct(s.vclass[0]+s.vclass[1])}</b><span>strong</span></div><div class="kpi"><b>${pct(s.vclass[5]+s.vclass[6])}</b><span>nothing</span></div>`;
       leg.innerHTML = `<span><i style="background:var(--call)"></i>in range · taller = more combos</span>`;
       if (s.vsuit){ const ch = SUITCH[s.vsuit.suit], row = $(`<div class="chips" style="margin:6px 0 0">${["All suits", "With a " + ch, "No " + ch].map((n, k) => `<div class="chip ${k === (sheet._suit || 0) ? "on" : ""}">${n}</div>`).join("")}</div>`);
         [...row.children].forEach((el, k) => el.onclick = () => { sheet._suit = k; show(t); }); leg.appendChild(row); }
@@ -1044,10 +1043,15 @@ function beginnerOptions(s, d){
   const by = {}; s.actions.forEach((a, i) => { if (!(a.kind in by) || d.strat[i] > d.strat[by[a.kind]]) by[a.kind] = i; });
   return ["fold", "check", "call", "bet", "raise"].filter(k => k in by).map(k => ({ i: by[k], kind: k, label: KIND_WORD[k] }));
 }
-const beginnerGrade = gr => gr.g === "Best" || gr.g === "Good" ? { g: "Fine", cls: "g-Best", l: "" } : gr.p > 5 ? { g: "Big mistake", cls: "g-Mistake", l: `−${gr.loss.toFixed(1)}bb` } : { g: "Mistake", cls: "g-Inaccuracy", l: "" };
+// "Fine" didn't say whether you'd found the solver's top play or a second-best one close enough not to matter --
+// name the difference so getting the exact line reads as a clear win, not a shrug
+const beginnerGrade = gr => gr.g === "Best" ? { g: "Best", cls: "g-Best", l: "" } : gr.g === "Good" ? { g: "Alternate line", cls: "g-Best", l: "" } : gr.p > 5 ? { g: "Big mistake", cls: "g-Mistake", l: `−${gr.loss.toFixed(1)}bb` } : { g: "Mistake", cls: "g-Inaccuracy", l: "" };
 const fineG = gr => gr.g === "Best" || gr.g === "Good";
-// a toss-up: every play on the buttons grades as fine, so there is nothing to get wrong and nothing to grade
-const tossUp = (s, d) => beginnerOptions(s, d).every(o => fineG(grade(s, d, o.i)));
+// a toss-up needs both EV and frequency to agree there's nothing to prefer: EV-close alone isn't enough --
+// a 95/5 split is EV-close by definition (that's why the 5% line exists at all) but the solver still has a clear
+// favorite, so it's not honest to tell a learner "either play works" there.
+const TOSS_MAX = 0.65;
+const tossUp = (s, d) => { const opts = beginnerOptions(s, d); return opts.every(o => fineG(grade(s, d, o.i))) && !opts.some(o => d.strat[o.i] >= TOSS_MAX); };
 const begVerdict = (s, d, gr) => tossUp(s, d) ? { g: "Toss-up", cls: "g-Toss", l: "Either play works", toss: true } : beginnerGrade(gr);
 const repIdx = (s, d, kind) => (beginnerOptions(s, d).find(o => o.kind === kind) || {}).i;
 const shareWord = v => v >= 0.6 ? "mostly" : v >= 0.4 ? "about half" : v >= 0.2 ? "some" : v >= 0.07 ? "a few" : "almost no";
@@ -1177,9 +1181,9 @@ function beginnerPanel(f, s, d, chosen, gr, opts = {}){
   // your play first, then the solver's: each with its own reason and one sentence on the size the button stands for
   const sheet = $(`<div class="sheet why beg"></div>`), A = s.actions, bk = A[gr.bestIdx].kind, ri = repIdx(s, d, bk), bi = ri == null ? gr.bestIdx : ri, same = A[chosen].kind === bk, toss = tossUp(s, d);
   const part = (who, i, best, note) => { sheet.appendChild(reasonBadge(reasonOf(f, s, d, i), who)); sheet.appendChild($(`<p class="take"><b>${KIND_WORD[A[i].kind]}.</b> ${whyPlay(f, s, d, i, best)}${note ? ` <span class="dim">${note}</span>` : ""}</p>`)); };
-  if (toss) sheet.appendChild($(`<div class="tossnote">⚖️ The solver plays this both ways. Neither is a mistake, so it is not graded.</div>`));
+  if (toss) sheet.appendChild($(`<div class="tossnote">⚖️ The solver mixes between these close to evenly here — both are worth having in your game.</div>`));
   if (same) part("", bi, true);
-  else { part("You", chosen, false, toss ? "" : fineG(gr) ? "Fine too." : gr.p > 5 ? "Gives up a lot." : "Gives up a little."); part(toss ? "Or" : "Solver", bi, true); }
+  else { part("You", chosen, false, toss ? "" : fineG(gr) ? "Alternate line." : gr.p > 5 ? "Gives up a lot." : "Gives up a little."); part(toss ? "Or" : "Solver", bi, true); }
   if (opts.contrast) sheet.appendChild(opts.contrast);
   const tabs = $(`<div class="btabs"></div>`), pane = $(`<div class="bpane"></div>`); let cur = null;
   const items = [
