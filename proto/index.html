@@ -588,10 +588,12 @@ function answer(i){
 }
 const lossText = gr => gr.loss < 0.005 ? "no EV lost" : `−${gr.loss.toFixed(2)}bb (${gr.p.toFixed(1)}% of pot)`;
 function markButtons(d, i, gr){
-  if (state.beginner && state.cur && !state.cur.three){   // one button per kind: the best kind lights up, no numbers
-    const s = state.cur.s, bestKind = s.actions[gr.bestIdx].kind, toss = tossUp(s, d);
-    [...document.querySelectorAll(".act")].forEach(b => { const k = +b.dataset.i, kind = s.actions[k].kind, best = kind === bestKind, mine = k === i, fine = fineG(grade(s, d, k)); b.classList.add("done"); if (best && !toss) b.classList.add("best"); if (mine) b.classList.add("picked");
-      b.dataset.tag = toss ? (mine ? "You" : "") : best ? (mine ? "✓ You · solver's pick" : "Solver's pick") : fine ? (mine ? "You · alternate line" : "alternate line") : mine ? "✗ You" : ""; if (mine && !fine) b.classList.add("beg-wrong"); });
+  if (state.beginner && state.cur && !state.cur.three){   // one button per kind: the best kind lights up, plus the solver's real split once you've answered
+    const s = state.cur.s, bestKind = s.actions[gr.bestIdx].kind, toss = tossUp(s, d), kv = kindView(s, d);
+    [...document.querySelectorAll(".act")].forEach(b => { const k = +b.dataset.i, kind = s.actions[k].kind, best = kind === bestKind, mine = k === i, fine = fineG(grade(s, d, k));
+      const row = kv.find(x => x.kind === kind), freq = row ? pct(row.strat) : "", label = toss ? (mine ? "You" : "") : best ? (mine ? "✓ You · solver's pick" : "Solver's pick") : fine ? (mine ? "You · alternate line" : "alternate line") : mine ? "✗ You" : "";
+      b.classList.add("done"); if (best && !toss) b.classList.add("best"); if (mine) b.classList.add("picked");
+      b.dataset.tag = label ? `${freq} · ${label}` : freq; if (mine && !fine) b.classList.add("beg-wrong"); });
     return;
   }
   [...document.querySelectorAll(".act")].forEach((b, k) => {
@@ -616,9 +618,11 @@ function nextHand(){
   let pool = []; PACK.flops.forEach(f => (f.hands || []).forEach(h => pool.push({ f, h })));
   if (!pool.length){ main.innerHTML = `<div class="empty">This pack has no played hands yet — switch to Drills.</div>`; return; }
   // a focus keeps only hands where at least one of your decisions is the kind you are working on
-  if (state.beginner){   // beginner: single raised pots, a decision of the current rung's kind, and only its hand types until the later rungs
-    const r = RUNGS[rungState().i], fp = pool.filter(x => !srp3(x.f) && x.h.steps.some(st => rungMatch(x.f, st.spot, st.spot.drills[0])) && x.h.steps.every(st => !r.types || r.types.includes(coarseType(fineType(st.spot.drills[0].hand, st.spot.board)))));
-    if (fp.length) pool = fp; else { const f2 = pool.filter(x => !srp3(x.f)); if (f2.length) pool = f2; } }
+  if (state.beginner){   // beginner: a decision of the current rung's kind, and only its hand types until the later rungs --
+    // each rung's own test() already excludes 3-bet pots for the early rungs, so no blanket filter is needed here;
+    // "Facing a raise" and "Everything" (rungs 3-4) are where 3-bet pots start showing up
+    const r = RUNGS[rungState().i], fp = pool.filter(x => x.h.steps.some(st => rungMatch(x.f, st.spot, st.spot.drills[0])) && x.h.steps.every(st => !r.types || r.types.includes(coarseType(fineType(st.spot.drills[0].hand, st.spot.board)))));
+    if (fp.length) pool = fp; }
   else if (state.focus){ const fp = pool.filter(x => x.h.steps.some(st => focusMatch(x.f, st.spot, st.spot.drills[0]))); if (fp.length) pool = fp; }
   // mostly hands that play all three streets (more decisions, more to learn); early folds still show up sometimes
   const river = pool.filter(x => x.h.board.length === 5 && x.h.steps.length > 1), deep = pool.filter(x => x.h.steps.length > 1), r = Math.random();
@@ -1050,8 +1054,10 @@ const fineG = gr => gr.g === "Best" || gr.g === "Good";
 // a toss-up needs both EV and frequency to agree there's nothing to prefer: EV-close alone isn't enough --
 // a 95/5 split is EV-close by definition (that's why the 5% line exists at all) but the solver still has a clear
 // favorite, so it's not honest to tell a learner "either play works" there.
+// frequency is checked on kindView's per-kind total (summed across sizes), the same number the buttons display --
+// beginnerOptions' single-size strat understates a kind split across multiple bet sizes and would disagree with it
 const TOSS_MAX = 0.65;
-const tossUp = (s, d) => { const opts = beginnerOptions(s, d); return opts.every(o => fineG(grade(s, d, o.i))) && !opts.some(o => d.strat[o.i] >= TOSS_MAX); };
+const tossUp = (s, d) => { const opts = beginnerOptions(s, d), kv = kindView(s, d); return opts.every(o => fineG(grade(s, d, o.i))) && !kv.some(o => o.strat >= TOSS_MAX); };
 const begVerdict = (s, d, gr) => tossUp(s, d) ? { g: "Toss-up", cls: "g-Toss", l: "Either play works", toss: true } : beginnerGrade(gr);
 const repIdx = (s, d, kind) => (beginnerOptions(s, d).find(o => o.kind === kind) || {}).i;
 const shareWord = v => v >= 0.6 ? "mostly" : v >= 0.4 ? "about half" : v >= 0.2 ? "some" : v >= 0.07 ? "a few" : "almost no";
@@ -1110,7 +1116,9 @@ function rangeFacts(f, s){
   else if (src){ const p = src.drills.map(x => [x.top, x.eq]).sort((a, b) => a[0] - b[0]), q = [[0, p[0][1]], ...p, [1, p[p.length - 1][1]]]; eq = 0; for (let i = 1; i < q.length; i++) eq += (q[i][0] - q[i - 1][0]) * (q[i][1] + q[i - 1][1]) / 2; }
   const sure = eq != null && (exact || Math.abs(eq - 0.5) >= 0.11);
   const H = bucketShares(s.hclass), V = bucketShares(s.vclass), nH = s.hclass[0] / hs, nV = s.vclass[0] / vs;
-  const e100 = eq == null ? null : Math.round(100 * eq), ahead = eq == null ? null : e100 >= 55 ? "you" : e100 <= 45 ? "them" : "even";   // on the rounded figure, so the tag never disagrees with the number shown
+  // "even" used to mean anywhere in 45-55, so a real 53/47 edge -- six points, a legitimate lean -- got called a wash.
+  // Narrowed to the band where neither side has a real equity lean worth naming.
+  const e100 = eq == null ? null : Math.round(100 * eq), ahead = eq == null ? null : e100 >= 52 ? "you" : e100 <= 48 ? "them" : "even";   // on the rounded figure, so the tag never disagrees with the number shown
   const best = nH >= 1.5 * nV && nH - nV >= 0.015 ? "you" : nV >= 1.5 * nH && nV - nH >= 0.015 ? "them" : null;
   const capped = nV < 0.02 && nH >= 0.04 ? "them" : nH < 0.02 && nV >= 0.04 ? "you" : null;
   const worst = H[3] - V[3] >= 0.08 ? "you" : V[3] - H[3] >= 0.08 ? "them" : null;
@@ -1121,14 +1129,16 @@ function rangeFacts(f, s){
   else { const b = s.hclass.map((w, c) => w * s.actions.reduce((a, x, k) => a + (x.kind === "bet" || x.kind === "raise" ? s.hclass_strat[c][k] : 0), 0)); if (sum(b) / hs >= 0.1 && b.some(x => x > 0)){ shape = classify(b); who = "you"; } }
   return { eq, exact, sure, ahead, best, capped, worst, shape, who, H, V, nH, nV, heroRaised: s.hero === F.opener && !srp3(f) || (srp3(f) && s.hero !== F.opener) };
 }
-function rangeDuel(f, s){
+// skipAhead: the "ranges are even / you're ahead" tag repeats whatever the range-read question right above it just
+// asked and answered -- drop it there and keep it only where rangeDuel stands alone (the Ranges tab)
+function rangeDuel(f, s, { skipAhead } = {}){
   const R = rangeFacts(f, s), V = s.villain, el = $(`<div class="duel"></div>`), me = "You", nm = w => w === "you" ? me : V;
   const show = R.exact || R.sure, e = x => R.exact ? pct(x) : "~" + 5 * Math.round(20 * x) + "%";
   el.appendChild($(`<div class="bar duo"><span>You</span>${bucketBar(s.hclass, 14)}<b>${show ? e(R.eq) : ""}</b></div>`));
   el.appendChild($(`<div class="bar duo"><span>${V}</span>${bucketBar(s.vclass, 14)}<b>${show ? e(1 - R.eq) : ""}</b></div>`));
   el.appendChild($(bucketLegend()));
   const tags = [];
-  if (show) tags.push(["📈", R.ahead === "even" ? "Ranges are even" : `${nm(R.ahead)} ahead`, `All your possible hands win ${R.exact ? pct(R.eq) : "about " + 5 * Math.round(20 * R.eq) + "%"} against all of theirs. ${R.heroRaised ? "You raised before the flop, so you hold the big pairs and big aces." : `${V} raised before the flop, so ${V} holds the big pairs and big aces.`}`]);
+  if (show && !skipAhead) tags.push(["📈", R.ahead === "even" ? "Ranges are even" : R.ahead === "you" ? "You're ahead" : `${V}'s ahead`, `All your possible hands win ${R.exact ? pct(R.eq) : "about " + 5 * Math.round(20 * R.eq) + "%"} against all of theirs. ${R.heroRaised ? "You raised before the flop, so you hold the big pairs and big aces." : `${V} raised before the flop, so ${V} holds the big pairs and big aces.`}`]);
   if (R.best) tags.push(["👑", `Best hands: ${nm(R.best)}`, `Two pair or better: you ${pct(R.nH)}, ${V} ${pct(R.nV)}. Whoever has more of the very best hands can bet big.`]);
   if (R.capped) tags.push(["🔒", `${nm(R.capped)} capped`, R.capped === "them" ? `${V} almost never has two pair or better here (${pct(R.nV)}). ${R.heroRaised ? "They only called before the flop: AA, KK and AK would have raised." : "Their line leaves the strongest hands out."}` : `You almost never have two pair or better here (${pct(R.nH)}), so big bets from ${V} are hard to fight.`]);
   if (R.worst) tags.push(["🕳", `More nothing: ${nm(R.worst)}`, `Hands with no pair and no draw: you ${pct(R.H[3])}, ${V} ${pct(R.V[3])}. The side with more nothing has to give up more often.`]);
@@ -1224,7 +1234,7 @@ function thinkFirst(f, s, d, done, cur){
   [["you", "🙋", "Mine"], ["even", "⚖️", "Even"], ["them", "🧑", s.villain + "'s"]].forEach(([v, ic, label]) => { const b = $(`<button class="topt"><i>${ic}</i>${label}</button>`);
     b.onclick = () => { if (box._done) return; box._done = true; const ok = v === R.ahead; trackReason("Range read", ok); if (cur) cur.rangeOk = ok;   // fed to logDecision: a wrong action after a right range read is a logic mistake, not a calibration one
       [...box.querySelectorAll(".topt")].forEach(x => { x.disabled = true; }); b.classList.add(ok ? "ok" : "no"); const right = [...box.querySelectorAll(".topt")][["you", "even", "them"].indexOf(R.ahead)]; right.classList.add("ok");
-      box.querySelector(".tagnote").textContent = ""; box.appendChild(rangeDuel(f, s)); done(); };
+      box.querySelector(".tagnote").textContent = ""; box.appendChild(rangeDuel(f, s, { skipAhead: true })); done(); };
     box.querySelector(".opts").appendChild(b); });
   return box;
 }
