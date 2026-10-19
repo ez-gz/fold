@@ -22,6 +22,7 @@ header{display:flex;align-items:center;gap:8px;padding:4px 0 8px}
 header .logo{font-weight:800;letter-spacing:.12em;font-size:13px;color:var(--accent)}
 header .stats{margin-left:auto;flex:none}header .chips{flex-wrap:wrap;min-width:0}
 .sbadge{display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;border-radius:50%;border:1.5px solid var(--accent);color:var(--accent);font-size:12px;font-weight:700;font-variant-numeric:tabular-nums}
+.sbadge.arena{border-radius:17px;width:auto;padding:0 10px;gap:2px}.sbadge.arena i{font-style:normal;font-size:9px;opacity:.75;font-weight:600}
 .chips{display:flex;gap:6px;flex-wrap:wrap}
 .chip{border:1px solid var(--line);background:var(--panel);color:var(--dim);border-radius:999px;padding:5px 11px;font-size:12px;cursor:pointer;user-select:none}
 .overlay{position:fixed;inset:0;background:#000a;z-index:50;display:flex;flex-direction:column;justify-content:flex-end;align-items:center}.overlay>.sheet{flex:none;box-sizing:border-box;width:min(560px,100%);max-height:86vh;max-height:86dvh;overflow:auto;-webkit-overflow-scrolling:touch;margin:0;border-radius:18px 18px 0 0;padding-bottom:calc(14px + env(safe-area-inset-bottom))}.overlay h3{display:flex;justify-content:space-between}.overlay .x{color:var(--dim);font-size:12px;cursor:pointer}
@@ -91,14 +92,15 @@ header .stats{margin-left:auto;flex:none}header .chips{flex-wrap:wrap;min-width:
 .act.done.picked::after{content:"YOU";position:absolute;right:8px;top:4px;font-size:9px;letter-spacing:.1em;opacity:.8}
 .act.done.picked[data-tag]::after,.act.done[data-tag]::after{content:attr(data-tag);position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;font-weight:700;letter-spacing:.04em;opacity:.95;background:#0008;padding:3px 8px;border-radius:8px}.act.done.picked[data-tag=""]::after,.act.done[data-tag=""]::after{content:none}.act.done.beg-wrong{box-shadow:0 0 0 2px var(--bad)}
 .k-fold{background:var(--fold)}.k-check,.k-call{background:var(--call)}.k-bet0,.k-raise0{background:var(--bet1)}.k-bet1,.k-raise1{background:var(--bet2)}
-.verdict{margin-top:12px;border-radius:16px;padding:12px 14px;display:flex;align-items:center;gap:12px;animation:pop .3s cubic-bezier(.2,.9,.3,1.4)}
+.verdict{margin-top:12px;border-radius:16px;padding:12px 14px;display:flex;align-items:center;flex-wrap:wrap;gap:12px;animation:pop .3s cubic-bezier(.2,.9,.3,1.4)}
 @keyframes pop{from{transform:scale(.9);opacity:0}}
-.verdict .g{font-size:20px;font-weight:800}.verdict .l{font-size:12px;opacity:.85;margin-left:auto;text-align:right;font-variant-numeric:tabular-nums}
+.verdict .rqv{flex-basis:100%;font-size:12px;font-weight:600;opacity:.9;margin-top:-6px}.verdict .g{font-size:20px;font-weight:800}.verdict .l{font-size:12px;opacity:.85;margin-left:auto;text-align:right;font-variant-numeric:tabular-nums}
 .g-Best{background:#123c2c;color:var(--accent)}.g-Good{background:#16342b;color:#9be3c5}.g-Inaccuracy{background:#3d3215;color:var(--warn)}.g-Mistake{background:#432418;color:#ff9a6b}.g-Blunder{background:#451a1e;color:var(--bad)}
 .sheet{margin-top:10px;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:12px 14px;animation:up .3s ease}
 @keyframes up{from{transform:translateY(14px);opacity:0}}
 .sheet h3{margin:0 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--dim);font-weight:600}
 .why p{margin:0 0 9px}.why p:last-child{margin:0}.why b{color:#fff}.why .k{color:var(--accent);font-weight:600}
+.chdr{margin:0 0 9px;font-size:13px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);padding-bottom:6px;border-bottom:1px solid var(--line)}
 .seg{display:flex;background:#0c1218;border-radius:11px;padding:3px;gap:3px;margin-bottom:9px}
 .seg div{flex:1;text-align:center;padding:7px 4px;border-radius:9px;font-size:12px;color:var(--dim);cursor:pointer;font-weight:600}
 .seg div.on{background:var(--panel2);color:var(--text)}
@@ -151,10 +153,13 @@ header .stats{margin-left:auto;flex:none}header .chips{flex-wrap:wrap;min-width:
 .btabs{display:flex;gap:6px;margin-top:12px}.btab{flex:1;text-align:center;padding:8px 4px;border-radius:12px;background:#15202b;border:1px solid #24313f;font-size:12px;font-weight:600;color:var(--dim);cursor:pointer;transition:all .15s}.btab i{display:block;font-style:normal;font-size:17px;margin-bottom:2px}.btab.on{background:#123c2c;border-color:var(--accent);color:#fff}.btab:active{transform:scale(.96)}
 .bpane:not(:empty){margin-top:12px;animation:up .2s ease}.bpane p{margin:0 0 9px}
 .tags,.sit{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.sit{justify-content:center}.tag{display:flex;align-items:center;gap:5px;padding:5px 9px;border-radius:999px;background:#15202b;border:1px solid #24313f;font-size:11.5px;font-weight:600;color:#cfd8e3;cursor:pointer;transition:all .15s}.tag i{font-style:normal;font-size:13px}.tag.on{background:#123c2c;border-color:var(--accent);color:#fff}.tag:active{transform:scale(.95)}
+.dvchart{display:flex;align-items:flex-end;gap:4px;height:72px;padding:6px 8px;background:#0c1218;border-radius:10px}
+.dvb{flex:1;height:100%;display:flex;align-items:flex-end}.dvb i{display:block;width:100%;border-radius:3px;background:linear-gradient(180deg,var(--warn),#f0a63a66)}
+.dvfoot{display:flex;justify-content:space-between;font-size:10px;color:var(--dim);margin-top:4px}
 .tagnote{font-size:12.5px;line-height:1.45;color:#cfd8e3}.tagnote:not(:empty){margin-top:8px;padding:8px 10px;border-radius:10px;background:#0c1218;animation:up .2s ease}.sitwrap .tagnote{text-align:center}
 .bar.duo{grid-template-columns:34px minmax(0,1fr) 38px;margin:5px 0}.bar.duo span{color:#fff;font-weight:600}.duel .legend{margin:6px 0 2px}
 .think{margin-top:12px;padding:14px;border-radius:16px;background:var(--panel,#111a23);border:1px solid #24313f;animation:up .25s ease}.think .q{font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px}.think .help{font-style:normal;width:18px;height:18px;border-radius:50%;border:1px solid var(--dim);color:var(--dim);font-size:11px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
-.think .opts{display:flex;gap:8px;margin-top:10px}.topt{flex:1;border:1px solid #24313f;background:#15202b;color:#fff;border-radius:14px;padding:10px 4px;font-weight:700;font-size:13px;cursor:pointer;transition:all .15s}.topt i{display:block;font-style:normal;font-size:20px;margin-bottom:2px}.topt:active{transform:scale(.96)}.topt.ok{background:#123c2c;border-color:var(--accent)}.topt.no{background:#432418;border-color:var(--bad)}.topt:disabled{opacity:.55}.topt.ok:disabled,.topt.no:disabled{opacity:1}.think .duel{margin-top:12px}
+.think .opts{display:flex;gap:8px;margin-top:10px}.topt{flex:1;border:1px solid #24313f;background:#15202b;color:#fff;border-radius:14px;padding:10px 4px;font-weight:700;font-size:13px;cursor:pointer;transition:all .15s}.topt i{display:block;font-style:normal;font-size:20px;margin-bottom:2px}.topt:active{transform:scale(.96)}.topt.ok{background:#123c2c;border-color:var(--accent)}.topt.sel{background:#1e2c3a;border-color:#cfd8e3}.topt.sel:disabled{opacity:1}.topt.no{background:#432418;border-color:var(--bad)}.topt:disabled{opacity:.55}.topt.ok:disabled,.topt.no:disabled{opacity:1}.think .duel{margin-top:12px}
 .act.beg{background:#1c2733;box-shadow:inset 0 0 0 1px #ffffff24}.act.beg.done.best{background:#15382b;box-shadow:0 0 0 2px var(--accent)}.act.beg.done.beg-wrong{background:#3a1d22;box-shadow:0 0 0 2px var(--bad)}
 .g-Toss{background:#1b2633;color:#cfd8e3}.tossnote{font-size:12.5px;line-height:1.45;color:#cfd8e3;margin-bottom:12px}
 .reason .lab{font-style:normal;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);border:1px solid #2a3746;border-radius:6px;padding:2px 6px}.take + .reason{margin-top:14px;padding-top:12px;border-top:1px solid #1e2935}
@@ -230,7 +235,11 @@ function formInfo(f){
 /* ---------- queue ---------- */
 function buildQueue(){
   const q = [];
-  for (const f of PACK.flops) for (const s of f.spots) { if (!state.beginner && state.street >= 0 && s.street !== state.street) continue; for (const d of s.drills) if (state.beginner ? rungMatch(f, s, d) : focusMatch(f, s, d)) q.push({ f, s, d }); }
+  for (const f of PACK.flops) for (const s of f.spots) { if (!state.beginner && state.street >= 0 && s.street !== state.street) continue; for (const d of s.drills) if (state.beginner && !state.focus ? rungMatch(f, s, d) : focusMatch(f, s, d)) q.push({ f, s, d }); }
+  // training a job from Leaks is training the job question, so keep to spots where it has a solid answer -- beginner
+  // only, since that's the only mode that asks it (full mode's Showdown-value focus keeps its whole pool)
+  const o = focusObj(), rq = state.beginner && o && o.reasons && o.reasons.length ? q.filter(x => reasonQuestion(x.f, x.s, x.d)) : [];
+  if (rq.length) q.splice(0, q.length, ...rq);
   for (let i = q.length - 1; i > 0; i--){ const j = Math.floor(Math.random()*(i+1)); [q[i], q[j]] = [q[j], q[i]]; }
   state.queue = q;
 }
@@ -273,6 +282,9 @@ function errKind(s, d, i, gr){
   if (agg(me)) return s.to_call > 0 ? "raise when calling is best" : "bet when checking is best";
   return s.to_call > 0 ? "call when raising is best" : "check when betting is best";
 }
+// was the mistake in reading the range, or in acting on a range read that was right? only known on the
+// (beginner, first-decision) spots where thinkFirst ran and set rangeOk; otherwise there is no signal to give.
+const mistakeOrigin = (gr, rangeOk) => gr.g === "Best" || gr.g === "Good" || rangeOk == null ? null : rangeOk ? "logic" : "calibration";
 /* finer hand type than the pack's 7 classes, from the exact cards: kicker, pair rank, nut vs low flush draw, open-ender vs gutshot */
 function fineType(hand, B){
   const ri = c => R.indexOf(c[0]), m = madeHand([...hand, ...B].length >= 5 ? [...hand, ...B] : [...hand, ...B, "2x", "3y"]);
@@ -302,10 +314,12 @@ const COARSE = { "Top pair, good kicker": "Top pair", "Top pair, weak kicker": "
   "Ace high": "Air", "Two overcards": "Air", "No pair, no draw": "Air" };
 const coarseType = ft => COARSE[ft] || ft;
 /* every graded decision, newest last (capped): lets Leaks find patterns at any grain and replay the costly ones */
-function logDecision(f, s, d, i, gr){
+function logDecision(f, s, d, i, gr, rangeOk){
   const log = store.get("log", []), F = formInfo(f);
   log.push({ t: Date.now(), k: f._k, sid: s.id, hand: d.hand.join(""), c: concept(f, s), st: s.street, cls: f.class_names[d.cls], ft: fineType(d.hand, s.board), ctx: s.to_call > 0 ? "facing a bet" : "with the option to bet",
-    err: errKind(s, d, i, gr), p: Math.min(gr.p, 25), bb: gr.loss, role: s.hero === F.opener ? "aggressor" : "caller", mode: state.hand ? "hands" : "drills", hi: state.hand ? f.hands.indexOf(state.hand.h) : -1 });
+    err: errKind(s, d, i, gr), origin: mistakeOrigin(gr, rangeOk), p: Math.min(gr.p, 25), bb: gr.loss, role: s.hero === F.opener ? "aggressor" : "caller", mode: state.hand ? "hands" : "drills", hi: state.hand ? f.hands.indexOf(state.hand.h) : -1,
+    // named the hand's job right (1) or not (0), and whether the play then followed the job named; absent when not asked
+    rq: state.cur && state.cur.rq ? +state.cur.reasonOk : undefined, rf: state.cur && state.cur.rq ? +state.cur.reasonFollowed : undefined });
   if (log.length > 3000) log.splice(0, log.length - 3000);
   store.set("log", log);
 }
@@ -314,6 +328,22 @@ function trackErr(f, s, d, i, gr){
   const e = pat[k] || (pat[k] = { n: 0, err: {} }); e.n++;
   const w = errKind(s, d, i, gr); if (w){ const x = e.err[w] || (e.err[w] = { n: 0, p: 0 }); x.n++; x.p += Math.min(gr.p, 25); }
   store.set("patterns", pat);
+}
+// in a genuine toss-up there's no right answer, so nothing above grades it -- but a consistent lean one way is
+// itself a pattern worth knowing about: it says something about temperament (risk-averse, call-happy) that a
+// graded spot never reveals, because a graded spot always has a "correct" pull toward one side.
+function trackMix(s, d, i){
+  if (!tossUp(s, d)) return;
+  const opts = beginnerOptions(s, d); if (opts.length !== 2) return;   // keep it to a clean two-way lean
+  const mine = opts.find(o => o.i === i); if (!mine) return;
+  const mp = store.get("mixprefs", {}), key = opts.map(o => o.kind).sort().join("/"), e = mp[key] || (mp[key] = { n: 0, by: {} });
+  e.n++; e.by[mine.kind] = (e.by[mine.kind] || 0) + 1; store.set("mixprefs", mp);
+}
+// a lean worth mentioning: played a real two-way toss-up at least 8 times and picked one side 70%+ of the time
+function mixTendency(){
+  const mp = store.get("mixprefs", {});
+  const leans = Object.entries(mp).filter(([, e]) => e.n >= 8).map(([key, e]) => { const [top] = Object.entries(e.by).sort((x, y) => y[1] - x[1]); const share = top[1] / e.n; return share >= 0.7 ? { key, kind: top[0], share, n: e.n } : null; }).filter(Boolean);
+  return leans.sort((x, y) => y.share - x.share).slice(0, 2);
 }
 function grade(spot, d, i){
   const best = Math.max(...d.ev), loss = Math.max(0, best - d.ev[i]), p = 100*loss/spot.pot;
@@ -340,12 +370,15 @@ function respInfo(f, spot, d, a){
   const contGrid = Array(169).fill(0); r.kinds.forEach((k, x) => { if (k !== "fold") r.grid[x].forEach((v, c) => contGrid[c] += v); });
   return { r, fold, raise, cont, foldCls: fi >= 0 ? r.cls[fi] : null, eq: d.eq_cont[a], foldEx: fi >= 0 ? exampleCells(spot, r.grid[fi]) : "", contEx: exampleCells(spot, contGrid) };
 }
+// a short label for how this street got here ("Second barrel", "River probe"): shown so the explanation carries the thread
+// from street to street instead of treating each one as a fresh puzzle. Skipped on the flop, where there is no thread yet.
+function streetHeader(f, spot){ return spot.street >= 1 ? `<h4 class="chdr">${concept(f, spot)}</h4>` : ""; }
 function explain(f, spot, d, chosen, gr){
   const V = spot.villain, A = spot.actions, out = [], g = groupSummary(spot.vclass), best = gr.bestIdx;
   const rank = d.top == null ? "" : ` — ${d.top <= 0.5 ? "top " + Math.max(1, Math.round(100*d.top)) : "bottom " + Math.max(1, Math.round(100*(1-d.top)))}% of your range`;
   if (gr.g !== "Best" && gr.g !== "Good") out.push(`<b>${A[chosen].label}</b> gives up ${gr.loss.toFixed(2)}bb vs <b>${A[best].label}</b>.`);
   else if (d.strat.filter(v => v > 0.15).length > 1) out.push(`Mixed spot: the options are near-equal in EV.`);
-  out.push(`<span class="k">${V}:</span> ${pct(g.strong)} top pair+, ${pct(g.mid)} weak pairs, ${pct(g.draws)} draws, ${pct(g.air)} air. <span class="k">You:</span> ${f.class_names[d.cls].toLowerCase()}, <b>${pct(d.eq)}</b> equity${rank}.`);
+  out.push(`<span class="k">${V}:</span> ${pct(g.strong)} strong, ${pct(g.mid)} a pair, ${pct(g.draws)} a draw, ${pct(g.air)} nothing. <span class="k">You:</span> ${f.class_names[d.cls].toLowerCase()}, <b>${pct(d.eq)}</b> equity${rank}.`);
   const line = i => {
     const a = A[i], x = respInfo(f, spot, d, i);
     if ((a.kind === "bet" || a.kind === "raise") && x){
@@ -362,16 +395,34 @@ function explain(f, spot, d, chosen, gr){
   };
   [...new Set([best, chosen])].forEach(i => { const t = line(i); if (t) out.push(t); });
   const vt = valueText(f, spot, d, chosen, gr); if (vt) out.push(vt.split(/\. (?=Against)/)[0] + ".");
-  return out.map(s => `<p>${s}</p>`).join("") + `<details class="more"><summary>Full breakdown</summary>${explainFull(f, spot, d, chosen, gr)}</details>`;
+  return streetHeader(f, spot) + out.map(s => `<p>${s}</p>`).join("") + `<details class="more"><summary>Full breakdown</summary>${explainFull(f, spot, d, chosen, gr)}</details>`;
 }
 function explainFull(f, spot, d, chosen, gr){
   const V = spot.villain, out = [], A = spot.actions, cn = f.class_names[d.cls].toLowerCase();
   const g = groupSummary(spot.vclass);
-  out.push(`<span class="k">${V}'s range right now:</span> ${pct(g.strong)} top pair or better, ${pct(g.mid)} weaker pairs, ${pct(g.draws)} draws, ${pct(g.air)} ace-high / air.`);
+  // same four buckets as the Ranges tab's legend (Strong/A pair/A draw/Nothing) -- one vocabulary for range
+  // strength everywhere in the app, instead of this sentence inventing its own synonyms for the same split
+  out.push(`<span class="k">${V}'s range right now:</span> ${pct(g.strong)} strong (top pair or better), ${pct(g.mid)} a pair, ${pct(g.draws)} a draw, ${pct(g.air)} nothing.`);
   out.push(`<span class="k">Your hand:</span> ${cn} with <b>${pct(d.eq)}</b> equity against that range.`);
   if (spot.to_call > 0){
     const need = spot.to_call / (spot.pot + spot.to_call);
     out.push(`<span class="k">The price:</span> calling ${bbf(spot.to_call)} into ${bbf(spot.pot)} needs <b>${pct(need)}</b> equity. You have ${pct(d.eq)} against the range that bets here${d.eq < need ? " — not enough on its own" : d.eq < need + 0.08 ? " — close, so how well the hand plays later streets decides it" : " — comfortably enough"}.`);
+  }
+  // the bluff-catching checklist, as five short questions instead of one verdict: a repeatable method for facing
+  // a bet with a hand that only wins at showdown, built entirely from numbers the solver already gives us
+  const callI = A.findIndex(a => a.kind === "call");
+  if (spot.to_call > 0 && callI >= 0){
+    const betI = A.findIndex(a => a.kind === "bet" || a.kind === "raise"), x = betI >= 0 ? respInfo(f, spot, d, betI) : null;
+    if (x){
+      const raiseI = A.findIndex((a, i) => i > callI && (a.kind === "raise" || a.kind === "bet"));
+      const beatValue = x.eq >= 0.5, nonSD = g.air + g.draws >= 0.15, raiseBetter = raiseI >= 0 && d.ev[raiseI] > d.ev[callI] + 0.02;
+      out.push(`<span class="k">Bluff-catching, step by step:</span><br>`
+        + `1. Beat their value? ${beatValue ? `Yes — you have ${pct(x.eq)} against what continues.` : `No, not clearly — only ${pct(x.eq)} against what continues.`}<br>`
+        + `2. Capable of bluffing here? ${g.air >= 0.1 ? `Yes, ${pct(g.air)} of their range is air.` : `Not much — only ${pct(g.air)} air in their range.`}<br>`
+        + `3. Is ${bbf(spot.to_call)} a significant size for the stakes? ${spot.to_call >= 3 ? "Yes — this is a real bet, not a token one." : "Not especially — a small bet risks little either way."}<br>`
+        + `4. Do they have non-showdown value here (draws, overcards) that would rather bluff than check? ${nonSD ? `Yes — ${pct(g.draws + g.air)} of their range has no made hand.` : "Not much — most of their range is pairs or better."}<br>`
+        + `5. Is raising better than calling? ${raiseI >= 0 ? (raiseBetter ? "Yes, by the numbers — but that only matters if you also beat their value (step 1)." : "No — calling keeps their worse hands bluffing again next street.") : "No raise available to compare here."}`);
+    }
   }
   const infos = A.map((_, a) => respInfo(f, spot, d, a));
   A.forEach((a, i) => {
@@ -458,8 +509,11 @@ function renderActions(){
     const c = state.cur, tbl = main.querySelector(".table");
     if (tbl && !tbl.querySelector(".sitwrap")) tbl.appendChild(situationChips(c.f, s, c.d));
     if (c.prev && !main.querySelector(".cbanner")) main.appendChild($(`<div class="cbanner">⇄ Same spot, different hand</div>`));
-    if (!c.tf && !c.prev && !rangeFacts(c.f, s).sure) c.tf = true;   // no question where the answer is not certain
-    if (!c.tf && !c.prev){ c.tf = true; main.appendChild(thinkFirst(c.f, s, c.d, () => renderActions())); return; }
+    // preActionQuestion returns null when nothing has a certain answer on this spot; fall through to the buttons
+    // in that case rather than asking something that can't be graded honestly. On a contrast-pair hand (c.prev
+    // set) it asks only the reason question -- that pairing IS the lesson, built so the correct reason differs
+    // from the hand just played -- never an unrelated range-read question stacked on top of it.
+    if (!c.tf){ c.tf = true; const q = preActionQuestion(c.f, s, c.d, () => renderActions(), c); if (q){ main.appendChild(q); return; } }
     beginnerOptions(s, state.cur.d).forEach(o => { const b = $(`<button class="act beg" data-i="${o.i}"><div class="fill"></div><span>${o.label}</span><span class="sub"></span></button>`); b.onclick = () => answer(o.i); box.appendChild(b); });
     main.appendChild(box); return;
   }
@@ -537,18 +591,21 @@ function renderRangeCheck(){
 
 function answer(i){
   const { f, s, d } = state.cur; if (state.cur.done) return; state.cur.done = true;
-  const gr = grade(s, d, i); track(f, s, d, gr); trackErr(f, s, d, i, gr); logDecision(f, s, d, i, gr);
+  settleReasonQuiz(state.cur, s, i);
+  const gr = grade(s, d, i); track(f, s, d, gr); trackErr(f, s, d, i, gr); logDecision(f, s, d, i, gr, state.cur.rangeOk); trackMix(s, d, i);
   if (state.hand) return handAnswer(i, gr);
   state.n++; state.loss += gr.p; if (gr.g === "Best" || gr.g === "Good"){ state.best++; state.streak++; } else state.streak = 0;
   if (navigator.vibrate) navigator.vibrate(gr.g === "Best" ? 12 : gr.g === "Good" ? 20 : [30, 40, 30]);
   markButtons(d, i, gr);
   if (state.beginner){
     const bg = begVerdict(s, d, gr), up = rungProgress(gr, f, s, d);
-    main.appendChild($(`<div class="verdict ${bg.cls}"><div class="g">${bg.g}</div><div class="l">${bg.l}</div></div>`));
+    main.appendChild($(`<div class="verdict ${bg.cls}"><div class="g">${bg.g}</div><div class="l">${bg.l}</div>${reasonVerdict(state.cur)}</div>`));
     trackReason(reasonOf(f, s, d, gr.bestIdx), gr.g === "Best" || gr.g === "Good");
     const dl = main.querySelector(".think .duel"); if (dl) dl.remove();   // the bars live on under the Ranges tab
     main.appendChild(beginnerPanel(f, s, d, i, gr, { contrast: state.cur.prev ? contrastCard(f, s, state.cur.prev, d, gr) : null }));
-    if (!state.cur.prev && Math.random() < 0.4){ const x = pickContrast(f, s, d); if (x) state.contrast = { f, s, d: x, prev: d, tf: true }; }
+    // tf starts false here (unlike every other queued spot) so renderActions' gate actually fires on it and asks
+    // the reason question -- that's the whole point of a contrast pair, not something to skip past to the buttons
+    if (!state.cur.prev && Math.random() < 0.4){ const x = pickContrast(f, s, d); if (x) state.contrast = { f, s, d: x, prev: d, tf: false }; }
     if (up) main.appendChild($(`<div class="sheet" style="border-color:var(--accent)"><h3>Next step unlocked</h3><p style="margin:0;font-size:13px">${up.name}. ${up.hint}</p></div>`));
     const nx = $(`<button class="next">Next spot →</button>`); nx.onclick = next; main.appendChild(nx); renderFilters(); renderStats(); reveal(main.querySelector(".sheet.beg")); return;
   }
@@ -563,10 +620,12 @@ function answer(i){
 }
 const lossText = gr => gr.loss < 0.005 ? "no EV lost" : `−${gr.loss.toFixed(2)}bb (${gr.p.toFixed(1)}% of pot)`;
 function markButtons(d, i, gr){
-  if (state.beginner && state.cur && !state.cur.three){   // one button per kind: the best kind lights up, no numbers
-    const s = state.cur.s, bestKind = s.actions[gr.bestIdx].kind, toss = tossUp(s, d);
-    [...document.querySelectorAll(".act")].forEach(b => { const k = +b.dataset.i, kind = s.actions[k].kind, best = kind === bestKind, mine = k === i, fine = fineG(grade(s, d, k)); b.classList.add("done"); if (best && !toss) b.classList.add("best"); if (mine) b.classList.add("picked");
-      b.dataset.tag = toss ? (mine ? "You" : "") : best ? (mine ? "✓ You · solver's pick" : "Solver's pick") : fine ? (mine ? "You · also fine" : "also fine") : mine ? "✗ You" : ""; if (mine && !fine) b.classList.add("beg-wrong"); });
+  if (state.beginner && state.cur && !state.cur.three){   // one button per kind: the best kind lights up, plus the solver's real split once you've answered
+    const s = state.cur.s, bestKind = s.actions[gr.bestIdx].kind, toss = tossUp(s, d), kv = kindView(s, d);
+    [...document.querySelectorAll(".act")].forEach(b => { const k = +b.dataset.i, kind = s.actions[k].kind, best = kind === bestKind, mine = k === i, fine = fineG(grade(s, d, k));
+      const row = kv.find(x => x.kind === kind), freq = row ? pct(row.strat) : "", label = toss ? (mine ? "You" : "") : best ? (mine ? "✓ You · solver's pick" : "Solver's pick") : fine ? (mine ? "You · alternate line" : "alternate line") : mine ? "✗ You" : "";
+      b.classList.add("done"); if (best && !toss) b.classList.add("best"); if (mine) b.classList.add("picked");
+      b.dataset.tag = label ? `${freq} · ${label}` : freq; if (mine && !fine) b.classList.add("beg-wrong"); });
     return;
   }
   [...document.querySelectorAll(".act")].forEach((b, k) => {
@@ -591,9 +650,13 @@ function nextHand(){
   let pool = []; PACK.flops.forEach(f => (f.hands || []).forEach(h => pool.push({ f, h })));
   if (!pool.length){ main.innerHTML = `<div class="empty">This pack has no played hands yet — switch to Drills.</div>`; return; }
   // a focus keeps only hands where at least one of your decisions is the kind you are working on
-  if (state.beginner){   // beginner: single raised pots, a decision of the current rung's kind, and only its hand types until the later rungs
-    const r = RUNGS[rungState().i], fp = pool.filter(x => !srp3(x.f) && x.h.steps.some(st => rungMatch(x.f, st.spot, st.spot.drills[0])) && x.h.steps.every(st => !r.types || r.types.includes(coarseType(fineType(st.spot.drills[0].hand, st.spot.board)))));
-    if (fp.length) pool = fp; else { const f2 = pool.filter(x => !srp3(x.f)); if (f2.length) pool = f2; } }
+  // a Train tap from Leaks sets a focus, and wins over the rung: it's an explicit ask to practise a leak the
+  // player's own hands turned up -- previously beginner mode ignored the focus, so every Train chip did nothing
+  if (state.beginner && !state.focus){   // beginner: a decision of the current rung's kind, and only its hand types until the later rungs --
+    // each rung's own test() already excludes 3-bet pots for the early rungs, so no blanket filter is needed here;
+    // "Facing a raise" and "Everything" (rungs 3-4) are where 3-bet pots start showing up
+    const r = RUNGS[rungState().i], fp = pool.filter(x => x.h.steps.some(st => rungMatch(x.f, st.spot, st.spot.drills[0])) && x.h.steps.every(st => !r.types || r.types.includes(coarseType(fineType(st.spot.drills[0].hand, st.spot.board)))));
+    if (fp.length) pool = fp; }
   else if (state.focus){ const fp = pool.filter(x => x.h.steps.some(st => focusMatch(x.f, st.spot, st.spot.drills[0]))); if (fp.length) pool = fp; }
   // mostly hands that play all three streets (more decisions, more to learn); early folds still show up sometimes
   const river = pool.filter(x => x.h.board.length === 5 && x.h.steps.length > 1), deep = pool.filter(x => x.h.steps.length > 1), r = Math.random();
@@ -662,7 +725,7 @@ function handAnswer(i, gr){
   if (i !== step.line) note += `Continues on the solver's line: <b>${s.actions[step.line].label}</b>.`;
   if (state.beginner){
     const bg = begVerdict(s, d, gr), up = rungProgress(gr, H.f, s, d);
-    main.appendChild($(`<div class="verdict ${bg.cls}"><div class="g">${bg.g}</div><div class="l">${bg.l}</div></div>`));
+    main.appendChild($(`<div class="verdict ${bg.cls}"><div class="g">${bg.g}</div><div class="l">${bg.l}</div>${reasonVerdict(state.cur)}</div>`));
     trackReason(reasonOf(H.f, s, d, gr.bestIdx), gr.g === "Best" || gr.g === "Good");
     const pnl = beginnerPanel(H.f, s, d, i, gr); if (i !== step.line) pnl.insertBefore($(`<p class="dim" style="font-size:12px">The hand continues on the solver's line: <b>${KIND_WORD[s.actions[step.line].kind]}</b>.</p>`), pnl.querySelector(".btabs")); main.appendChild(pnl);
     if (up) main.appendChild($(`<div class="sheet" style="border-color:var(--accent)"><h3>Next step unlocked</h3><p style="margin:0;font-size:13px">${up.name}. ${up.hint}</p></div>`));
@@ -675,8 +738,7 @@ function handAnswer(i, gr){
   }
   const go = () => { if (state.hand !== H || H.k !== k0) return; H.k++; H.k < H.h.steps.length ? handStep(false) : handEnd(); window.scrollTo(0, 0); }, k0 = H.k;
   const nx = $(`<button class="next">${H.k + 1 < H.h.steps.length ? "Continue →" : "See result →"}</button>`); nx.onclick = go; main.appendChild(nx);
-  // only the obvious ones move on by themselves; anything mixed or wrong waits so the why can be read
-  if (ok && i === step.line && d.strat[i] >= 0.85) setTimeout(go, 2600);
+  // the player advances manually, always -- even an obviously-right answer deserves a moment to read the why
 }
 function handEnd(){
   const H = state.hand, { f, h } = H;
@@ -730,7 +792,7 @@ function beginnerResult(H){
   const endTxt = h.end === "showdown" ? (h.result === 1 ? "you win at showdown" : h.result === 0.5 ? "a split pot" : `${h.villain} wins at showdown`) : h.end === "villain_fold" ? `${h.villain} folds` : "your fold";
   const sg = net == null ? "" : Math.abs(net) < 0.05 ? "0bb" : `${net >= 0 ? "+" : "−"}${Math.abs(net).toFixed(1)}bb`;
   // once a choice of yours differed, the rest of the hand is the solver's, so its result is shown as the solver's and not as yours
-  const head = net == null ? "" : off ? `<div style="color:var(--dim);font-size:13px;line-height:1.45">From where your play differed, the hand follows the solver's play.<br>It ends with ${endTxt.replace(/^you win/, "your win")}: <b style="color:#fff">${sg}</b>. <span style="font-size:11px">1bb is one big blind.</span></div>` : `<div class="big" style="color:${net >= 0 ? "var(--accent)" : "var(--bad)"}">${net >= 0 ? "+" : "−"}${Math.abs(net).toFixed(1)}<small> bb</small></div><div style="color:var(--dim);font-size:12px;margin-top:6px">${net > 0 ? "You won" : net < 0 ? "You lost" : "Even"} · 1bb is one big blind</div>`;
+  const head = net == null ? "" : off ? `<div style="color:var(--dim);font-size:13px;line-height:1.45">From where your play differed, the hand follows the solver's play.<br>It ends with ${endTxt.replace(/^you win/, "your win")}: <b style="color:#fff">${sg}</b>.</div>` : `<div class="big" style="color:${net >= 0 ? "var(--accent)" : "var(--bad)"}">${net >= 0 ? "+" : "−"}${Math.abs(net).toFixed(1)}<small> bb</small></div><div style="color:var(--dim);font-size:12px;margin-top:6px">${net > 0 ? "You won" : net < 0 ? "You lost" : "Even"}</div>`;
   const key = w < 0 ? `<div class="keyst ok">✓ No mistakes this hand</div>` : `<div class="keyst"><span>The street that mattered</span><b>${STREETS[h.steps[w].spot.street]}</b> You: ${kw(w, H.res[w].i)} → Solver: ${kw(w, H.res[w].gr.bestIdx)}</div>`;
   const sheet = $(`<div class="sheet score"><h3>Result</h3>${head}${key}<div class="rows"></div></div>`);
   H.res.forEach((r, k) => sheet.querySelector(".rows").appendChild($(`<div class="row"><span style="color:var(--dim)">${STREETS[h.steps[k].spot.street]}</span><span style="text-align:left">${kw(k, r.i)}</span><span class="pts" style="color:${vd[k].toss ? "var(--dim)" : fineG(r.gr) ? "var(--accent)" : "var(--warn)"}">${vd[k].g}</span></div>`)));
@@ -941,7 +1003,7 @@ function lens(f, s, d, chosen, gr){
     if (t.a === -1){
       const sv = sheet._suit || 0, src = !s.vsuit || !sv ? s.vr : (sv === 1 ? s.vsuit.with : s.vsuit.without).map(x => Math.max(0, x));
       paintSplit(g, src, [{ color: "var(--call)", grid: Array(169).fill(1) }], -1);
-      kp.innerHTML = `<div class="kpi"><b>${pct(d.eq)}</b><span>your equity</span></div><div class="kpi"><b>${pct(s.vclass[0]+s.vclass[1])}</b><span>top pair+</span></div><div class="kpi"><b>${pct(s.vclass[5]+s.vclass[6])}</b><span>ace-high / air</span></div>`;
+      kp.innerHTML = `<div class="kpi"><b>${pct(d.eq)}</b><span>your equity</span></div><div class="kpi"><b>${pct(s.vclass[0]+s.vclass[1])}</b><span>strong</span></div><div class="kpi"><b>${pct(s.vclass[5]+s.vclass[6])}</b><span>nothing</span></div>`;
       leg.innerHTML = `<span><i style="background:var(--call)"></i>in range · taller = more combos</span>`;
       if (s.vsuit){ const ch = SUITCH[s.vsuit.suit], row = $(`<div class="chips" style="margin:6px 0 0">${["All suits", "With a " + ch, "No " + ch].map((n, k) => `<div class="chip ${k === (sheet._suit || 0) ? "on" : ""}">${n}</div>`).join("")}</div>`);
         [...row.children].forEach((el, k) => el.onclick = () => { sheet._suit = k; show(t); }); leg.appendChild(row); }
@@ -1019,10 +1081,17 @@ function beginnerOptions(s, d){
   const by = {}; s.actions.forEach((a, i) => { if (!(a.kind in by) || d.strat[i] > d.strat[by[a.kind]]) by[a.kind] = i; });
   return ["fold", "check", "call", "bet", "raise"].filter(k => k in by).map(k => ({ i: by[k], kind: k, label: KIND_WORD[k] }));
 }
-const beginnerGrade = gr => gr.g === "Best" || gr.g === "Good" ? { g: "Fine", cls: "g-Best", l: "" } : gr.p > 5 ? { g: "Big mistake", cls: "g-Mistake", l: `−${gr.loss.toFixed(1)}bb` } : { g: "Mistake", cls: "g-Inaccuracy", l: "" };
+// "Fine" didn't say whether you'd found the solver's top play or a second-best one close enough not to matter --
+// name the difference so getting the exact line reads as a clear win, not a shrug
+const beginnerGrade = gr => gr.g === "Best" ? { g: "Best", cls: "g-Best", l: "" } : gr.g === "Good" ? { g: "Alternate line", cls: "g-Best", l: "" } : gr.p > 5 ? { g: "Big mistake", cls: "g-Mistake", l: `−${gr.loss.toFixed(1)}bb` } : { g: "Mistake", cls: "g-Inaccuracy", l: "" };
 const fineG = gr => gr.g === "Best" || gr.g === "Good";
-// a toss-up: every play on the buttons grades as fine, so there is nothing to get wrong and nothing to grade
-const tossUp = (s, d) => beginnerOptions(s, d).every(o => fineG(grade(s, d, o.i)));
+// a toss-up needs both EV and frequency to agree there's nothing to prefer: EV-close alone isn't enough --
+// a 95/5 split is EV-close by definition (that's why the 5% line exists at all) but the solver still has a clear
+// favorite, so it's not honest to tell a learner "either play works" there.
+// frequency is checked on kindView's per-kind total (summed across sizes), the same number the buttons display --
+// beginnerOptions' single-size strat understates a kind split across multiple bet sizes and would disagree with it
+const TOSS_MAX = 0.65;
+const tossUp = (s, d) => { const opts = beginnerOptions(s, d), kv = kindView(s, d); return opts.every(o => fineG(grade(s, d, o.i))) && !kv.some(o => o.strat >= TOSS_MAX); };
 const begVerdict = (s, d, gr) => tossUp(s, d) ? { g: "Toss-up", cls: "g-Toss", l: "Either play works", toss: true } : beginnerGrade(gr);
 const repIdx = (s, d, kind) => (beginnerOptions(s, d).find(o => o.kind === kind) || {}).i;
 const shareWord = v => v >= 0.6 ? "mostly" : v >= 0.4 ? "about half" : v >= 0.2 ? "some" : v >= 0.07 ? "a few" : "almost no";
@@ -1033,14 +1102,147 @@ const bucketLegend = () => `<div class="legend">${BUCKETS.map(b => `<span><i sty
 /* why a play is made, as one of ten named reasons: the name is what lets learning accumulate across spots */
 const REASONS = {
   "Value": ["💰", "Bet so worse hands pay you."], "Bluff": ["🎭", "Bet so better hands fold."], "Semi-bluff": ["🎯", "Bet a draw: win now, or improve later."],
-  "Protect": ["🛡", "Ahead now. Make their draws pay to catch up."], "Trap": ["🪤", "Strong hand. Let them do the betting."], "Pot control": ["⚖️", "Medium hand. Keep the pot small."],
+  "Protect": ["🛡", "Ahead overall, but not against a call — betting folds out hands that have you beat or close to it."], "Trap": ["🪤", "Strong hand. Let them do the betting."], "Pot control": ["⚖️", "Medium hand. Check to keep the pot small — betting invites a raise from better hands."],
+  "Showdown value": ["🪑", "Not strong enough to bet. Its only job is to show up at showdown — don't touch it."],
   "Free card": ["🎟", "A draw that gets to see the next card for free."], "Give up": ["🏳", "Nothing to win here. Save the chips."], "Bluff-catch": ["🥅", "Call, because they bluff often enough."], "Price": ["🏷", "The pot pays enough for the times you win."] };
+// showdown value's job is only to reach showdown, so it only applies once betting is no longer live (no draw left to improve)
+// the nuts or near-nuts (quads, boats, the stone-cold best hand class on this board) don't need a check to trap --
+// calling a bet rather than raising is the same slowplay, for the same reason: raising risks folding out the
+// money you're trying to win. Shared so a check-trap and a call-trap always agree on where "monster" starts.
+const isMonster = d => d.cls === 0 || d.eq >= 0.85;
 function reasonOf(f, s, d, i){
   const k = s.actions[i].kind, ct = coarseType(fineType(d.hand, s.board)), draw = ct === "Flush draw" || ct === "Straight draw", ec = d.eq_cont ? d.eq_cont[i] : d.eq;
   if (k === "bet" || k === "raise") return ec >= 0.5 ? "Value" : draw ? "Semi-bluff" : d.eq >= 0.5 ? "Protect" : "Bluff";
-  if (k === "check") return draw ? "Free card" : d.cls === 0 || d.eq >= 0.85 ? "Trap" : d.eq >= 0.35 ? "Pot control" : "Give up";
-  if (k === "call") return draw ? "Price" : "Bluff-catch";
+  if (k === "check") return draw ? "Free card" : isMonster(d) ? "Trap" : d.eq >= 0.45 ? "Pot control" : d.eq >= 0.3 ? "Showdown value" : "Give up";
+  // a call with a monster is the same trap as a check with one -- previously every non-draw call was labeled
+  // "Bluff-catch" regardless of strength, so calling with quads read as "catching a bluff" (confirmed against the
+  // pack: 801 of 3,233 non-draw calls, 24.8%, were at 75%+ equity and mislabeled this way)
+  if (k === "call") return draw ? "Price" : isMonster(d) ? "Trap" : "Bluff-catch";
   return "Give up";
+}
+/* ---------- pre-action reason quiz: name the hand's job before you see the action buttons ---------- */
+// which kinds of action each reason can sit behind (the inverse of reasonOf's branches): lets the quiz drop options
+// the spot can't even offer -- "Bluff-catch" with no bet to call is a free elimination, not a decision -- and lets
+// the answer check whether the play the player then made actually followed the job they named
+const REASON_KINDS = { "Value": ["bet", "raise"], "Bluff": ["bet", "raise"], "Semi-bluff": ["bet", "raise"], "Protect": ["bet", "raise"],
+  "Trap": ["check", "call"], "Pot control": ["check"], "Showdown value": ["check"], "Free card": ["check"], "Give up": ["check", "fold"], "Bluff-catch": ["call"], "Price": ["call"] };
+// the reasons one step either side of each one -- a hand a little stronger or weaker, or with or without the draw --
+// used to fill the options out to three when the spot itself only offers two plays
+const REASON_NEAR = { "Value": ["Protect", "Trap"], "Protect": ["Value", "Bluff"], "Bluff": ["Give up", "Showdown value"], "Semi-bluff": ["Bluff", "Free card"],
+  "Trap": ["Value", "Pot control"], "Pot control": ["Showdown value", "Value"], "Showdown value": ["Pot control", "Give up"], "Free card": ["Semi-bluff", "Give up"],
+  "Give up": ["Showdown value", "Bluff", "Bluff-catch"], "Bluff-catch": ["Trap", "Give up"], "Price": ["Bluff-catch", "Give up"] };
+const DRAW_ONLY = ["Semi-bluff", "Free card", "Price"];   // reasonOf never gives these to a hand without a draw
+// how far this spot's numbers sit from the nearest threshold that would flip reasonOf's answer to something else
+// -- Infinity for the categorical cases (a draw is a draw regardless of margin; the nuts class is the nuts class),
+// a real equity distance otherwise. Mirrors thinkQuestions' cmpShare margin, but against reasonOf's own thresholds,
+// so a quiz question never asserts a reason that was one or two equity points from being a different one.
+function reasonMargin(f, s, d, i){
+  const k = s.actions[i].kind, ct = coarseType(fineType(d.hand, s.board)), draw = ct === "Flush draw" || ct === "Straight draw";
+  const ec = d.eq_cont ? d.eq_cont[i] : d.eq;
+  if (k === "bet" || k === "raise"){
+    const m = Math.abs(ec - 0.5);   // Value vs the rest -- a draw at 52% when called is Value, at 48% a Semi-bluff
+    return ec >= 0.5 || draw ? m : Math.min(m, Math.abs(d.eq - 0.5));   // Protect vs Bluff also needs eq clear of 0.5
+  }
+  if (k === "check"){
+    if (draw) return Infinity;   // Free card, categorical
+    if (d.cls === 0) return Infinity;   // nuts class, categorical
+    return Math.min(Math.abs(d.eq - 0.85), Math.abs(d.eq - 0.45), Math.abs(d.eq - 0.3));
+  }
+  if (k === "call"){
+    if (draw) return Infinity;   // Price, categorical
+    if (d.cls === 0) return Infinity;
+    return Math.abs(d.eq - 0.85);   // only the Trap/Bluff-catch split has a threshold to be near
+  }
+  return Infinity;   // fold -> Give up, nothing to split
+}
+const REASON_MARGIN_MIN = 0.05;
+// The question never names an action -- "what's the reason to bet here?" would hand over the answer the buttons
+// then ask for. Instead the options are the jobs behind the player's own real choices in this spot (betting this
+// hand would be Value, checking it Pot control), so naming the right job IS finding the right play, and the
+// distractors are exactly the stories a player tells themselves before making the wrong one. Asked only where the
+// answer is solid: a clear spot (not a mix the solver itself splits), every other play a real mistake rather than an
+// "alternate line" (an 85/15 spot passes clearSpot, but grading the 15% line's job as wrong would mark a fine play
+// ✗ -- the full-pack sweep found 3,798 such questions before this check), every size of the solver's action telling
+// the same story, and the hand's numbers not within a few equity points of a threshold that would rename it.
+function reasonQuestion(f, s, d){
+  if (tossUp(s, d) || !clearSpot(s, d)) return null;
+  const opts = beginnerOptions(s, d); if (opts.length < 2) return null;
+  const bi = grade(s, d, 0).bestIdx, kind = s.actions[bi].kind, correct = reasonOf(f, s, d, bi);
+  if (opts.some(o => o.kind !== kind && fineG(grade(s, d, o.i)))) return null;
+  if (reasonMargin(f, s, d, bi) < REASON_MARGIN_MIN) return null;
+  if (s.actions.some((a, i) => a.kind === kind && reasonOf(f, s, d, i) !== correct)) return null;   // the size changes the story: no one answer
+  const ct = coarseType(fineType(d.hand, s.board)), draw = ct === "Flush draw" || ct === "Straight draw", kinds = opts.map(o => o.kind), options = [correct];
+  const fits = r => !options.includes(r) && (draw || !DRAW_ONLY.includes(r)) && REASON_KINDS[r].some(k => kinds.includes(k));
+  opts.forEach(o => { const r = reasonOf(f, s, d, o.i); if (o.kind !== kind && fits(r)) options.push(r); });
+  REASON_NEAR[correct].forEach(r => { if (options.length < 3 && fits(r)) options.push(r); });
+  if (options.length < 2) return null;
+  return { correct, options: options.slice(0, 3).sort(() => Math.random() - 0.5), q: "What's your hand's job here?" };
+}
+// separate from trackReason (which measures whether a reason's own action gets played well once it's on screen) --
+// this measures whether the player can name the governing idea before the action buttons even appear, which is
+// the actual habit being drilled: ask the question that leads to the decision, not just recognize the decision
+function trackReasonQuiz(correct, guessed, ok){
+  const b = store.get("reasonq", {}), e = b[correct] || (b[correct] = { n: 0, ok: 0, missedAs: {} });
+  e.n++; if (ok) e.ok++; else e.missedAs[guessed] = (e.missedAs[guessed] || 0) + 1;
+  store.set("reasonq", b);
+}
+// what Leaks says about the job quiz: the hit rate; whether naming the job right goes with playing it right (the
+// evidence the habit is worth building, from the player's own log); and the jobs most often mistaken for one other
+// job specifically -- "Pot control spots read as Value" is a fixable confusion, a spread of wrong guesses isn't yet
+function reasonQuizSummary(){
+  const all = Object.entries(store.get("reasonq", {})), n = all.reduce((a, [, e]) => a + e.n, 0); if (n < 6) return null;
+  const ok = all.reduce((a, [, e]) => a + e.ok, 0), log = store.get("log", []), avg = xs => xs.reduce((a, e) => a + e.p, 0) / xs.length;
+  const hit = log.filter(e => e.rq === 1), miss = log.filter(e => e.rq === 0);
+  const confusions = all.filter(([, e]) => e.n >= 5 && e.ok / e.n < 0.7).map(([name, e]) => { const [as, k] = Object.entries(e.missedAs).sort((x, y) => y[1] - x[1])[0];
+    return k >= 2 && k / (e.n - e.ok) >= 0.5 ? { name, n: e.n, acc: e.ok / e.n, as, k } : null; }).filter(Boolean).sort((x, y) => x.acc - y.acc).slice(0, 2);
+  // a right read the play then ignored: strict questions make every other kind of play a real mistake, so each of
+  // these is EV left behind with the answer already in hand -- and the likeliest reason a right read costs as much
+  // as a wrong one in the payoff line
+  const ignored = hit.filter(e => e.rf === 0).length;
+  return { n, acc: ok / n, payoff: hit.length >= 8 && miss.length >= 8 ? { hit: avg(hit), miss: avg(miss) } : null, ignored, hits: hit.length, confusions };
+}
+// picking a job only locks it in -- whether it was right stays hidden until the play is made, because "Value" all but
+// says "bet" and revealing it first would turn the action buttons into a formality. The player has to carry their
+// own read into the decision, which is the habit: settle what the hand is for, then act on it.
+function reasonFirst(f, s, d, Q, done, cur){
+  const box = $(`<div class="think reasonq"><div class="q">${Q.q}<i class="help">?</i></div><div class="opts"></div><div class="tagnote"></div></div>`), note = box.querySelector(".tagnote");
+  const help = Q.options.map(n => `${REASONS[n][0]} <b>${n}</b> — ${REASONS[n][1]}`).join("<br>");
+  box.querySelector(".help").onclick = () => { if (!box._done) note.innerHTML = note.innerHTML ? "" : help; };
+  const btns = Q.options.map(name => { const b = $(`<button class="topt"><i>${REASONS[name][0]}</i>${name}</button>`); box.querySelector(".opts").appendChild(b); return b; });
+  Q.options.forEach((name, idx) => { btns[idx].onclick = () => { if (box._done) return; box._done = true;
+    if (cur) cur.rq = { Q, guess: name, btns, note };
+    btns.forEach(x => x.disabled = true); btns[idx].classList.add("sel");
+    note.innerHTML = `Locked in: <b>${name}</b>. Now play it.`;
+    done(); }; });
+  return box;
+}
+// called from answer() before anything is logged, so the decision log records whether the job was named right
+function settleReasonQuiz(cur, s, i){
+  const R = cur && cur.rq; if (!R || R.settled) return; R.settled = true;
+  const { correct } = R.Q, ok = R.guess === correct, kind = s.actions[i].kind; cur.reasonOk = ok; trackReasonQuiz(correct, R.guess, ok);
+  R.btns.forEach((b, k) => { const n = R.Q.options[k]; b.classList.remove("sel"); if (n === correct) b.classList.add("ok"); else if (n === R.guess) b.classList.add("no"); });
+  // the ways to go wrong teach different things: a wrong read played faithfully is a read problem (reps fix it), a
+  // right read played against is a follow-through problem (the read was there; the play ignored it), and the right
+  // play for the wrong reason is luck the next spot won't repeat -- Protect and Value both bet, until the sizing differs
+  const followed = REASON_KINDS[R.guess].includes(kind), say = REASON_KINDS[correct].includes(kind); cur.reasonFollowed = followed;
+  const tail = ok && !followed ? ` You named it, then played <b>${KIND_WORD[kind]}</b> — trust the read.` : ok ? "" : followed && say ? " Right play, wrong reason." : followed ? " Your play followed your read; the read was the miss." : "";
+  R.note.innerHTML = `${ok ? "✓" : "✗"} <b>${correct}</b> — ${REASONS[correct][1]}${tail}`;
+}
+// one line in the verdict, so the outcome is visible where the eye already is after answering
+const reasonVerdict = cur => cur && cur.rq && cur.rq.settled ? `<div class="rqv">Hand's job: ${cur.reasonOk ? `✓ ${cur.rq.guess}` : `✗ ${cur.rq.guess} → ${cur.rq.Q.correct}`}</div>` : "";
+// the dispatcher renderActions calls: on a contrast-pair's second hand (cur.prev set), this IS the lesson --
+// same spot, same board, only the hand changed, and pickContrast chose it because the right play or its reason
+// differs from the hand just played -- so ask only that, never an unrelated range-read question on top of it.
+// Training a reason from Leaks asks it every time it can, for the same reason. On an ordinary hand, flip a coin
+// between a reason question and a range-read question when both are available, falling back to whichever one is,
+// so a spot is never silently skipped just because the coin landed on the unavailable side.
+function preActionQuestion(f, s, d, done, cur){
+  const rq = reasonQuestion(f, s, d), o = focusObj();
+  if (cur && cur.prev) return rq ? reasonFirst(f, s, d, rq, done, cur) : null;
+  if (rq && o && o.reasons && o.reasons.length) return reasonFirst(f, s, d, rq, done, cur);
+  const qs = thinkQuestions(f, s);
+  if (rq && (!qs.length || Math.random() < 0.5)) return reasonFirst(f, s, d, rq, done, cur);
+  return thinkFirst(f, s, d, done, cur) || (rq ? reasonFirst(f, s, d, rq, done, cur) : null);
 }
 // one sentence per play, built from the solver's numbers: the reason when it is the solver's play, the outcome when it is not
 function whyPlay(f, s, d, i, best){
@@ -1059,9 +1261,23 @@ function whyPlay(f, s, d, i, best){
     if (draw && s.street < 2) return `See the next card for free.`;
     if (eq >= 0.6){ const fc = rb && rb.foldCls, tt = fc ? fc.reduce((a, b) => a + b, 0) : 0, worse = tt ? fc.reduce((a, v, c) => a + (c > d.cls ? v : 0), 0) / tt : 0;
       return worse >= 0.6 ? `A bet mostly folds hands you already beat.` : `You win ${pct(eq)} against ${V}'s range, and the pot stays small.`; }
-    return `Too weak to bet, too good to give up.`;
+    if (eq >= 0.45) return `Medium strength. Betting invites a raise from better hands; checking keeps the pot the size it is.`;
+    if (eq >= 0.3) return `Not strong enough to bet for value, and there's nothing to protect. Its only job here is a cheap showdown — don't try to make something happen.`;
+    return `Little equity, nothing to protect. Checking costs nothing.`;
   }
-  if (k === "fold") return best ? `You need ${pct(need)} to call and win ${pct(eq)}.` : `You give up the ${bbf(s.pot)} pot. A call needs ${pct(need)} and wins ${pct(eq)}.`;
+  // the bare price-vs-equity line argued against the play whenever the two disagreed: 1,026 of the pack's 3,445
+  // best folds have equity above the price (flop and turn: more bets are coming that this hand can't call, so it
+  // never gets to realize that equity), and 149 best calls -- nearly all draws -- have it below (the rest is won
+  // on later streets). Say which, instead of "you need 27% and win 39%... fold".
+  if (k === "fold"){
+    if (!best) return `You give up the ${bbf(s.pot)} pot. A call needs ${pct(need)} and wins ${pct(eq)}.`;
+    if (eq < need) return `You need ${pct(need)} to call and win ${pct(eq)}.`;
+    const beats = pct(eq) === pct(need) ? "matches" : "beats";   // 20.4% vs 20.1% both print as 20%
+    return s.street < 2 ? `On paper your ${pct(eq)} ${beats} the ${pct(need)} a call needs, but that assumes a free run to showdown — ${V} keeps betting on later streets, and this hand can't keep calling.`
+      : `On paper your ${pct(eq)} ${beats} the ${pct(need)} a call needs, but that's against ${V}'s whole range — the hands that bet here beat you more often.`;
+  }
+  if (best && eq < need) return s.street < 2 ? `You need ${pct(need)} and win ${pct(eq)} right now — the rest comes from what you win on later streets when you get there.`
+    : `You need ${pct(need)} and win ${pct(eq)} against ${V}'s whole range — but they bet here with enough bluffs to make the call pay.`;
   return `You need ${pct(need)} and win ${pct(eq)}.`;
 }
 // bring the answer above the sticky button without scrolling the verdict (or the tabs) off the top
@@ -1077,7 +1293,9 @@ function rangeFacts(f, s){
   else if (src){ const p = src.drills.map(x => [x.top, x.eq]).sort((a, b) => a[0] - b[0]), q = [[0, p[0][1]], ...p, [1, p[p.length - 1][1]]]; eq = 0; for (let i = 1; i < q.length; i++) eq += (q[i][0] - q[i - 1][0]) * (q[i][1] + q[i - 1][1]) / 2; }
   const sure = eq != null && (exact || Math.abs(eq - 0.5) >= 0.11);
   const H = bucketShares(s.hclass), V = bucketShares(s.vclass), nH = s.hclass[0] / hs, nV = s.vclass[0] / vs;
-  const e100 = eq == null ? null : Math.round(100 * eq), ahead = eq == null ? null : e100 >= 55 ? "you" : e100 <= 45 ? "them" : "even";   // on the rounded figure, so the tag never disagrees with the number shown
+  // "even" used to mean anywhere in 45-55, so a real 53/47 edge -- six points, a legitimate lean -- got called a wash.
+  // Narrowed to the band where neither side has a real equity lean worth naming.
+  const e100 = eq == null ? null : Math.round(100 * eq), ahead = eq == null ? null : e100 >= 52 ? "you" : e100 <= 48 ? "them" : "even";   // on the rounded figure, so the tag never disagrees with the number shown
   const best = nH >= 1.5 * nV && nH - nV >= 0.015 ? "you" : nV >= 1.5 * nH && nV - nH >= 0.015 ? "them" : null;
   const capped = nV < 0.02 && nH >= 0.04 ? "them" : nH < 0.02 && nV >= 0.04 ? "you" : null;
   const worst = H[3] - V[3] >= 0.08 ? "you" : V[3] - H[3] >= 0.08 ? "them" : null;
@@ -1088,14 +1306,16 @@ function rangeFacts(f, s){
   else { const b = s.hclass.map((w, c) => w * s.actions.reduce((a, x, k) => a + (x.kind === "bet" || x.kind === "raise" ? s.hclass_strat[c][k] : 0), 0)); if (sum(b) / hs >= 0.1 && b.some(x => x > 0)){ shape = classify(b); who = "you"; } }
   return { eq, exact, sure, ahead, best, capped, worst, shape, who, H, V, nH, nV, heroRaised: s.hero === F.opener && !srp3(f) || (srp3(f) && s.hero !== F.opener) };
 }
-function rangeDuel(f, s){
+// skipAhead: the "ranges are even / you're ahead" tag repeats whatever the range-read question right above it just
+// asked and answered -- drop it there and keep it only where rangeDuel stands alone (the Ranges tab)
+function rangeDuel(f, s, { skipAhead } = {}){
   const R = rangeFacts(f, s), V = s.villain, el = $(`<div class="duel"></div>`), me = "You", nm = w => w === "you" ? me : V;
   const show = R.exact || R.sure, e = x => R.exact ? pct(x) : "~" + 5 * Math.round(20 * x) + "%";
   el.appendChild($(`<div class="bar duo"><span>You</span>${bucketBar(s.hclass, 14)}<b>${show ? e(R.eq) : ""}</b></div>`));
   el.appendChild($(`<div class="bar duo"><span>${V}</span>${bucketBar(s.vclass, 14)}<b>${show ? e(1 - R.eq) : ""}</b></div>`));
   el.appendChild($(bucketLegend()));
   const tags = [];
-  if (show) tags.push(["📈", R.ahead === "even" ? "Ranges are even" : `${nm(R.ahead)} ahead`, `All your possible hands win ${R.exact ? pct(R.eq) : "about " + 5 * Math.round(20 * R.eq) + "%"} against all of theirs. ${R.heroRaised ? "You raised before the flop, so you hold the big pairs and big aces." : `${V} raised before the flop, so ${V} holds the big pairs and big aces.`}`]);
+  if (show && !skipAhead) tags.push(["📈", R.ahead === "even" ? "Ranges are even" : R.ahead === "you" ? "You're ahead" : `${V}'s ahead`, `All your possible hands win ${R.exact ? pct(R.eq) : "about " + 5 * Math.round(20 * R.eq) + "%"} against all of theirs. ${R.heroRaised ? "You raised before the flop, so you hold the big pairs and big aces." : `${V} raised before the flop, so ${V} holds the big pairs and big aces.`}`]);
   if (R.best) tags.push(["👑", `Best hands: ${nm(R.best)}`, `Two pair or better: you ${pct(R.nH)}, ${V} ${pct(R.nV)}. Whoever has more of the very best hands can bet big.`]);
   if (R.capped) tags.push(["🔒", `${nm(R.capped)} capped`, R.capped === "them" ? `${V} almost never has two pair or better here (${pct(R.nV)}). ${R.heroRaised ? "They only called before the flop: AA, KK and AK would have raised." : "Their line leaves the strongest hands out."}` : `You almost never have two pair or better here (${pct(R.nH)}), so big bets from ${V} are hard to fight.`]);
   if (R.worst) tags.push(["🕳", `More nothing: ${nm(R.worst)}`, `Hands with no pair and no draw: you ${pct(R.H[3])}, ${V} ${pct(R.V[3])}. The side with more nothing has to give up more often.`]);
@@ -1148,14 +1368,17 @@ function beginnerPanel(f, s, d, chosen, gr, opts = {}){
   // your play first, then the solver's: each with its own reason and one sentence on the size the button stands for
   const sheet = $(`<div class="sheet why beg"></div>`), A = s.actions, bk = A[gr.bestIdx].kind, ri = repIdx(s, d, bk), bi = ri == null ? gr.bestIdx : ri, same = A[chosen].kind === bk, toss = tossUp(s, d);
   const part = (who, i, best, note) => { sheet.appendChild(reasonBadge(reasonOf(f, s, d, i), who)); sheet.appendChild($(`<p class="take"><b>${KIND_WORD[A[i].kind]}.</b> ${whyPlay(f, s, d, i, best)}${note ? ` <span class="dim">${note}</span>` : ""}</p>`)); };
-  if (toss) sheet.appendChild($(`<div class="tossnote">⚖️ The solver plays this both ways. Neither is a mistake, so it is not graded.</div>`));
+  if (toss) sheet.appendChild($(`<div class="tossnote">⚖️ The solver mixes between these close to evenly here — both are worth having in your game.</div>`));
   if (same) part("", bi, true);
-  else { part("You", chosen, false, toss ? "" : fineG(gr) ? "Fine too." : gr.p > 5 ? "Gives up a lot." : "Gives up a little."); part(toss ? "Or" : "Solver", bi, true); }
+  else { part("You", chosen, false, toss ? "" : fineG(gr) ? "Alternate line." : gr.p > 5 ? "Gives up a lot." : "Gives up a little."); part(toss ? "Or" : "Solver", bi, true); }
   if (opts.contrast) sheet.appendChild(opts.contrast);
   const tabs = $(`<div class="btabs"></div>`), pane = $(`<div class="bpane"></div>`); let cur = null;
   const items = [
     ["⚔️", "Compare", () => $(`<div>${beginnerCompare(f, s, d, chosen, gr)}</div>`)],
     ["📊", "Ranges", () => rangeDuel(f, s)],
+    // fold% was already computed for full mode (betSheet) and just never surfaced here -- who folds, and whether
+    // those folds were hands that were ahead or already behind, is the actual payoff of a bluff
+    ...(betSheet(f, s, d) ? [["🎯", "Fold %", () => { const b = betSheet(f, s, d); b.style.cssText = "padding:0;background:none;border:0"; b.querySelector("h3").remove(); return b; }]] : []),
     ["🔬", "Full", () => { const w = $(`<div><div class="why" style="margin-bottom:6px">${explain(f, s, d, chosen, gr)}</div></div>`); const L = lens(f, s, d, chosen, gr); L.style.cssText = "padding:10px 0 0;background:none;border:0"; w.appendChild(L); return w; }],
   ];
   items.forEach(([ic, name, build]) => { const t = $(`<div class="btab"><i>${ic}</i>${name}</div>`); t.onclick = () => { const same = cur === name; [...tabs.children].forEach(x => x.classList.remove("on")); pane.innerHTML = ""; cur = null; if (same) return; t.classList.add("on"); cur = name; pane.appendChild(build()); reveal(pane, tabs); }; tabs.appendChild(t); });
@@ -1176,13 +1399,48 @@ function situationChips(f, s, d){
   chips.forEach(([ic, label, why]) => { const c = $(`<div class="tag"><i>${ic}</i>${label}</div>`); c.onclick = () => { const on = c.classList.contains("on"); [...row.children].forEach(x => x.classList.remove("on")); c.classList.toggle("on", !on); note.textContent = on ? "" : why; }; row.appendChild(c); });
   const wrap = $(`<div class="sitwrap"></div>`); wrap.appendChild(row); wrap.appendChild(note); return wrap;
 }
-function thinkFirst(f, s, d, done){
-  const box = $(`<div class="think"><div class="q">Whose range is stronger?<i class="help">?</i></div><div class="opts"></div><div class="tagnote"></div></div>`), R = rangeFacts(f, s);
-  box.querySelector(".help").onclick = () => { const n = box.querySelector(".tagnote"); n.textContent = n.textContent ? "" : "Your range is every hand you could hold after playing the hand this way. Theirs is every hand they could hold."; };
+// a few phrasings of the same range-read question, so a repeated drill doesn't feel like reading the same card
+// twice -- all of them are answered against the same R.ahead verdict, only the prompt text rotates
+const THINK_Q = [
+  "Whose range is stronger?",
+  "Who has the better hand here, on average?",
+  "If you ran every combo, who's ahead?",
+  "Which side of this would you rather hold?",
+];
+// a question is only worth asking when its answer isn't a judgement call: a clear edge one way, or clearly level.
+// anything in between returns null and that flavour of question simply isn't offered on this spot.
+// min guards the "even" verdict: on a board where neither side holds any of the category, "who has more?" is
+// technically even and completely useless to be asked ("you 0%, BB 0%") -- that needs to be no question at all.
+const cmpShare = (a, b, ratio, hi, lo, min) =>
+  a >= ratio * b && a - b >= hi ? "you" : b >= ratio * a && b - a >= hi ? "them" : Math.abs(a - b) <= lo && Math.max(a, b) >= min ? "even" : null;
+// three flavours of range read, not three wordings of one. Overall equity is the headline question, but "who holds
+// the best hands" and "who holds the most air" are the reads that actually drive betting and giving up -- and they
+// often have a clear answer on spots where overall equity is too close to grade, so they widen the coverage too.
+function thinkQuestions(f, s){
+  const R = rangeFacts(f, s), V = s.villain, qs = [];
+  if (R.sure) qs.push({ ans: R.ahead, skipAhead: true, q: THINK_Q[Math.floor(Math.random() * THINK_Q.length)],
+    help: "Your range is every hand you could hold after playing the hand this way. Theirs is every hand they could hold." });
+  // thresholds mirror rangeFacts' own best/worst tests, so a question never disagrees with the tag shown underneath it
+  const nuts = cmpShare(R.nH, R.nV, 1.5, 0.015, 0.005, 0.03);
+  if (nuts) qs.push({ ans: nuts, q: "Who has more two pair or better?",
+    help: "Count the hands each side could hold that make two pair or better on this board. Whoever has more of them can bet big.",
+    note: `Two pair or better: you ${pct(R.nH)}, ${V} ${pct(R.nV)}.` });
+  const air = cmpShare(R.H[3], R.V[3], 1.25, 0.08, 0.02, 0.10);
+  if (air) qs.push({ ans: air, q: "Who has more nothing — no pair, no draw?",
+    help: "Hands that missed this board completely. The side holding more of them has to give up more often.",
+    note: `No pair and no draw: you ${pct(R.H[3])}, ${V} ${pct(R.V[3])}.` });
+  return qs;
+}
+function thinkFirst(f, s, d, done, cur){
+  const qs = thinkQuestions(f, s); if (!qs.length) return null;   // caller falls through to the action buttons
+  const Q = qs[Math.floor(Math.random() * qs.length)];
+  const box = $(`<div class="think"><div class="q">${Q.q}<i class="help">?</i></div><div class="opts"></div><div class="tagnote"></div></div>`);
+  box.querySelector(".help").onclick = () => { const n = box.querySelector(".tagnote"); n.textContent = n.textContent ? "" : Q.help; };
   [["you", "🙋", "Mine"], ["even", "⚖️", "Even"], ["them", "🧑", s.villain + "'s"]].forEach(([v, ic, label]) => { const b = $(`<button class="topt"><i>${ic}</i>${label}</button>`);
-    b.onclick = () => { if (box._done) return; box._done = true; const ok = v === R.ahead; trackReason("Range read", ok);
-      [...box.querySelectorAll(".topt")].forEach(x => { x.disabled = true; }); b.classList.add(ok ? "ok" : "no"); const right = [...box.querySelectorAll(".topt")][["you", "even", "them"].indexOf(R.ahead)]; right.classList.add("ok");
-      box.querySelector(".tagnote").textContent = ""; box.appendChild(rangeDuel(f, s)); done(); };
+    b.onclick = () => { if (box._done) return; box._done = true; const ok = v === Q.ans; trackReason("Range read", ok); if (cur) cur.rangeOk = ok;   // fed to logDecision: a wrong action after a right range read is a logic mistake, not a calibration one
+      [...box.querySelectorAll(".topt")].forEach(x => { x.disabled = true; }); b.classList.add(ok ? "ok" : "no"); const right = [...box.querySelectorAll(".topt")][["you", "even", "them"].indexOf(Q.ans)]; right.classList.add("ok");
+      // the equity question is answered by the bar rangeDuel draws anyway; the other two need their numbers said out loud
+      box.querySelector(".tagnote").textContent = Q.note || ""; box.appendChild(rangeDuel(f, s, { skipAhead: Q.skipAhead })); done(); };
     box.querySelector(".opts").appendChild(b); });
   return box;
 }
@@ -1190,7 +1448,9 @@ function thinkFirst(f, s, d, done){
 function pickContrast(f, s, d){
   const r0 = reasonOf(f, s, d, grade(s, d, 0).bestIdx), k0 = s.actions[grade(s, d, 0).bestIdx].kind;
   const c = s.drills.filter(x => x !== d && x.cls !== d.cls && clearSpot(s, x) && !tossUp(s, x)).map(x => { const bi = grade(s, x, 0).bestIdx; return { x, kind: s.actions[bi].kind, reason: reasonOf(f, s, x, bi) }; }).filter(o => o.kind !== k0 || o.reason !== r0);
-  const diff = c.filter(o => o.kind !== k0), pool = diff.length ? diff : c; return pool.length ? pool[Math.floor(Math.random() * pool.length)].x : null;
+  // the second hand asks "what's your hand's job here?" before its buttons, so prefer one where that has a solid answer
+  const diff = c.filter(o => o.kind !== k0), pool0 = diff.length ? diff : c, asks = pool0.filter(o => reasonQuestion(f, s, o.x)), pool = asks.length ? asks : pool0;
+  return pool.length ? pool[Math.floor(Math.random() * pool.length)].x : null;
 }
 function contrastCard(f, s, prev, d, gr){
   const row = (dd, bi) => `<div class="crow">${dd.hand.map(c => cardEl(c, "mini")).join("")}<span>${fineType(dd.hand, s.board)}</span><b>${KIND_WORD[s.actions[bi].kind]}</b><em>${REASONS[reasonOf(f, s, dd, bi)][0]} ${reasonOf(f, s, dd, bi)}</em></div><div class="cwhy">${whyPlay(f, s, dd, rix(dd, bi), true)}</div>`;
@@ -1202,7 +1462,10 @@ function contrastCard(f, s, prev, d, gr){
 /* ---------- chrome ---------- */
 function renderStats(){ // one running score out of 10 for the current mode
   const el = document.getElementById("stats"), pz = store.get("puzzle", { n: 0, sum: 0 });
-  if (state.mode === "arena"){ el.innerHTML = AR.n ? `<span class="sbadge" title="session result">${(AR.net >= 0 ? "+" : "") + AR.net.toFixed(1)}</span>` : ""; return; }
+  // Arena's badge is net bb won/lost, not a 0-10 score -- it shares the round "sbadge" look with the real score
+  // badge below, so a number like "+10.2" reads as "10.2 out of 10" unless the unit is on the face, not just the
+  // hover title (which mobile never shows).
+  if (state.mode === "arena"){ el.innerHTML = AR.n ? `<span class="sbadge arena" title="session result, in big blinds">${(AR.net >= 0 ? "+" : "") + AR.net.toFixed(1)}<i>bb</i></span>` : ""; return; }
   const v = state.mode === "hands" ? (state.hn ? state.hsum / state.hn : null) : state.mode === "puzzle" ? (pz.n ? 10 * pz.sum / pz.n : null) : (state.n ? 10 * state.best / state.n : null);
   el.innerHTML = v == null ? "" : `<span class="sbadge" title="${state.mode === "hands" ? "average hand score" : state.mode === "puzzle" ? "average puzzle score" : "share of good answers"}, out of 10">${v.toFixed(1)}</span>`; }
 const avgLoss = e => e.p / e.n;
@@ -1211,16 +1474,52 @@ function worstTypes(n){ const b = store.get("book", {}), ks = Object.keys(b).fil
   const all = ks.reduce((a, k) => a + b[k].p, 0) / ks.reduce((a, k) => a + b[k].n, 0); return ks.filter(k => avgLoss(b[k]) > all).sort((x, y) => avgLoss(b[y]) - avgLoss(b[x])).slice(0, n).map(k => k.slice(2)); }
 /* what to train: the costliest situations and hand types, from the book */
 function leakPlan(){ const c = worstConcepts(3), h = worstTypes(2); return c.length || h.length ? { label: "my leaks", concepts: c, types: h } : null; }
-/* a focus is null (everything), a concept name, "leaks" (auto plan) or { label, concepts[], types[], streets[] } */
+// "am I getting closer to the solver?" -- the log already stores % of pot lost per decision, so the trend is that
+// number averaged over equal-sized blocks of decisions. Blocks of decisions, not days: a session you happened to
+// play twice as long would otherwise read as a spike in a per-day chart.
+function devianceTrend(){
+  const log = store.get("log", []); if (log.length < 24) return null;
+  const size = Math.max(6, Math.floor(log.length / 6)), recent = log.slice(-size * 6), blocks = [];
+  for (let i = 0; i + size <= recent.length; i += size) blocks.push(recent.slice(i, i + size).reduce((a, e) => a + e.p, 0) / size);
+  if (blocks.length < 3) return null;
+  const avg = a => a.reduce((x, y) => x + y, 0) / a.length;
+  // the relative test divides by at least 1 point of pot: a straight d/was reads 0 when the earlier blocks were
+  // perfect, so a player who slid from flawless to sloppy would be told they were holding steady
+  const was = avg(blocks.slice(0, Math.floor(blocks.length / 2))), now = avg(blocks.slice(Math.ceil(blocks.length / 2))), d = was - now, rel = d / Math.max(was, 1);
+  // a direction only gets named when the move clears both an absolute and a relative bar -- half a point of pot on
+  // a handful of blocks is noise, and calling it progress would be the same lie as grading a toss-up
+  return { blocks, size, was, now, n: recent.length, dir: d >= 0.3 && rel >= 0.15 ? "better" : -d >= 0.3 && -rel >= 0.15 ? "worse" : "steady" };
+}
+function devianceChart(){
+  const T = devianceTrend(); if (!T) return null;
+  const max = Math.max(...T.blocks, 0.5);
+  const bars = T.blocks.map(v => `<div class="dvb" title="${v.toFixed(1)}% of pot lost per decision"><i style="height:${Math.max(4, Math.round(100 * v / max))}%"></i></div>`).join("");
+  const verdict = T.dir === "better" ? `You're playing <b style="color:var(--accent)">closer to the solver</b> than when you started: ${T.was.toFixed(1)}% of pot lost per decision across the first blocks, ${T.now.toFixed(1)}% across the latest.`
+    : T.dir === "worse" ? `You're drifting <b style="color:var(--bad)">further from the solver</b>: ${T.was.toFixed(1)}% of pot lost per decision across the first blocks, ${T.now.toFixed(1)}% across the latest.`
+    : `<b>Holding steady</b> at about ${T.now.toFixed(1)}% of pot lost per decision — not enough movement either way to call it a trend yet.`;
+  const el = $(`<div style="margin-bottom:10px"><h4 style="margin:0 0 6px;font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em">How far off the solver, over time</h4><div class="dvchart">${bars}</div><div class="dvfoot"><span>oldest</span><span>${T.n} decisions, ${T.size} per bar</span><span>newest</span></div><div class="tagnote" style="margin-top:8px">${verdict}</div></div>`);
+  return el;
+}
+// of the mistakes where thinkFirst had already asked "whose range is stronger?", how many were a bad range read
+// (calibration: needs more reps reading lines and sizing) vs a right read acted on wrong (logic: needs a better rule)
+function mistakeOrigins(){
+  const log = store.get("log", []).filter(e => e.origin), n = log.length; if (n < 4) return null;
+  const calibration = log.filter(e => e.origin === "calibration").length;
+  return { n, calibration, logic: n - calibration };
+}
+/* a focus is null (everything), a concept name, "leaks" (auto plan) or { label, concepts[], types[], streets[], reasons[] } */
 function focusObj(){ const f = state.focus; if (!f) return null; if (f === "leaks") return leakPlan(); if (typeof f === "string") return { label: f, concepts: [f], types: [] }; return f; }
 function focusLabel(){ const o = focusObj(); return o ? o.label : ""; }
-// a spot (and hero hand, when there is one) belongs to the focus if it is one of its situations, or hero holds one of its hand types
+// a spot (and hero hand, when there is one) belongs to the focus if it is one of its situations, hero holds one of its
+// hand types, or the solver's correct play here is tagged with one of its reasons (e.g. the showdown-value pack)
 function focusMatch(f, s, d){ const o = focusObj(); if (!o) return true;
   if (o.streets && o.streets.length && !o.streets.includes(s.street)) return false;
+  if (o.reasons && o.reasons.length) return !!d && o.reasons.includes(reasonOf(f, s, d, grade(s, d, 0).bestIdx));
   if (!d && !(o.concepts || []).length) return true;   // no hero hand to judge (puzzles): hand-type focus falls back to street only
   const c = (o.concepts || []).includes(concept(f, s)), h = d && (o.types || []).includes(f.class_names[d.cls]);
   return (o.concepts || []).length && (o.types || []).length ? (c || h) : (o.concepts || []).length ? c : h; }
-function goMode(){ state.queue = []; state.ppool = null; renderFilters(); state.mode === "hands" ? nextHand() : state.mode === "puzzle" ? nextPuzzle() : next(); }
+// a queued contrast hand belongs to whatever focus or mode it was queued under, so it goes with the queue
+function goMode(){ state.queue = []; state.ppool = null; state.contrast = null; renderFilters(); state.mode === "hands" ? nextHand() : state.mode === "puzzle" ? nextPuzzle() : next(); }
 function trainFocus(focus, mode){ state.focus = focus; if (mode){ state.mode = mode; store.set("mode", mode); } document.querySelectorAll(".overlay").forEach(o => o.remove()); state.hand = null; goMode(); window.scrollTo(0, 0); }
 function overlay(title, body){
   const o = $(`<div class="overlay"><div class="sheet"><h3>${title}<span class="x">Close</span></h3></div></div>`); o.firstChild.appendChild(body);
@@ -1232,6 +1531,7 @@ function focusSheet(){
   const add = (label, sub, val) => { const r = $(`<div class="row ${state.focus === val || (!state.focus && !val) ? "on" : ""}"><span></span><span style="text-align:left">${label}<small>${sub}</small></span><span></span></div>`); r.onclick = () => { o.remove(); trainFocus(val); }; body.appendChild(r); };
   add("Everything", "all situations, shuffled", null);
   const plan = leakPlan(); if (plan) add("My leaks", [plan.concepts.length ? "situations: " + plan.concepts.join(", ") : "", plan.types.length ? "hand types: " + plan.types.join(", ") : ""].filter(Boolean).join(" · "), "leaks");
+  add("Showdown value", "hands too weak to bet, too good to give up — when to just check it", { label: "Showdown value", concepts: [], types: [], reasons: ["Showdown value"] });
   Object.keys(counts).sort((x, y) => counts[y] - counts[x]).forEach(c => { const e = b["c:" + c]; add(c, `${counts[c]} drills` + (e ? ` · you: ${e.n} played, ${avgLoss(e).toFixed(1)}% of pot lost on average` : ""), c); });
   const o = overlay("Focus on a situation", body);
 }
@@ -1278,10 +1578,23 @@ function leakSheet(){
   if (plan){ const n = Object.keys(b).filter(k => k.startsWith("s:")).reduce((a, k) => a + b[k].n, 0);
     const hd = $(`<div class="sheet" style="margin:0 0 6px;padding:12px 14px;border:1px solid var(--accent)"><h3 style="margin:0 0 4px">Train my leaks</h3><p style="margin:0 0 8px;font-size:12px;color:var(--dim)">${n} decisions filed. Costliest: ${[...plan.concepts, ...plan.types.map(t => t.toLowerCase() + " hands")].join(", ")}.</p><div class="chips"><div class="chip on">Hands</div><div class="chip">Drills</div><div class="chip">Puzzle</div></div></div>`);
     [...hd.querySelectorAll(".chip")].forEach((c, k) => c.onclick = () => trainFocus("leaks", ["hands", "drills", "puzzle"][k])); body.appendChild(hd); }
+  const dv = devianceChart(); if (dv) body.appendChild(dv);
+  const mo = mistakeOrigins();
+  // the range-read question has three flavours now, so this can't name one of them
+  if (mo) body.appendChild($(`<div class="tagnote" style="margin-bottom:10px">Of your mistakes on spots where you answered a range-read question first: <b>${pct(mo.calibration / mo.n)}</b> had the wrong range read (reps will fix this), <b>${pct(mo.logic / mo.n)}</b> had the right read but the wrong action (the decision rule needs work). Based on ${mo.n} decisions.</div>`));
+  // nothing above is "wrong" here -- a toss-up has no correct side -- but a consistent lean says something about
+  // temperament that a graded spot can't show, since a graded spot always pulls you toward the right answer
+  mixTendency().forEach(m => { const [a, b] = m.key.split("/"); body.appendChild($(`<div class="tagnote" style="margin-bottom:10px">In genuine toss-ups between <b>${KIND_WORD[a]}</b> and <b>${KIND_WORD[b]}</b>, you picked <b>${KIND_WORD[m.kind]}</b> ${pct(m.share)} of the time (${m.n} spots) — not a mistake, since the solver mixes there too, but worth noticing about how you play close decisions.</div>`)); });
+  const rqs = reasonQuizSummary();
+  if (rqs){ body.appendChild($(`<div class="tagnote" style="margin-bottom:10px">Naming your hand's job before you act: <b>${pct(rqs.acc)}</b> right over ${rqs.n} spots.${rqs.payoff ? ` When you name it right you lose <b>${rqs.payoff.hit.toFixed(1)}%</b> of the pot per decision; when you miss it, <b>${rqs.payoff.miss.toFixed(1)}%</b>.` : ""}${rqs.ignored >= 2 && rqs.ignored / rqs.hits >= 0.2 ? ` You named the job right and then played against it <b>${rqs.ignored} of ${rqs.hits}</b> times — when your read and your play disagree, go with the read.` : ""}</div>`));
+    // straight to Drills: every drill asks the job question when it can, and a reason focus has no puzzles to offer
+    rqs.confusions.forEach(c => { const row = $(`<div class="tagnote" style="margin-bottom:10px;display:flex;gap:8px;align-items:center"><div style="flex:1">${REASONS[c.name][0]} <b>${c.name}</b> spots: you named the job ${pct(c.acc)} of the time, and mistook it for <b>${c.as}</b> ${c.k} of ${c.n}.</div><div class="chip" style="flex:none">Train</div></div>`);
+      row.querySelector(".chip").onclick = () => trainFocus({ label: c.name.toLowerCase() + " spots", concepts: [], types: [], reasons: [c.name] }, "drills"); body.appendChild(row); }); }
   patternRows(body);
   group("By situation", "c:"); group("By street", "s:"); group("By hand type", "h:"); group("By role", "p:");
   body.appendChild($(`<p style="color:var(--dim);font-size:11px;margin-top:10px">% of pot lost per decision · decisions</p>`));
-  const rs = $(`<button class="next ghost" style="position:static;margin-top:6px">Reset history</button>`); rs.onclick = () => { store.set("book", {}); store.set("patterns", {}); o.remove(); }; body.appendChild(rs);
+  const rs = $(`<button class="next ghost" style="position:static;margin-top:6px">Reset history</button>`); rs.onclick = () => { store.set("book", {}); store.set("patterns", {}); store.set("mixprefs", {}); store.set("log", []); store.set("reasonq", {}); o.remove(); };
+  body.appendChild(rs);   // the log drives the trend chart, the mistake-origin split and the job-quiz payoff, so "reset history" has to clear it too
   const o = overlay("Where your EV goes", body);
 }
 function renderFilters(){
@@ -1289,7 +1602,10 @@ function renderFilters(){
   [["Hands","hands"],["Drills","drills"],["Puzzle","puzzle"],["Arena","arena"]].filter(([, v]) => !(state.beginner && v === "puzzle")).forEach(([n, v]) => { const c = $(`<div class="chip ${state.mode === v ? "on" : ""}">${n}</div>`); c.onclick = () => { state.mode = v; store.set("mode", v); start(); }; el.appendChild(c); });
   const lk = $(`<div class="chip">Leaks</div>`); lk.onclick = leakSheet; el.appendChild(lk);
   if (state.mode === "three" || state.mode === "arena") return;
-  if (state.beginner){ el.appendChild(rungChip()); return; }
+  if (state.beginner){   // a focus replaces the rung while it's on, so it has to be visible and one tap to leave
+    if (state.focus){ const fc = $(`<div class="chip on">Focus: ${focusLabel()} ✕</div>`); fc.onclick = () => { state.focus = null; goMode(); }; el.appendChild(fc); }
+    else el.appendChild(rungChip());
+    return; }
   const fc = $(`<div class="chip ${state.focus ? "on" : ""}">${state.focus ? "Focus: " + focusLabel() : "Focus"}</div>`); fc.onclick = focusSheet; el.appendChild(fc);
   if (state.mode === "hands" || state.mode === "puzzle") return;
   [["All",-1],["Flop",0],["Turn",1],["River",2]].forEach(([n, v]) => { const c = $(`<div class="chip ${state.street === v ? "on" : ""}">${n}</div>`); c.onclick = () => { state.street = v; store.set("street", v); state.queue = []; renderFilters(); next(); }; el.appendChild(c); });
