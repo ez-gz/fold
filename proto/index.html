@@ -1093,11 +1093,18 @@ const REASONS = {
   "Showdown value": ["🪑", "Not strong enough to bet. Its only job is to show up at showdown — don't touch it."],
   "Free card": ["🎟", "A draw that gets to see the next card for free."], "Give up": ["🏳", "Nothing to win here. Save the chips."], "Bluff-catch": ["🥅", "Call, because they bluff often enough."], "Price": ["🏷", "The pot pays enough for the times you win."] };
 // showdown value's job is only to reach showdown, so it only applies once betting is no longer live (no draw left to improve)
+// the nuts or near-nuts (quads, boats, the stone-cold best hand class on this board) don't need a check to trap --
+// calling a bet rather than raising is the same slowplay, for the same reason: raising risks folding out the
+// money you're trying to win. Shared so a check-trap and a call-trap always agree on where "monster" starts.
+const isMonster = d => d.cls === 0 || d.eq >= 0.85;
 function reasonOf(f, s, d, i){
   const k = s.actions[i].kind, ct = coarseType(fineType(d.hand, s.board)), draw = ct === "Flush draw" || ct === "Straight draw", ec = d.eq_cont ? d.eq_cont[i] : d.eq;
   if (k === "bet" || k === "raise") return ec >= 0.5 ? "Value" : draw ? "Semi-bluff" : d.eq >= 0.5 ? "Protect" : "Bluff";
-  if (k === "check") return draw ? "Free card" : d.cls === 0 || d.eq >= 0.85 ? "Trap" : d.eq >= 0.45 ? "Pot control" : d.eq >= 0.3 ? "Showdown value" : "Give up";
-  if (k === "call") return draw ? "Price" : "Bluff-catch";
+  if (k === "check") return draw ? "Free card" : isMonster(d) ? "Trap" : d.eq >= 0.45 ? "Pot control" : d.eq >= 0.3 ? "Showdown value" : "Give up";
+  // a call with a monster is the same trap as a check with one -- previously every non-draw call was labeled
+  // "Bluff-catch" regardless of strength, so calling with quads read as "catching a bluff" (confirmed against the
+  // pack: 801 of 3,233 non-draw calls, 24.8%, were at 75%+ equity and mislabeled this way)
+  if (k === "call") return draw ? "Price" : isMonster(d) ? "Trap" : "Bluff-catch";
   return "Give up";
 }
 // one sentence per play, built from the solver's numbers: the reason when it is the solver's play, the outcome when it is not
