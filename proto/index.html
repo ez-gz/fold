@@ -1069,7 +1069,7 @@ const bucketLegend = () => `<div class="legend">${BUCKETS.map(b => `<span><i sty
 /* why a play is made, as one of ten named reasons: the name is what lets learning accumulate across spots */
 const REASONS = {
   "Value": ["💰", "Bet so worse hands pay you."], "Bluff": ["🎭", "Bet so better hands fold."], "Semi-bluff": ["🎯", "Bet a draw: win now, or improve later."],
-  "Protect": ["🛡", "Ahead now. Make their draws pay to catch up."], "Trap": ["🪤", "Strong hand. Let them do the betting."], "Pot control": ["⚖️", "Medium hand. Bet small to keep weaker hands in, not to protect it."],
+  "Protect": ["🛡", "Ahead now. Make their draws pay to catch up."], "Trap": ["🪤", "Strong hand. Let them do the betting."], "Pot control": ["⚖️", "Medium hand. Check to keep the pot small — betting invites a raise from better hands."],
   "Showdown value": ["🪑", "Not strong enough to bet. Its only job is to show up at showdown — don't touch it."],
   "Free card": ["🎟", "A draw that gets to see the next card for free."], "Give up": ["🏳", "Nothing to win here. Save the chips."], "Bluff-catch": ["🥅", "Call, because they bluff often enough."], "Price": ["🏷", "The pot pays enough for the times you win."] };
 // showdown value's job is only to reach showdown, so it only applies once betting is no longer live (no draw left to improve)
