@@ -92,9 +92,9 @@ header .stats{margin-left:auto;flex:none}header .chips{flex-wrap:wrap;min-width:
 .act.done.picked::after{content:"YOU";position:absolute;right:8px;top:4px;font-size:9px;letter-spacing:.1em;opacity:.8}
 .act.done.picked[data-tag]::after,.act.done[data-tag]::after{content:attr(data-tag);position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;font-weight:700;letter-spacing:.04em;opacity:.95;background:#0008;padding:3px 8px;border-radius:8px}.act.done.picked[data-tag=""]::after,.act.done[data-tag=""]::after{content:none}.act.done.beg-wrong{box-shadow:0 0 0 2px var(--bad)}
 .k-fold{background:var(--fold)}.k-check,.k-call{background:var(--call)}.k-bet0,.k-raise0{background:var(--bet1)}.k-bet1,.k-raise1{background:var(--bet2)}
-.verdict{margin-top:12px;border-radius:16px;padding:12px 14px;display:flex;align-items:center;gap:12px;animation:pop .3s cubic-bezier(.2,.9,.3,1.4)}
+.verdict{margin-top:12px;border-radius:16px;padding:12px 14px;display:flex;align-items:center;flex-wrap:wrap;gap:12px;animation:pop .3s cubic-bezier(.2,.9,.3,1.4)}
 @keyframes pop{from{transform:scale(.9);opacity:0}}
-.verdict .g{font-size:20px;font-weight:800}.verdict .l{font-size:12px;opacity:.85;margin-left:auto;text-align:right;font-variant-numeric:tabular-nums}
+.verdict .rqv{flex-basis:100%;font-size:12px;font-weight:600;opacity:.9;margin-top:-6px}.verdict .g{font-size:20px;font-weight:800}.verdict .l{font-size:12px;opacity:.85;margin-left:auto;text-align:right;font-variant-numeric:tabular-nums}
 .g-Best{background:#123c2c;color:var(--accent)}.g-Good{background:#16342b;color:#9be3c5}.g-Inaccuracy{background:#3d3215;color:var(--warn)}.g-Mistake{background:#432418;color:#ff9a6b}.g-Blunder{background:#451a1e;color:var(--bad)}
 .sheet{margin-top:10px;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:12px 14px;animation:up .3s ease}
 @keyframes up{from{transform:translateY(14px);opacity:0}}
@@ -159,7 +159,7 @@ header .stats{margin-left:auto;flex:none}header .chips{flex-wrap:wrap;min-width:
 .tagnote{font-size:12.5px;line-height:1.45;color:#cfd8e3}.tagnote:not(:empty){margin-top:8px;padding:8px 10px;border-radius:10px;background:#0c1218;animation:up .2s ease}.sitwrap .tagnote{text-align:center}
 .bar.duo{grid-template-columns:34px minmax(0,1fr) 38px;margin:5px 0}.bar.duo span{color:#fff;font-weight:600}.duel .legend{margin:6px 0 2px}
 .think{margin-top:12px;padding:14px;border-radius:16px;background:var(--panel,#111a23);border:1px solid #24313f;animation:up .25s ease}.think .q{font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px}.think .help{font-style:normal;width:18px;height:18px;border-radius:50%;border:1px solid var(--dim);color:var(--dim);font-size:11px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
-.think .opts{display:flex;gap:8px;margin-top:10px}.topt{flex:1;border:1px solid #24313f;background:#15202b;color:#fff;border-radius:14px;padding:10px 4px;font-weight:700;font-size:13px;cursor:pointer;transition:all .15s}.topt i{display:block;font-style:normal;font-size:20px;margin-bottom:2px}.topt:active{transform:scale(.96)}.topt.ok{background:#123c2c;border-color:var(--accent)}.topt.no{background:#432418;border-color:var(--bad)}.topt:disabled{opacity:.55}.topt.ok:disabled,.topt.no:disabled{opacity:1}.think .duel{margin-top:12px}
+.think .opts{display:flex;gap:8px;margin-top:10px}.topt{flex:1;border:1px solid #24313f;background:#15202b;color:#fff;border-radius:14px;padding:10px 4px;font-weight:700;font-size:13px;cursor:pointer;transition:all .15s}.topt i{display:block;font-style:normal;font-size:20px;margin-bottom:2px}.topt:active{transform:scale(.96)}.topt.ok{background:#123c2c;border-color:var(--accent)}.topt.sel{background:#1e2c3a;border-color:#cfd8e3}.topt.sel:disabled{opacity:1}.topt.no{background:#432418;border-color:var(--bad)}.topt:disabled{opacity:.55}.topt.ok:disabled,.topt.no:disabled{opacity:1}.think .duel{margin-top:12px}
 .act.beg{background:#1c2733;box-shadow:inset 0 0 0 1px #ffffff24}.act.beg.done.best{background:#15382b;box-shadow:0 0 0 2px var(--accent)}.act.beg.done.beg-wrong{background:#3a1d22;box-shadow:0 0 0 2px var(--bad)}
 .g-Toss{background:#1b2633;color:#cfd8e3}.tossnote{font-size:12.5px;line-height:1.45;color:#cfd8e3;margin-bottom:12px}
 .reason .lab{font-style:normal;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);border:1px solid #2a3746;border-radius:6px;padding:2px 6px}.take + .reason{margin-top:14px;padding-top:12px;border-top:1px solid #1e2935}
@@ -235,7 +235,11 @@ function formInfo(f){
 /* ---------- queue ---------- */
 function buildQueue(){
   const q = [];
-  for (const f of PACK.flops) for (const s of f.spots) { if (!state.beginner && state.street >= 0 && s.street !== state.street) continue; for (const d of s.drills) if (state.beginner ? rungMatch(f, s, d) : focusMatch(f, s, d)) q.push({ f, s, d }); }
+  for (const f of PACK.flops) for (const s of f.spots) { if (!state.beginner && state.street >= 0 && s.street !== state.street) continue; for (const d of s.drills) if (state.beginner && !state.focus ? rungMatch(f, s, d) : focusMatch(f, s, d)) q.push({ f, s, d }); }
+  // training a job from Leaks is training the job question, so keep to spots where it has a solid answer -- beginner
+  // only, since that's the only mode that asks it (full mode's Showdown-value focus keeps its whole pool)
+  const o = focusObj(), rq = state.beginner && o && o.reasons && o.reasons.length ? q.filter(x => reasonQuestion(x.f, x.s, x.d)) : [];
+  if (rq.length) q.splice(0, q.length, ...rq);
   for (let i = q.length - 1; i > 0; i--){ const j = Math.floor(Math.random()*(i+1)); [q[i], q[j]] = [q[j], q[i]]; }
   state.queue = q;
 }
@@ -313,7 +317,9 @@ const coarseType = ft => COARSE[ft] || ft;
 function logDecision(f, s, d, i, gr, rangeOk){
   const log = store.get("log", []), F = formInfo(f);
   log.push({ t: Date.now(), k: f._k, sid: s.id, hand: d.hand.join(""), c: concept(f, s), st: s.street, cls: f.class_names[d.cls], ft: fineType(d.hand, s.board), ctx: s.to_call > 0 ? "facing a bet" : "with the option to bet",
-    err: errKind(s, d, i, gr), origin: mistakeOrigin(gr, rangeOk), p: Math.min(gr.p, 25), bb: gr.loss, role: s.hero === F.opener ? "aggressor" : "caller", mode: state.hand ? "hands" : "drills", hi: state.hand ? f.hands.indexOf(state.hand.h) : -1 });
+    err: errKind(s, d, i, gr), origin: mistakeOrigin(gr, rangeOk), p: Math.min(gr.p, 25), bb: gr.loss, role: s.hero === F.opener ? "aggressor" : "caller", mode: state.hand ? "hands" : "drills", hi: state.hand ? f.hands.indexOf(state.hand.h) : -1,
+    // named the hand's job right (1) or not (0), and whether the play then followed the job named; absent when not asked
+    rq: state.cur && state.cur.rq ? +state.cur.reasonOk : undefined, rf: state.cur && state.cur.rq ? +state.cur.reasonFollowed : undefined });
   if (log.length > 3000) log.splice(0, log.length - 3000);
   store.set("log", log);
 }
@@ -503,9 +509,11 @@ function renderActions(){
     const c = state.cur, tbl = main.querySelector(".table");
     if (tbl && !tbl.querySelector(".sitwrap")) tbl.appendChild(situationChips(c.f, s, c.d));
     if (c.prev && !main.querySelector(".cbanner")) main.appendChild($(`<div class="cbanner">⇄ Same spot, different hand</div>`));
-    // thinkFirst returns null when no range-read question has a certain answer on this spot; fall through to the
-    // buttons in that case rather than asking something that can't be graded honestly
-    if (!c.tf && !c.prev){ c.tf = true; const q = thinkFirst(c.f, s, c.d, () => renderActions(), c); if (q){ main.appendChild(q); return; } }
+    // preActionQuestion returns null when nothing has a certain answer on this spot; fall through to the buttons
+    // in that case rather than asking something that can't be graded honestly. On a contrast-pair hand (c.prev
+    // set) it asks only the reason question -- that pairing IS the lesson, built so the correct reason differs
+    // from the hand just played -- never an unrelated range-read question stacked on top of it.
+    if (!c.tf){ c.tf = true; const q = preActionQuestion(c.f, s, c.d, () => renderActions(), c); if (q){ main.appendChild(q); return; } }
     beginnerOptions(s, state.cur.d).forEach(o => { const b = $(`<button class="act beg" data-i="${o.i}"><div class="fill"></div><span>${o.label}</span><span class="sub"></span></button>`); b.onclick = () => answer(o.i); box.appendChild(b); });
     main.appendChild(box); return;
   }
@@ -583,6 +591,7 @@ function renderRangeCheck(){
 
 function answer(i){
   const { f, s, d } = state.cur; if (state.cur.done) return; state.cur.done = true;
+  settleReasonQuiz(state.cur, s, i);
   const gr = grade(s, d, i); track(f, s, d, gr); trackErr(f, s, d, i, gr); logDecision(f, s, d, i, gr, state.cur.rangeOk); trackMix(s, d, i);
   if (state.hand) return handAnswer(i, gr);
   state.n++; state.loss += gr.p; if (gr.g === "Best" || gr.g === "Good"){ state.best++; state.streak++; } else state.streak = 0;
@@ -590,11 +599,13 @@ function answer(i){
   markButtons(d, i, gr);
   if (state.beginner){
     const bg = begVerdict(s, d, gr), up = rungProgress(gr, f, s, d);
-    main.appendChild($(`<div class="verdict ${bg.cls}"><div class="g">${bg.g}</div><div class="l">${bg.l}</div></div>`));
+    main.appendChild($(`<div class="verdict ${bg.cls}"><div class="g">${bg.g}</div><div class="l">${bg.l}</div>${reasonVerdict(state.cur)}</div>`));
     trackReason(reasonOf(f, s, d, gr.bestIdx), gr.g === "Best" || gr.g === "Good");
     const dl = main.querySelector(".think .duel"); if (dl) dl.remove();   // the bars live on under the Ranges tab
     main.appendChild(beginnerPanel(f, s, d, i, gr, { contrast: state.cur.prev ? contrastCard(f, s, state.cur.prev, d, gr) : null }));
-    if (!state.cur.prev && Math.random() < 0.4){ const x = pickContrast(f, s, d); if (x) state.contrast = { f, s, d: x, prev: d, tf: true }; }
+    // tf starts false here (unlike every other queued spot) so renderActions' gate actually fires on it and asks
+    // the reason question -- that's the whole point of a contrast pair, not something to skip past to the buttons
+    if (!state.cur.prev && Math.random() < 0.4){ const x = pickContrast(f, s, d); if (x) state.contrast = { f, s, d: x, prev: d, tf: false }; }
     if (up) main.appendChild($(`<div class="sheet" style="border-color:var(--accent)"><h3>Next step unlocked</h3><p style="margin:0;font-size:13px">${up.name}. ${up.hint}</p></div>`));
     const nx = $(`<button class="next">Next spot →</button>`); nx.onclick = next; main.appendChild(nx); renderFilters(); renderStats(); reveal(main.querySelector(".sheet.beg")); return;
   }
@@ -639,7 +650,9 @@ function nextHand(){
   let pool = []; PACK.flops.forEach(f => (f.hands || []).forEach(h => pool.push({ f, h })));
   if (!pool.length){ main.innerHTML = `<div class="empty">This pack has no played hands yet — switch to Drills.</div>`; return; }
   // a focus keeps only hands where at least one of your decisions is the kind you are working on
-  if (state.beginner){   // beginner: a decision of the current rung's kind, and only its hand types until the later rungs --
+  // a Train tap from Leaks sets a focus, and wins over the rung: it's an explicit ask to practise a leak the
+  // player's own hands turned up -- previously beginner mode ignored the focus, so every Train chip did nothing
+  if (state.beginner && !state.focus){   // beginner: a decision of the current rung's kind, and only its hand types until the later rungs --
     // each rung's own test() already excludes 3-bet pots for the early rungs, so no blanket filter is needed here;
     // "Facing a raise" and "Everything" (rungs 3-4) are where 3-bet pots start showing up
     const r = RUNGS[rungState().i], fp = pool.filter(x => x.h.steps.some(st => rungMatch(x.f, st.spot, st.spot.drills[0])) && x.h.steps.every(st => !r.types || r.types.includes(coarseType(fineType(st.spot.drills[0].hand, st.spot.board)))));
@@ -712,7 +725,7 @@ function handAnswer(i, gr){
   if (i !== step.line) note += `Continues on the solver's line: <b>${s.actions[step.line].label}</b>.`;
   if (state.beginner){
     const bg = begVerdict(s, d, gr), up = rungProgress(gr, H.f, s, d);
-    main.appendChild($(`<div class="verdict ${bg.cls}"><div class="g">${bg.g}</div><div class="l">${bg.l}</div></div>`));
+    main.appendChild($(`<div class="verdict ${bg.cls}"><div class="g">${bg.g}</div><div class="l">${bg.l}</div>${reasonVerdict(state.cur)}</div>`));
     trackReason(reasonOf(H.f, s, d, gr.bestIdx), gr.g === "Best" || gr.g === "Good");
     const pnl = beginnerPanel(H.f, s, d, i, gr); if (i !== step.line) pnl.insertBefore($(`<p class="dim" style="font-size:12px">The hand continues on the solver's line: <b>${KIND_WORD[s.actions[step.line].kind]}</b>.</p>`), pnl.querySelector(".btabs")); main.appendChild(pnl);
     if (up) main.appendChild($(`<div class="sheet" style="border-color:var(--accent)"><h3>Next step unlocked</h3><p style="margin:0;font-size:13px">${up.name}. ${up.hint}</p></div>`));
@@ -1089,7 +1102,7 @@ const bucketLegend = () => `<div class="legend">${BUCKETS.map(b => `<span><i sty
 /* why a play is made, as one of ten named reasons: the name is what lets learning accumulate across spots */
 const REASONS = {
   "Value": ["💰", "Bet so worse hands pay you."], "Bluff": ["🎭", "Bet so better hands fold."], "Semi-bluff": ["🎯", "Bet a draw: win now, or improve later."],
-  "Protect": ["🛡", "Ahead now. Make their draws pay to catch up."], "Trap": ["🪤", "Strong hand. Let them do the betting."], "Pot control": ["⚖️", "Medium hand. Check to keep the pot small — betting invites a raise from better hands."],
+  "Protect": ["🛡", "Ahead overall, but not against a call — betting folds out hands that have you beat or close to it."], "Trap": ["🪤", "Strong hand. Let them do the betting."], "Pot control": ["⚖️", "Medium hand. Check to keep the pot small — betting invites a raise from better hands."],
   "Showdown value": ["🪑", "Not strong enough to bet. Its only job is to show up at showdown — don't touch it."],
   "Free card": ["🎟", "A draw that gets to see the next card for free."], "Give up": ["🏳", "Nothing to win here. Save the chips."], "Bluff-catch": ["🥅", "Call, because they bluff often enough."], "Price": ["🏷", "The pot pays enough for the times you win."] };
 // showdown value's job is only to reach showdown, so it only applies once betting is no longer live (no draw left to improve)
@@ -1106,6 +1119,130 @@ function reasonOf(f, s, d, i){
   // pack: 801 of 3,233 non-draw calls, 24.8%, were at 75%+ equity and mislabeled this way)
   if (k === "call") return draw ? "Price" : isMonster(d) ? "Trap" : "Bluff-catch";
   return "Give up";
+}
+/* ---------- pre-action reason quiz: name the hand's job before you see the action buttons ---------- */
+// which kinds of action each reason can sit behind (the inverse of reasonOf's branches): lets the quiz drop options
+// the spot can't even offer -- "Bluff-catch" with no bet to call is a free elimination, not a decision -- and lets
+// the answer check whether the play the player then made actually followed the job they named
+const REASON_KINDS = { "Value": ["bet", "raise"], "Bluff": ["bet", "raise"], "Semi-bluff": ["bet", "raise"], "Protect": ["bet", "raise"],
+  "Trap": ["check", "call"], "Pot control": ["check"], "Showdown value": ["check"], "Free card": ["check"], "Give up": ["check", "fold"], "Bluff-catch": ["call"], "Price": ["call"] };
+// the reasons one step either side of each one -- a hand a little stronger or weaker, or with or without the draw --
+// used to fill the options out to three when the spot itself only offers two plays
+const REASON_NEAR = { "Value": ["Protect", "Trap"], "Protect": ["Value", "Bluff"], "Bluff": ["Give up", "Showdown value"], "Semi-bluff": ["Bluff", "Free card"],
+  "Trap": ["Value", "Pot control"], "Pot control": ["Showdown value", "Value"], "Showdown value": ["Pot control", "Give up"], "Free card": ["Semi-bluff", "Give up"],
+  "Give up": ["Showdown value", "Bluff", "Bluff-catch"], "Bluff-catch": ["Trap", "Give up"], "Price": ["Bluff-catch", "Give up"] };
+const DRAW_ONLY = ["Semi-bluff", "Free card", "Price"];   // reasonOf never gives these to a hand without a draw
+// how far this spot's numbers sit from the nearest threshold that would flip reasonOf's answer to something else
+// -- Infinity for the categorical cases (a draw is a draw regardless of margin; the nuts class is the nuts class),
+// a real equity distance otherwise. Mirrors thinkQuestions' cmpShare margin, but against reasonOf's own thresholds,
+// so a quiz question never asserts a reason that was one or two equity points from being a different one.
+function reasonMargin(f, s, d, i){
+  const k = s.actions[i].kind, ct = coarseType(fineType(d.hand, s.board)), draw = ct === "Flush draw" || ct === "Straight draw";
+  const ec = d.eq_cont ? d.eq_cont[i] : d.eq;
+  if (k === "bet" || k === "raise"){
+    const m = Math.abs(ec - 0.5);   // Value vs the rest -- a draw at 52% when called is Value, at 48% a Semi-bluff
+    return ec >= 0.5 || draw ? m : Math.min(m, Math.abs(d.eq - 0.5));   // Protect vs Bluff also needs eq clear of 0.5
+  }
+  if (k === "check"){
+    if (draw) return Infinity;   // Free card, categorical
+    if (d.cls === 0) return Infinity;   // nuts class, categorical
+    return Math.min(Math.abs(d.eq - 0.85), Math.abs(d.eq - 0.45), Math.abs(d.eq - 0.3));
+  }
+  if (k === "call"){
+    if (draw) return Infinity;   // Price, categorical
+    if (d.cls === 0) return Infinity;
+    return Math.abs(d.eq - 0.85);   // only the Trap/Bluff-catch split has a threshold to be near
+  }
+  return Infinity;   // fold -> Give up, nothing to split
+}
+const REASON_MARGIN_MIN = 0.05;
+// The question never names an action -- "what's the reason to bet here?" would hand over the answer the buttons
+// then ask for. Instead the options are the jobs behind the player's own real choices in this spot (betting this
+// hand would be Value, checking it Pot control), so naming the right job IS finding the right play, and the
+// distractors are exactly the stories a player tells themselves before making the wrong one. Asked only where the
+// answer is solid: a clear spot (not a mix the solver itself splits), every other play a real mistake rather than an
+// "alternate line" (an 85/15 spot passes clearSpot, but grading the 15% line's job as wrong would mark a fine play
+// ✗ -- the full-pack sweep found 3,798 such questions before this check), every size of the solver's action telling
+// the same story, and the hand's numbers not within a few equity points of a threshold that would rename it.
+function reasonQuestion(f, s, d){
+  if (tossUp(s, d) || !clearSpot(s, d)) return null;
+  const opts = beginnerOptions(s, d); if (opts.length < 2) return null;
+  const bi = grade(s, d, 0).bestIdx, kind = s.actions[bi].kind, correct = reasonOf(f, s, d, bi);
+  if (opts.some(o => o.kind !== kind && fineG(grade(s, d, o.i)))) return null;
+  if (reasonMargin(f, s, d, bi) < REASON_MARGIN_MIN) return null;
+  if (s.actions.some((a, i) => a.kind === kind && reasonOf(f, s, d, i) !== correct)) return null;   // the size changes the story: no one answer
+  const ct = coarseType(fineType(d.hand, s.board)), draw = ct === "Flush draw" || ct === "Straight draw", kinds = opts.map(o => o.kind), options = [correct];
+  const fits = r => !options.includes(r) && (draw || !DRAW_ONLY.includes(r)) && REASON_KINDS[r].some(k => kinds.includes(k));
+  opts.forEach(o => { const r = reasonOf(f, s, d, o.i); if (o.kind !== kind && fits(r)) options.push(r); });
+  REASON_NEAR[correct].forEach(r => { if (options.length < 3 && fits(r)) options.push(r); });
+  if (options.length < 2) return null;
+  return { correct, options: options.slice(0, 3).sort(() => Math.random() - 0.5), q: "What's your hand's job here?" };
+}
+// separate from trackReason (which measures whether a reason's own action gets played well once it's on screen) --
+// this measures whether the player can name the governing idea before the action buttons even appear, which is
+// the actual habit being drilled: ask the question that leads to the decision, not just recognize the decision
+function trackReasonQuiz(correct, guessed, ok){
+  const b = store.get("reasonq", {}), e = b[correct] || (b[correct] = { n: 0, ok: 0, missedAs: {} });
+  e.n++; if (ok) e.ok++; else e.missedAs[guessed] = (e.missedAs[guessed] || 0) + 1;
+  store.set("reasonq", b);
+}
+// what Leaks says about the job quiz: the hit rate; whether naming the job right goes with playing it right (the
+// evidence the habit is worth building, from the player's own log); and the jobs most often mistaken for one other
+// job specifically -- "Pot control spots read as Value" is a fixable confusion, a spread of wrong guesses isn't yet
+function reasonQuizSummary(){
+  const all = Object.entries(store.get("reasonq", {})), n = all.reduce((a, [, e]) => a + e.n, 0); if (n < 6) return null;
+  const ok = all.reduce((a, [, e]) => a + e.ok, 0), log = store.get("log", []), avg = xs => xs.reduce((a, e) => a + e.p, 0) / xs.length;
+  const hit = log.filter(e => e.rq === 1), miss = log.filter(e => e.rq === 0);
+  const confusions = all.filter(([, e]) => e.n >= 5 && e.ok / e.n < 0.7).map(([name, e]) => { const [as, k] = Object.entries(e.missedAs).sort((x, y) => y[1] - x[1])[0];
+    return k >= 2 && k / (e.n - e.ok) >= 0.5 ? { name, n: e.n, acc: e.ok / e.n, as, k } : null; }).filter(Boolean).sort((x, y) => x.acc - y.acc).slice(0, 2);
+  // a right read the play then ignored: strict questions make every other kind of play a real mistake, so each of
+  // these is EV left behind with the answer already in hand -- and the likeliest reason a right read costs as much
+  // as a wrong one in the payoff line
+  const ignored = hit.filter(e => e.rf === 0).length;
+  return { n, acc: ok / n, payoff: hit.length >= 8 && miss.length >= 8 ? { hit: avg(hit), miss: avg(miss) } : null, ignored, hits: hit.length, confusions };
+}
+// picking a job only locks it in -- whether it was right stays hidden until the play is made, because "Value" all but
+// says "bet" and revealing it first would turn the action buttons into a formality. The player has to carry their
+// own read into the decision, which is the habit: settle what the hand is for, then act on it.
+function reasonFirst(f, s, d, Q, done, cur){
+  const box = $(`<div class="think reasonq"><div class="q">${Q.q}<i class="help">?</i></div><div class="opts"></div><div class="tagnote"></div></div>`), note = box.querySelector(".tagnote");
+  const help = Q.options.map(n => `${REASONS[n][0]} <b>${n}</b> — ${REASONS[n][1]}`).join("<br>");
+  box.querySelector(".help").onclick = () => { if (!box._done) note.innerHTML = note.innerHTML ? "" : help; };
+  const btns = Q.options.map(name => { const b = $(`<button class="topt"><i>${REASONS[name][0]}</i>${name}</button>`); box.querySelector(".opts").appendChild(b); return b; });
+  Q.options.forEach((name, idx) => { btns[idx].onclick = () => { if (box._done) return; box._done = true;
+    if (cur) cur.rq = { Q, guess: name, btns, note };
+    btns.forEach(x => x.disabled = true); btns[idx].classList.add("sel");
+    note.innerHTML = `Locked in: <b>${name}</b>. Now play it.`;
+    done(); }; });
+  return box;
+}
+// called from answer() before anything is logged, so the decision log records whether the job was named right
+function settleReasonQuiz(cur, s, i){
+  const R = cur && cur.rq; if (!R || R.settled) return; R.settled = true;
+  const { correct } = R.Q, ok = R.guess === correct, kind = s.actions[i].kind; cur.reasonOk = ok; trackReasonQuiz(correct, R.guess, ok);
+  R.btns.forEach((b, k) => { const n = R.Q.options[k]; b.classList.remove("sel"); if (n === correct) b.classList.add("ok"); else if (n === R.guess) b.classList.add("no"); });
+  // the ways to go wrong teach different things: a wrong read played faithfully is a read problem (reps fix it), a
+  // right read played against is a follow-through problem (the read was there; the play ignored it), and the right
+  // play for the wrong reason is luck the next spot won't repeat -- Protect and Value both bet, until the sizing differs
+  const followed = REASON_KINDS[R.guess].includes(kind), say = REASON_KINDS[correct].includes(kind); cur.reasonFollowed = followed;
+  const tail = ok && !followed ? ` You named it, then played <b>${KIND_WORD[kind]}</b> — trust the read.` : ok ? "" : followed && say ? " Right play, wrong reason." : followed ? " Your play followed your read; the read was the miss." : "";
+  R.note.innerHTML = `${ok ? "✓" : "✗"} <b>${correct}</b> — ${REASONS[correct][1]}${tail}`;
+}
+// one line in the verdict, so the outcome is visible where the eye already is after answering
+const reasonVerdict = cur => cur && cur.rq && cur.rq.settled ? `<div class="rqv">Hand's job: ${cur.reasonOk ? `✓ ${cur.rq.guess}` : `✗ ${cur.rq.guess} → ${cur.rq.Q.correct}`}</div>` : "";
+// the dispatcher renderActions calls: on a contrast-pair's second hand (cur.prev set), this IS the lesson --
+// same spot, same board, only the hand changed, and pickContrast chose it because the right play or its reason
+// differs from the hand just played -- so ask only that, never an unrelated range-read question on top of it.
+// Training a reason from Leaks asks it every time it can, for the same reason. On an ordinary hand, flip a coin
+// between a reason question and a range-read question when both are available, falling back to whichever one is,
+// so a spot is never silently skipped just because the coin landed on the unavailable side.
+function preActionQuestion(f, s, d, done, cur){
+  const rq = reasonQuestion(f, s, d), o = focusObj();
+  if (cur && cur.prev) return rq ? reasonFirst(f, s, d, rq, done, cur) : null;
+  if (rq && o && o.reasons && o.reasons.length) return reasonFirst(f, s, d, rq, done, cur);
+  const qs = thinkQuestions(f, s);
+  if (rq && (!qs.length || Math.random() < 0.5)) return reasonFirst(f, s, d, rq, done, cur);
+  return thinkFirst(f, s, d, done, cur) || (rq ? reasonFirst(f, s, d, rq, done, cur) : null);
 }
 // one sentence per play, built from the solver's numbers: the reason when it is the solver's play, the outcome when it is not
 function whyPlay(f, s, d, i, best){
@@ -1128,7 +1265,19 @@ function whyPlay(f, s, d, i, best){
     if (eq >= 0.3) return `Not strong enough to bet for value, and there's nothing to protect. Its only job here is a cheap showdown — don't try to make something happen.`;
     return `Little equity, nothing to protect. Checking costs nothing.`;
   }
-  if (k === "fold") return best ? `You need ${pct(need)} to call and win ${pct(eq)}.` : `You give up the ${bbf(s.pot)} pot. A call needs ${pct(need)} and wins ${pct(eq)}.`;
+  // the bare price-vs-equity line argued against the play whenever the two disagreed: 1,026 of the pack's 3,445
+  // best folds have equity above the price (flop and turn: more bets are coming that this hand can't call, so it
+  // never gets to realize that equity), and 149 best calls -- nearly all draws -- have it below (the rest is won
+  // on later streets). Say which, instead of "you need 27% and win 39%... fold".
+  if (k === "fold"){
+    if (!best) return `You give up the ${bbf(s.pot)} pot. A call needs ${pct(need)} and wins ${pct(eq)}.`;
+    if (eq < need) return `You need ${pct(need)} to call and win ${pct(eq)}.`;
+    const beats = pct(eq) === pct(need) ? "matches" : "beats";   // 20.4% vs 20.1% both print as 20%
+    return s.street < 2 ? `On paper your ${pct(eq)} ${beats} the ${pct(need)} a call needs, but that assumes a free run to showdown — ${V} keeps betting on later streets, and this hand can't keep calling.`
+      : `On paper your ${pct(eq)} ${beats} the ${pct(need)} a call needs, but that's against ${V}'s whole range — the hands that bet here beat you more often.`;
+  }
+  if (best && eq < need) return s.street < 2 ? `You need ${pct(need)} and win ${pct(eq)} right now — the rest comes from what you win on later streets when you get there.`
+    : `You need ${pct(need)} and win ${pct(eq)} against ${V}'s whole range — but they bet here with enough bluffs to make the call pay.`;
   return `You need ${pct(need)} and win ${pct(eq)}.`;
 }
 // bring the answer above the sticky button without scrolling the verdict (or the tabs) off the top
@@ -1299,7 +1448,9 @@ function thinkFirst(f, s, d, done, cur){
 function pickContrast(f, s, d){
   const r0 = reasonOf(f, s, d, grade(s, d, 0).bestIdx), k0 = s.actions[grade(s, d, 0).bestIdx].kind;
   const c = s.drills.filter(x => x !== d && x.cls !== d.cls && clearSpot(s, x) && !tossUp(s, x)).map(x => { const bi = grade(s, x, 0).bestIdx; return { x, kind: s.actions[bi].kind, reason: reasonOf(f, s, x, bi) }; }).filter(o => o.kind !== k0 || o.reason !== r0);
-  const diff = c.filter(o => o.kind !== k0), pool = diff.length ? diff : c; return pool.length ? pool[Math.floor(Math.random() * pool.length)].x : null;
+  // the second hand asks "what's your hand's job here?" before its buttons, so prefer one where that has a solid answer
+  const diff = c.filter(o => o.kind !== k0), pool0 = diff.length ? diff : c, asks = pool0.filter(o => reasonQuestion(f, s, o.x)), pool = asks.length ? asks : pool0;
+  return pool.length ? pool[Math.floor(Math.random() * pool.length)].x : null;
 }
 function contrastCard(f, s, prev, d, gr){
   const row = (dd, bi) => `<div class="crow">${dd.hand.map(c => cardEl(c, "mini")).join("")}<span>${fineType(dd.hand, s.board)}</span><b>${KIND_WORD[s.actions[bi].kind]}</b><em>${REASONS[reasonOf(f, s, dd, bi)][0]} ${reasonOf(f, s, dd, bi)}</em></div><div class="cwhy">${whyPlay(f, s, dd, rix(dd, bi), true)}</div>`;
@@ -1367,7 +1518,8 @@ function focusMatch(f, s, d){ const o = focusObj(); if (!o) return true;
   if (!d && !(o.concepts || []).length) return true;   // no hero hand to judge (puzzles): hand-type focus falls back to street only
   const c = (o.concepts || []).includes(concept(f, s)), h = d && (o.types || []).includes(f.class_names[d.cls]);
   return (o.concepts || []).length && (o.types || []).length ? (c || h) : (o.concepts || []).length ? c : h; }
-function goMode(){ state.queue = []; state.ppool = null; renderFilters(); state.mode === "hands" ? nextHand() : state.mode === "puzzle" ? nextPuzzle() : next(); }
+// a queued contrast hand belongs to whatever focus or mode it was queued under, so it goes with the queue
+function goMode(){ state.queue = []; state.ppool = null; state.contrast = null; renderFilters(); state.mode === "hands" ? nextHand() : state.mode === "puzzle" ? nextPuzzle() : next(); }
 function trainFocus(focus, mode){ state.focus = focus; if (mode){ state.mode = mode; store.set("mode", mode); } document.querySelectorAll(".overlay").forEach(o => o.remove()); state.hand = null; goMode(); window.scrollTo(0, 0); }
 function overlay(title, body){
   const o = $(`<div class="overlay"><div class="sheet"><h3>${title}<span class="x">Close</span></h3></div></div>`); o.firstChild.appendChild(body);
@@ -1433,10 +1585,16 @@ function leakSheet(){
   // nothing above is "wrong" here -- a toss-up has no correct side -- but a consistent lean says something about
   // temperament that a graded spot can't show, since a graded spot always pulls you toward the right answer
   mixTendency().forEach(m => { const [a, b] = m.key.split("/"); body.appendChild($(`<div class="tagnote" style="margin-bottom:10px">In genuine toss-ups between <b>${KIND_WORD[a]}</b> and <b>${KIND_WORD[b]}</b>, you picked <b>${KIND_WORD[m.kind]}</b> ${pct(m.share)} of the time (${m.n} spots) — not a mistake, since the solver mixes there too, but worth noticing about how you play close decisions.</div>`)); });
+  const rqs = reasonQuizSummary();
+  if (rqs){ body.appendChild($(`<div class="tagnote" style="margin-bottom:10px">Naming your hand's job before you act: <b>${pct(rqs.acc)}</b> right over ${rqs.n} spots.${rqs.payoff ? ` When you name it right you lose <b>${rqs.payoff.hit.toFixed(1)}%</b> of the pot per decision; when you miss it, <b>${rqs.payoff.miss.toFixed(1)}%</b>.` : ""}${rqs.ignored >= 2 && rqs.ignored / rqs.hits >= 0.2 ? ` You named the job right and then played against it <b>${rqs.ignored} of ${rqs.hits}</b> times — when your read and your play disagree, go with the read.` : ""}</div>`));
+    // straight to Drills: every drill asks the job question when it can, and a reason focus has no puzzles to offer
+    rqs.confusions.forEach(c => { const row = $(`<div class="tagnote" style="margin-bottom:10px;display:flex;gap:8px;align-items:center"><div style="flex:1">${REASONS[c.name][0]} <b>${c.name}</b> spots: you named the job ${pct(c.acc)} of the time, and mistook it for <b>${c.as}</b> ${c.k} of ${c.n}.</div><div class="chip" style="flex:none">Train</div></div>`);
+      row.querySelector(".chip").onclick = () => trainFocus({ label: c.name.toLowerCase() + " spots", concepts: [], types: [], reasons: [c.name] }, "drills"); body.appendChild(row); }); }
   patternRows(body);
   group("By situation", "c:"); group("By street", "s:"); group("By hand type", "h:"); group("By role", "p:");
   body.appendChild($(`<p style="color:var(--dim);font-size:11px;margin-top:10px">% of pot lost per decision · decisions</p>`));
-  const rs = $(`<button class="next ghost" style="position:static;margin-top:6px">Reset history</button>`); rs.onclick = () => { store.set("book", {}); store.set("patterns", {}); store.set("mixprefs", {}); store.set("log", []); o.remove(); };   // the log drives the trend chart and the mistake-origin split, so "reset history" has to clear it too body.appendChild(rs);
+  const rs = $(`<button class="next ghost" style="position:static;margin-top:6px">Reset history</button>`); rs.onclick = () => { store.set("book", {}); store.set("patterns", {}); store.set("mixprefs", {}); store.set("log", []); store.set("reasonq", {}); o.remove(); };
+  body.appendChild(rs);   // the log drives the trend chart, the mistake-origin split and the job-quiz payoff, so "reset history" has to clear it too
   const o = overlay("Where your EV goes", body);
 }
 function renderFilters(){
@@ -1444,7 +1602,10 @@ function renderFilters(){
   [["Hands","hands"],["Drills","drills"],["Puzzle","puzzle"],["Arena","arena"]].filter(([, v]) => !(state.beginner && v === "puzzle")).forEach(([n, v]) => { const c = $(`<div class="chip ${state.mode === v ? "on" : ""}">${n}</div>`); c.onclick = () => { state.mode = v; store.set("mode", v); start(); }; el.appendChild(c); });
   const lk = $(`<div class="chip">Leaks</div>`); lk.onclick = leakSheet; el.appendChild(lk);
   if (state.mode === "three" || state.mode === "arena") return;
-  if (state.beginner){ el.appendChild(rungChip()); return; }
+  if (state.beginner){   // a focus replaces the rung while it's on, so it has to be visible and one tap to leave
+    if (state.focus){ const fc = $(`<div class="chip on">Focus: ${focusLabel()} ✕</div>`); fc.onclick = () => { state.focus = null; goMode(); }; el.appendChild(fc); }
+    else el.appendChild(rungChip());
+    return; }
   const fc = $(`<div class="chip ${state.focus ? "on" : ""}">${state.focus ? "Focus: " + focusLabel() : "Focus"}</div>`); fc.onclick = focusSheet; el.appendChild(fc);
   if (state.mode === "hands" || state.mode === "puzzle") return;
   [["All",-1],["Flop",0],["Turn",1],["River",2]].forEach(([n, v]) => { const c = $(`<div class="chip ${state.street === v ? "on" : ""}">${n}</div>`); c.onclick = () => { state.street = v; store.set("street", v); state.queue = []; renderFilters(); next(); }; el.appendChild(c); });
