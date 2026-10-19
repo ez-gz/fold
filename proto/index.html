@@ -153,6 +153,9 @@ header .stats{margin-left:auto;flex:none}header .chips{flex-wrap:wrap;min-width:
 .btabs{display:flex;gap:6px;margin-top:12px}.btab{flex:1;text-align:center;padding:8px 4px;border-radius:12px;background:#15202b;border:1px solid #24313f;font-size:12px;font-weight:600;color:var(--dim);cursor:pointer;transition:all .15s}.btab i{display:block;font-style:normal;font-size:17px;margin-bottom:2px}.btab.on{background:#123c2c;border-color:var(--accent);color:#fff}.btab:active{transform:scale(.96)}
 .bpane:not(:empty){margin-top:12px;animation:up .2s ease}.bpane p{margin:0 0 9px}
 .tags,.sit{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.sit{justify-content:center}.tag{display:flex;align-items:center;gap:5px;padding:5px 9px;border-radius:999px;background:#15202b;border:1px solid #24313f;font-size:11.5px;font-weight:600;color:#cfd8e3;cursor:pointer;transition:all .15s}.tag i{font-style:normal;font-size:13px}.tag.on{background:#123c2c;border-color:var(--accent);color:#fff}.tag:active{transform:scale(.95)}
+.dvchart{display:flex;align-items:flex-end;gap:4px;height:72px;padding:6px 8px;background:#0c1218;border-radius:10px}
+.dvb{flex:1;height:100%;display:flex;align-items:flex-end}.dvb i{display:block;width:100%;border-radius:3px;background:linear-gradient(180deg,var(--warn),#f0a63a66)}
+.dvfoot{display:flex;justify-content:space-between;font-size:10px;color:var(--dim);margin-top:4px}
 .tagnote{font-size:12.5px;line-height:1.45;color:#cfd8e3}.tagnote:not(:empty){margin-top:8px;padding:8px 10px;border-radius:10px;background:#0c1218;animation:up .2s ease}.sitwrap .tagnote{text-align:center}
 .bar.duo{grid-template-columns:34px minmax(0,1fr) 38px;margin:5px 0}.bar.duo span{color:#fff;font-weight:600}.duel .legend{margin:6px 0 2px}
 .think{margin-top:12px;padding:14px;border-radius:16px;background:var(--panel,#111a23);border:1px solid #24313f;animation:up .25s ease}.think .q{font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px}.think .help{font-style:normal;width:18px;height:18px;border-radius:50%;border:1px solid var(--dim);color:var(--dim);font-size:11px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
@@ -1313,6 +1316,32 @@ function worstTypes(n){ const b = store.get("book", {}), ks = Object.keys(b).fil
   const all = ks.reduce((a, k) => a + b[k].p, 0) / ks.reduce((a, k) => a + b[k].n, 0); return ks.filter(k => avgLoss(b[k]) > all).sort((x, y) => avgLoss(b[y]) - avgLoss(b[x])).slice(0, n).map(k => k.slice(2)); }
 /* what to train: the costliest situations and hand types, from the book */
 function leakPlan(){ const c = worstConcepts(3), h = worstTypes(2); return c.length || h.length ? { label: "my leaks", concepts: c, types: h } : null; }
+// "am I getting closer to the solver?" -- the log already stores % of pot lost per decision, so the trend is that
+// number averaged over equal-sized blocks of decisions. Blocks of decisions, not days: a session you happened to
+// play twice as long would otherwise read as a spike in a per-day chart.
+function devianceTrend(){
+  const log = store.get("log", []); if (log.length < 24) return null;
+  const size = Math.max(6, Math.floor(log.length / 6)), recent = log.slice(-size * 6), blocks = [];
+  for (let i = 0; i + size <= recent.length; i += size) blocks.push(recent.slice(i, i + size).reduce((a, e) => a + e.p, 0) / size);
+  if (blocks.length < 3) return null;
+  const avg = a => a.reduce((x, y) => x + y, 0) / a.length;
+  // the relative test divides by at least 1 point of pot: a straight d/was reads 0 when the earlier blocks were
+  // perfect, so a player who slid from flawless to sloppy would be told they were holding steady
+  const was = avg(blocks.slice(0, Math.floor(blocks.length / 2))), now = avg(blocks.slice(Math.ceil(blocks.length / 2))), d = was - now, rel = d / Math.max(was, 1);
+  // a direction only gets named when the move clears both an absolute and a relative bar -- half a point of pot on
+  // a handful of blocks is noise, and calling it progress would be the same lie as grading a toss-up
+  return { blocks, size, was, now, n: recent.length, dir: d >= 0.3 && rel >= 0.15 ? "better" : -d >= 0.3 && -rel >= 0.15 ? "worse" : "steady" };
+}
+function devianceChart(){
+  const T = devianceTrend(); if (!T) return null;
+  const max = Math.max(...T.blocks, 0.5);
+  const bars = T.blocks.map(v => `<div class="dvb" title="${v.toFixed(1)}% of pot lost per decision"><i style="height:${Math.max(4, Math.round(100 * v / max))}%"></i></div>`).join("");
+  const verdict = T.dir === "better" ? `You're playing <b style="color:var(--accent)">closer to the solver</b> than when you started: ${T.was.toFixed(1)}% of pot lost per decision across the first blocks, ${T.now.toFixed(1)}% across the latest.`
+    : T.dir === "worse" ? `You're drifting <b style="color:var(--bad)">further from the solver</b>: ${T.was.toFixed(1)}% of pot lost per decision across the first blocks, ${T.now.toFixed(1)}% across the latest.`
+    : `<b>Holding steady</b> at about ${T.now.toFixed(1)}% of pot lost per decision — not enough movement either way to call it a trend yet.`;
+  const el = $(`<div style="margin-bottom:10px"><h4 style="margin:0 0 6px;font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em">How far off the solver, over time</h4><div class="dvchart">${bars}</div><div class="dvfoot"><span>oldest</span><span>${T.n} decisions, ${T.size} per bar</span><span>newest</span></div><div class="tagnote" style="margin-top:8px">${verdict}</div></div>`);
+  return el;
+}
 // of the mistakes where thinkFirst had already asked "whose range is stronger?", how many were a bad range read
 // (calibration: needs more reps reading lines and sizing) vs a right read acted on wrong (logic: needs a better rule)
 function mistakeOrigins(){
@@ -1390,15 +1419,17 @@ function leakSheet(){
   if (plan){ const n = Object.keys(b).filter(k => k.startsWith("s:")).reduce((a, k) => a + b[k].n, 0);
     const hd = $(`<div class="sheet" style="margin:0 0 6px;padding:12px 14px;border:1px solid var(--accent)"><h3 style="margin:0 0 4px">Train my leaks</h3><p style="margin:0 0 8px;font-size:12px;color:var(--dim)">${n} decisions filed. Costliest: ${[...plan.concepts, ...plan.types.map(t => t.toLowerCase() + " hands")].join(", ")}.</p><div class="chips"><div class="chip on">Hands</div><div class="chip">Drills</div><div class="chip">Puzzle</div></div></div>`);
     [...hd.querySelectorAll(".chip")].forEach((c, k) => c.onclick = () => trainFocus("leaks", ["hands", "drills", "puzzle"][k])); body.appendChild(hd); }
+  const dv = devianceChart(); if (dv) body.appendChild(dv);
   const mo = mistakeOrigins();
-  if (mo) body.appendChild($(`<div class="tagnote" style="margin-bottom:10px">Of your mistakes on spots where you answered "whose range is stronger?" first: <b>${pct(mo.calibration / mo.n)}</b> had the wrong range read (reps will fix this), <b>${pct(mo.logic / mo.n)}</b> had the right read but the wrong action (the decision rule needs work). Based on ${mo.n} decisions.</div>`));
+  // the range-read question has three flavours now, so this can't name one of them
+  if (mo) body.appendChild($(`<div class="tagnote" style="margin-bottom:10px">Of your mistakes on spots where you answered a range-read question first: <b>${pct(mo.calibration / mo.n)}</b> had the wrong range read (reps will fix this), <b>${pct(mo.logic / mo.n)}</b> had the right read but the wrong action (the decision rule needs work). Based on ${mo.n} decisions.</div>`));
   // nothing above is "wrong" here -- a toss-up has no correct side -- but a consistent lean says something about
   // temperament that a graded spot can't show, since a graded spot always pulls you toward the right answer
   mixTendency().forEach(m => { const [a, b] = m.key.split("/"); body.appendChild($(`<div class="tagnote" style="margin-bottom:10px">In genuine toss-ups between <b>${KIND_WORD[a]}</b> and <b>${KIND_WORD[b]}</b>, you picked <b>${KIND_WORD[m.kind]}</b> ${pct(m.share)} of the time (${m.n} spots) — not a mistake, since the solver mixes there too, but worth noticing about how you play close decisions.</div>`)); });
   patternRows(body);
   group("By situation", "c:"); group("By street", "s:"); group("By hand type", "h:"); group("By role", "p:");
   body.appendChild($(`<p style="color:var(--dim);font-size:11px;margin-top:10px">% of pot lost per decision · decisions</p>`));
-  const rs = $(`<button class="next ghost" style="position:static;margin-top:6px">Reset history</button>`); rs.onclick = () => { store.set("book", {}); store.set("patterns", {}); store.set("mixprefs", {}); o.remove(); }; body.appendChild(rs);
+  const rs = $(`<button class="next ghost" style="position:static;margin-top:6px">Reset history</button>`); rs.onclick = () => { store.set("book", {}); store.set("patterns", {}); store.set("mixprefs", {}); store.set("log", []); o.remove(); };   // the log drives the trend chart and the mistake-origin split, so "reset history" has to clear it too body.appendChild(rs);
   const o = overlay("Where your EV goes", body);
 }
 function renderFilters(){
