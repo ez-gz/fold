@@ -22,6 +22,7 @@ header{display:flex;align-items:center;gap:8px;padding:4px 0 8px}
 header .logo{font-weight:800;letter-spacing:.12em;font-size:13px;color:var(--accent)}
 header .stats{margin-left:auto;flex:none}header .chips{flex-wrap:wrap;min-width:0}
 .sbadge{display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;border-radius:50%;border:1.5px solid var(--accent);color:var(--accent);font-size:12px;font-weight:700;font-variant-numeric:tabular-nums}
+.sbadge.arena{border-radius:17px;width:auto;padding:0 10px;gap:2px}.sbadge.arena i{font-style:normal;font-size:9px;opacity:.75;font-weight:600}
 .chips{display:flex;gap:6px;flex-wrap:wrap}
 .chip{border:1px solid var(--line);background:var(--panel);color:var(--dim);border-radius:999px;padding:5px 11px;font-size:12px;cursor:pointer;user-select:none}
 .overlay{position:fixed;inset:0;background:#000a;z-index:50;display:flex;flex-direction:column;justify-content:flex-end;align-items:center}.overlay>.sheet{flex:none;box-sizing:border-box;width:min(560px,100%);max-height:86vh;max-height:86dvh;overflow:auto;-webkit-overflow-scrolling:touch;margin:0;border-radius:18px 18px 0 0;padding-bottom:calc(14px + env(safe-area-inset-bottom))}.overlay h3{display:flex;justify-content:space-between}.overlay .x{color:var(--dim);font-size:12px;cursor:pointer}
@@ -1254,7 +1255,10 @@ function contrastCard(f, s, prev, d, gr){
 /* ---------- chrome ---------- */
 function renderStats(){ // one running score out of 10 for the current mode
   const el = document.getElementById("stats"), pz = store.get("puzzle", { n: 0, sum: 0 });
-  if (state.mode === "arena"){ el.innerHTML = AR.n ? `<span class="sbadge" title="session result">${(AR.net >= 0 ? "+" : "") + AR.net.toFixed(1)}</span>` : ""; return; }
+  // Arena's badge is net bb won/lost, not a 0-10 score -- it shares the round "sbadge" look with the real score
+  // badge below, so a number like "+10.2" reads as "10.2 out of 10" unless the unit is on the face, not just the
+  // hover title (which mobile never shows).
+  if (state.mode === "arena"){ el.innerHTML = AR.n ? `<span class="sbadge arena" title="session result, in big blinds">${(AR.net >= 0 ? "+" : "") + AR.net.toFixed(1)}<i>bb</i></span>` : ""; return; }
   const v = state.mode === "hands" ? (state.hn ? state.hsum / state.hn : null) : state.mode === "puzzle" ? (pz.n ? 10 * pz.sum / pz.n : null) : (state.n ? 10 * state.best / state.n : null);
   el.innerHTML = v == null ? "" : `<span class="sbadge" title="${state.mode === "hands" ? "average hand score" : state.mode === "puzzle" ? "average puzzle score" : "share of good answers"}, out of 10">${v.toFixed(1)}</span>`; }
 const avgLoss = e => e.p / e.n;
