@@ -1436,7 +1436,9 @@ function thinkFirst(f, s, d, done, cur){
   const Q = qs[Math.floor(Math.random() * qs.length)];
   const box = $(`<div class="think"><div class="q">${Q.q}<i class="help">?</i></div><div class="opts"></div><div class="tagnote"></div></div>`);
   box.querySelector(".help").onclick = () => { const n = box.querySelector(".tagnote"); n.textContent = n.textContent ? "" : Q.help; };
-  [["you", "🙋", "Mine"], ["even", "⚖️", "Even"], ["them", "🧑", s.villain + "'s"]].forEach(([v, ic, label]) => { const b = $(`<button class="topt"><i>${ic}</i>${label}</button>`);
+  // seat names, not "Mine" / "BB's": a possessive only fits "whose range...?", and reads wrong under "who has more
+  // nothing?" -- a seat answers every wording, and 🙋 still marks which one is you
+  [["you", "🙋", s.hero], ["even", "⚖️", "Even"], ["them", "🧑", s.villain]].forEach(([v, ic, label]) => { const b = $(`<button class="topt"><i>${ic}</i>${label}</button>`);
     b.onclick = () => { if (box._done) return; box._done = true; const ok = v === Q.ans; trackReason("Range read", ok); if (cur) cur.rangeOk = ok;   // fed to logDecision: a wrong action after a right range read is a logic mistake, not a calibration one
       [...box.querySelectorAll(".topt")].forEach(x => { x.disabled = true; }); b.classList.add(ok ? "ok" : "no"); const right = [...box.querySelectorAll(".topt")][["you", "even", "them"].indexOf(Q.ans)]; right.classList.add("ok");
       // the equity question is answered by the bar rangeDuel draws anyway; the other two need their numbers said out loud
